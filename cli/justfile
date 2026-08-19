@@ -54,6 +54,11 @@ test:
 check: lint format test
     @echo 'Command-line interface checks done!'
 
+[doc('Remove tox environments (forces full reinstall on next run).')]
+[group('venv')]
+clean:
+    @rm -rf .tox
+
 [doc('Build the snap package.')]
 [group('package')]
 snap:

@@ -28,7 +28,13 @@ from flask import current_app, g, jsonify, request, send_file
 from marshmallow import ValidationError
 from prometheus_client import Counter
 from requests.adapters import HTTPAdapter
-from testflinger_common.enums import LogType, ServerRoles, TestPhase
+from testflinger_common.enums import (
+    AgentMode,
+    AgentState,
+    LogType,
+    ServerRoles,
+    TestPhase,
+)
 from urllib3.util.retry import Retry
 from werkzeug.routing import BaseConverter
 
@@ -674,6 +680,29 @@ def images_post(json_data: dict):
     return "OK"
 
 
+def _synthesise_legacy_state(agent: dict) -> dict:
+    """Add a legacy ``state`` field for v1 agent compatibility.
+
+    v1 agents read ``state`` from the GET response to detect server-commanded
+    mode changes.  In the v2 document shape ``state`` is the sub-state; the
+    mode is in ``mode``.  We synthesise the legacy value so that v1 agents
+    polling a v2 server still receive ``offline`` or ``restart`` when those
+    modes are set, and see the sub-state (e.g. ``waiting``) otherwise.
+
+    This synthesis is additive — it does not remove the new ``mode`` and
+    ``state`` fields which v2 agents and the portal consume directly.
+    """
+    mode = agent.get("mode")
+    if mode in (AgentMode.OFFLINE, AgentMode.RESTART):
+        agent["state"] = mode
+    elif mode is not None and agent.get("state") is None:
+        # mode present but no sub-state yet — default to waiting
+        agent["state"] = AgentState.WAITING
+    # If mode is absent (very old document) or sub-state already present,
+    # leave ``state`` as-is.
+    return agent
+
+
 @v1.get("/agents/data")
 @authenticate
 @require_role(ServerRoles.ADMIN, ServerRoles.MANAGER, ServerRoles.CONTRIBUTOR)
@@ -691,6 +720,7 @@ def agents_get_all():
             if queue in restricted_queues
             and restricted_queues_owners.get(queue)
         }
+        _synthesise_legacy_state(agent)
 
     return jsonify(agents)
 
@@ -720,8 +750,87 @@ def agents_get_one(agent_name):
         for queue in agent_data.get("queues", [])
         if queue in restricted_queues and restricted_queues_owners.get(queue)
     }
+    _synthesise_legacy_state(agent_data)
 
     return jsonify(agent_data)
+
+
+def _normalise_agent_mode_state(json_data: dict) -> tuple[str, str | None]:
+    """Derive canonical (mode, state) from an incoming agent POST payload.
+
+    Handles both the legacy v1 flat ``state`` field and the new v2
+    ``mode`` + ``state`` pair.  Raises ``abort(400)`` on invalid input.
+
+    v1 path (``mode`` absent):
+      - ``state=offline``  → mode=offline,  state=None
+      - ``state=restart``  → mode=restart,  state=None
+      - ``state=maintenance`` → 400 (was never a valid v1 value; v1 agents
+        never sent it; only the half-baked intermediate CLI did)
+      - any other ``state`` value → mode=online, state=<value>
+      - no ``state`` at all → no mode/state change in this payload (caller
+        skips mode/state update)
+
+    v2 path (``mode`` present):
+      - mode=offline or mode=restart → state must be absent/null
+      - mode=online or mode=maintenance → state required, validated
+
+    Returns ``(mode, state)`` where ``state`` is ``None`` for modes that
+    carry no sub-state.  Returns ``(None, None)`` when the payload carries
+    neither field (e.g. a queues-only or job_id-only heartbeat POST).
+    """
+    raw_mode = json_data.pop("mode", None)
+    raw_state = json_data.pop("state", None)
+
+    no_substate_modes = {AgentMode.OFFLINE, AgentMode.RESTART}
+    valid_states = {s.value for s in AgentState}
+
+    if raw_mode is None and raw_state is None:
+        # Nothing to normalise — payload carries neither field.
+        return (None, None)
+
+    if raw_mode is None:
+        # --- v1 legacy path ---
+        if raw_state == AgentMode.OFFLINE:
+            return (AgentMode.OFFLINE, None)
+        if raw_state == AgentMode.RESTART:
+            return (AgentMode.RESTART, None)
+        if raw_state == AgentMode.MAINTENANCE:
+            abort(
+                HTTPStatus.BAD_REQUEST,
+                message=(
+                    "state=maintenance is not accepted without an explicit "
+                    "mode field. Use mode=maintenance with a comment."
+                ),
+            )
+        # Any other state value is a sub-state of online mode.
+        return (AgentMode.ONLINE, raw_state)
+
+    # --- v2 path: mode was supplied ---
+    mode = AgentMode(raw_mode)  # schema already validated; this won't raise
+
+    if mode in no_substate_modes:
+        if raw_state is not None:
+            abort(
+                HTTPStatus.BAD_REQUEST,
+                message=f"mode={mode} does not accept a state value.",
+            )
+        return (mode, None)
+
+    # mode requires a sub-state
+    if raw_state is None:
+        abort(
+            HTTPStatus.BAD_REQUEST,
+            message=f"mode={mode} requires a state value.",
+        )
+    if raw_state not in valid_states:
+        abort(
+            HTTPStatus.BAD_REQUEST,
+            message=(
+                f"Invalid state '{raw_state}' for mode={mode}. "
+                f"Valid values: {sorted(valid_states)}"
+            ),
+        )
+    return (mode, raw_state)
 
 
 @v1.post("/agents/data/<agent_name>")
@@ -731,27 +840,79 @@ def agents_get_one(agent_name):
 def agents_post(agent_name, json_data):
     """Post information about the agent to the server.
 
-    The json sent to this endpoint may contain data such as the following:
-    {
-        "state": string, # State the device is in
-        "queues": array[string], # Queues the device is listening on
-        "location": string, # Location of the device
-        "job_id": string, # Job ID the device is running, if any
-        "log": array[string], # push and keep only the last 100 lines
-    }
+    Accepts both the legacy v1 flat ``state`` field and the new v2
+    ``mode`` + ``state`` pair.  Whichever form is received is normalised
+    into the canonical document shape before writing:
+
+      ``mode``              — operating mode (AgentMode)
+      ``state``             — sub-state within the mode (AgentState)
+      ``mode_changed_at``   — server timestamp, updated only on mode change
+      ``mode_changed_by``   — authenticated caller, updated only on mode change
+      ``state_changed_at``  — server timestamp, updated only on state change
+      ``state_changed_by``  — authenticated caller, updated only on
+        state change
+
+    Example payload (v2):
+      {"mode": "online", "state": "provision"}
+
+    Example payload (v1 legacy):
+      {"state": "provision"}
     """
     json_data["name"] = agent_name
-    json_data["updated_at"] = datetime.now(timezone.utc)
-    # extract log from data so we can push it instead of setting it
+    now = datetime.now(timezone.utc)
+    json_data["updated_at"] = now
     log = json_data.pop("log", [])
+    comment = json_data.get("comment", "")
+
+    mode, state = _normalise_agent_mode_state(json_data)
+
+    # Enforce comment requirement for modes that demand a reason.
+    if mode in (AgentMode.OFFLINE, AgentMode.MAINTENANCE) and not comment:
+        abort(
+            HTTPStatus.BAD_REQUEST,
+            message=(
+                f"A non-empty comment is required when setting mode={mode}."
+            ),
+        )
+
+    update_fields = dict(json_data.items())
+    client_id = g.client_id or ""
+
+    if mode is not None:
+        existing = database.mongo.db.agents.find_one(
+            {"name": agent_name}, {"mode": 1, "state": 1}
+        )
+        existing_mode = (existing or {}).get("mode")
+        existing_state = (existing or {}).get("state")
+
+        update_fields["mode"] = mode
+        if mode != existing_mode:
+            update_fields["mode_changed_at"] = now
+            update_fields["mode_changed_by"] = client_id
+
+        if state is not None:
+            update_fields["state"] = state
+            if state != existing_state:
+                update_fields["state_changed_at"] = now
+                update_fields["state_changed_by"] = client_id
+        else:
+            # No sub-state for this mode — remove any stale state field.
+            update_fields.pop("state", None)
+
+    update_op: dict = {
+        "$set": update_fields,
+        "$push": {"log": {"$each": log, "$slice": -100}},
+    }
+    if mode in (AgentMode.OFFLINE, AgentMode.RESTART):
+        # These modes carry no sub-state; clear it from the document.
+        update_op["$unset"] = {"state": ""}
 
     database.mongo.db.agents.update_one(
         {"name": agent_name},
-        {"$set": json_data, "$push": {"log": {"$each": log, "$slice": -100}}},
+        update_op,
         upsert=True,
     )
 
-    # Set a session cookie to identify the agent for future requests
     response = jsonify({"status": "OK"})
     response.set_cookie(
         "agent_name", agent_name, httponly=True, samesite="Strict"

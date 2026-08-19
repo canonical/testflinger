@@ -22,7 +22,13 @@ import tempfile
 import time
 from pathlib import Path
 
-from testflinger_common.enums import AgentState, JobState, TestEvent, TestPhase
+from testflinger_common.enums import (
+    AgentMode,
+    AgentState,
+    JobState,
+    TestEvent,
+    TestPhase,
+)
 
 from testflinger_agent.config import ATTACHMENTS_DIR
 from testflinger_agent.errors import TFServerError
@@ -109,6 +115,7 @@ class TestflingerAgent:
             self.client, heartbeat_frequency=1
         )
         signal.signal(signal.SIGUSR1, self.restart_signal_handler)
+        self.set_agent_mode(AgentMode.ONLINE)
         self.set_agent_state(AgentState.WAITING)
         self._post_initial_agent_data()
         self.metrics_handler = PrometheusHandler(
@@ -135,88 +142,123 @@ class TestflingerAgent:
 
         self.client.post_agent_data(agent_data)
 
-    def set_agent_state(self, state: str, comment: str = "") -> None:
-        """Send the agent state to the server.
+    def set_agent_mode(self, mode: AgentMode, comment: str = "") -> None:
+        """Send the agent operating mode to the server.
 
-        :param state: Agent state to report to the server.
-        :param comment: Reason for changing the state. Defaults to empty str.
+        :param mode: AgentMode to report.
+        :param comment: Reason for the mode change. Required for OFFLINE
+                        and MAINTENANCE; ignored for ONLINE and RESTART.
         """
-        self.client.post_agent_data({"state": state, "comment": comment})
-        self.client.post_influx(state)
+        data: dict = {"mode": mode}
+        if comment:
+            data["comment"] = comment
+        self.client.post_agent_data(data)
 
-    def get_agent_state(self) -> tuple:
-        """Get the agent state from the server by using client module.
+    def set_agent_state(self, state: AgentState) -> None:
+        """Send the agent sub-state to the server.
 
-        :return: State for the agent and reason for the state if any.
+        Only valid for ONLINE and MAINTENANCE modes.  OFFLINE and RESTART
+        carry no sub-state and should not call this method.
+
+        :param state: AgentState sub-state to report.
+        """
+        self.client.post_agent_data({"state": state})
+
+    def get_agent_mode(self) -> tuple:
+        """Get the agent mode from the server.
+
+        :return: (AgentMode, comment) tuple. Returns (AgentMode.ONLINE, "")
+                 if the mode cannot be retrieved, so the agent continues
+                 operating normally rather than silently halting.
         """
         agent_data = self.client.get_agent_data(self.agent_id)
 
-        # Send agent information to handler to determine if heartbeat is needed
         self.heartbeat_handler.update(agent_data)
 
-        # Comment is optional, so key might not exists
         comment = agent_data.get("comment", "")
-        if "state" in agent_data:
-            agent_state = agent_data["state"]
-        else:
+        mode_value = agent_data.get("mode")
+        if mode_value is None:
             logger.error(
-                "Unable to retrieve status for agent: %s ",
+                "Unable to retrieve mode for agent: %s", self.agent_id
+            )
+            return (AgentMode.ONLINE, comment)
+        try:
+            return (AgentMode(mode_value), comment)
+        except ValueError:
+            logger.error(
+                "Unknown mode value '%s' for agent: %s",
+                mode_value,
                 self.agent_id,
             )
-            # This is a local state, not something to send to server
-            agent_state = AgentState.UNKNOWN
-        return (agent_state, comment)
+            return (AgentMode.ONLINE, comment)
 
-    def check_offline(self) -> tuple:
-        """Determine if agent should be taken offline.
+    def check_mode_change(self) -> tuple:
+        """Check with the server what operating mode we should be in.
 
-        :return: True or False along with the comment if any.
+        :return: (AgentMode, comment). Returns AgentMode.ONLINE if no
+                 mode change is needed.
         """
-        agent_state, comment = self.get_agent_state()
+        mode, comment = self.get_agent_mode()
 
-        # Offline set by server
-        if agent_state in (AgentState.OFFLINE, AgentState.MAINTENANCE):
-            return (True, comment)
-        # Offline deferred and handled by status handler
+        if mode in (AgentMode.OFFLINE, AgentMode.MAINTENANCE):
+            return (mode, comment)
+        # Device fault flagged locally — treat as maintenance.
         if self.status_handler.needs_offline:
-            return (True, self.status_handler.comment)
-        return (False, comment)
+            return (AgentMode.MAINTENANCE, self.status_handler.comment)
+        return (AgentMode.ONLINE, comment)
 
     def check_restart(self) -> tuple:
         """Determine if the agent requires a restart.
 
-        :return: True or False along with the comment if any.
+        :return: (needs_restart: bool, comment: str).
         """
-        agent_state, comment = self.get_agent_state()
+        mode, comment = self.get_agent_mode()
 
-        # Restart set by server
-        if agent_state == AgentState.RESTART:
+        if mode == AgentMode.RESTART:
             return (True, comment)
-        # Restart deferred and requested by Signal
-        if (
-            self.status_handler.needs_restart
-            and agent_state != AgentState.OFFLINE
-        ):
+        if self.status_handler.needs_restart and mode != AgentMode.OFFLINE:
             return (True, self.status_handler.comment)
         return (False, comment)
 
     def restart_agent(self, comment: str = "") -> None:
-        """Perform the restart action if device is not busy
-        and requested by user.
-        """
+        """Perform the restart action when not busy."""
         logger.info("Restarting agent")
-        # Setting to offline to not process any job during restart.
-        self.set_agent_state(AgentState.OFFLINE, comment)
+        self.set_agent_mode(AgentMode.OFFLINE, comment)
         sys.exit("Restart Requested")
 
-    def offline_agent(self, comment: str = "") -> None:
-        """Perform the offline action if device is not busy
-        and requested by user.
-        """
-        logger.info("Taking agent offline")
-        self.set_agent_state(AgentState.OFFLINE, comment)
-        # Need to set the offline flag to False to allow recovery
+    def enter_maintenance_mode(self, comment: str = "") -> None:
+        """Enter maintenance mode: restrict queues to the maintenance queue."""
+        maintenance_queue = f"{self.agent_id}_maintenance"
+        logger.info(
+            "Entering maintenance mode – advertising queue: %s",
+            maintenance_queue,
+        )
+        self.set_agent_mode(AgentMode.MAINTENANCE, comment)
+        self.set_agent_state(AgentState.WAITING)
+        self.client.post_agent_data({"queues": [maintenance_queue]})
         self.status_handler.update(offline=False, comment=comment)
+
+    def exit_maintenance_mode(self) -> None:
+        """Exit maintenance mode: restore the normal job queues."""
+        logger.info("Exiting maintenance mode – restoring normal queues")
+        queues = self.client.config.get("job_queues", [])
+        self.client.post_agent_data({"queues": queues})
+        self.set_agent_mode(AgentMode.ONLINE)
+        self.set_agent_state(AgentState.WAITING)
+
+    def go_offline(self, comment: str = "") -> None:
+        """Go offline: advertise no queues and set OFFLINE mode."""
+        logger.info("Going offline – advertising no queues")
+        self.set_agent_mode(AgentMode.OFFLINE, comment)
+        self.client.post_agent_data({"queues": []})
+
+    def exit_offline(self) -> None:
+        """Exit offline: restore normal queues and return to online."""
+        logger.info("Exiting offline – restoring normal queues")
+        queues = self.client.config.get("job_queues", [])
+        self.client.post_agent_data({"queues": queues})
+        self.set_agent_mode(AgentMode.ONLINE)
+        self.set_agent_state(AgentState.WAITING)
 
     def unpack_attachments(self, job_data: dict, cwd: Path):
         """Download and unpack the attachments associated with a job."""
@@ -271,15 +313,13 @@ class TestflingerAgent:
         # First, see if we have any old results that we couldn't send last time
         self.retry_old_results()
 
-        # Before picking up jobs, validate offline and restart are not needed.
-        needs_offline, offline_comment = self.check_offline()
+        # Before picking up jobs, check what mode we should be in.
+        mode, mode_comment = self.check_mode_change()
         needs_restart, restart_comment = self.check_restart()
 
-        # Update status handler, if offline is needed, will prioritize it
-        if needs_offline:
-            self.status_handler.update(
-                offline=needs_offline, comment=offline_comment
-            )
+        # Update status handler — mode change takes priority over restart
+        if mode != AgentMode.ONLINE:
+            self.status_handler.update(offline=True, comment=mode_comment)
         elif needs_restart:
             self.status_handler.update(
                 restart=needs_restart,
@@ -287,9 +327,12 @@ class TestflingerAgent:
                 comment=restart_comment,
             )
 
-        # Offline or restart agent if needed
+        # Act on mode or restart
         if self.status_handler.needs_offline:
-            self.offline_agent(self.status_handler.comment)
+            if mode == AgentMode.OFFLINE:
+                self.go_offline(self.status_handler.comment)
+            else:
+                self.enter_maintenance_mode(self.status_handler.comment)
             return
         if self.status_handler.needs_restart:
             self.restart_agent(self.status_handler.comment)
@@ -364,10 +407,10 @@ class TestflingerAgent:
 
                     # Before posting status, check if action is needed
                     if not self.status_handler.needs_offline:
-                        needs_offline, offline_comment = self.check_offline()
-                        if needs_offline:
+                        mode, mode_comment = self.check_mode_change()
+                        if mode != AgentMode.ONLINE:
                             self.status_handler.update(
-                                offline=needs_offline, comment=offline_comment
+                                offline=True, comment=mode_comment
                             )
 
                     if not self.status_handler.needs_restart:
@@ -380,7 +423,7 @@ class TestflingerAgent:
                             )
 
                     self.client.post_job_state(job.job_id, phase)
-                    self.set_agent_state(phase, self.status_handler.comment)
+                    self.set_agent_state(phase)
                     event_emitter.emit_event(TestEvent(f"{phase}_start"))
                     # Register start time to measure phase duration
                     phase_start = time.time()
@@ -409,7 +452,6 @@ class TestflingerAgent:
                         identifier=identifier,
                         release=release,
                     )
-                    self.client.post_influx(phase, exit_code)
                     event_emitter.emit_event(exit_event, exit_reason)
                     detail = ""
                     if exit_code:
@@ -420,7 +462,7 @@ class TestflingerAgent:
                                 "Set to offline by agent. Recovery failed"
                                 f" during job '{job.job_id}' execution."
                             )
-                            self.offline_agent(comment)
+                            self.enter_maintenance_mode(comment)
                             exit_event = TestEvent.RECOVERY_FAIL
                             # Report recovery failure in a dedicated metric
                             self.metrics_handler.report_recovery_failures()
@@ -472,17 +514,21 @@ class TestflingerAgent:
             # clear job id
             self.client.post_agent_data({"job_id": ""})
 
-            # Check if offline is needed after job completion
-            needs_offline, offline_comment = self.check_offline()
-            if needs_offline:
-                self.offline_agent(offline_comment)
-                # Don't get a new job if we are now marked offline
+            # Check if a mode change is needed after job completion
+            mode, mode_comment = self.check_mode_change()
+            if mode != AgentMode.ONLINE:
+                if mode == AgentMode.OFFLINE:
+                    self.go_offline(mode_comment)
+                else:
+                    self.enter_maintenance_mode(mode_comment)
+                # Don't get a new job if we are now in a non-online mode
                 break
             # Check if restart is needed after job completion
             if self.status_handler.needs_restart:
                 self.restart_agent(self.status_handler.comment)
 
-            # If no restart or offline needed, set agent to wait for new job
+            # If no restart or mode change needed, set agent to wait for
+            # new job
             self.set_agent_state(AgentState.WAITING)
             job_data = self.get_job_data()
 

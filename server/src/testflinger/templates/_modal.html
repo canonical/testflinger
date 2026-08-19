@@ -1,0 +1,210 @@
+{#
+  _modal.html — reusable Vanilla Framework p-modal macros.
+
+  Usage
+  -----
+  At the top of a template that needs a modal:
+
+    {% from "_modal.html" import render_modal, render_modal_js %}
+
+  Then place the trigger wherever you like:
+
+    <button aria-controls="my-modal">Open…</button>
+
+  Render the modal itself (typically at the bottom of {% block content %}):
+
+    {{ render_modal(
+         modal_id    = "my-modal",
+         title       = "My Title",
+         description = "Some descriptive text shown below the header.",
+         action      = url_for('some.view'),
+         fields      = [
+           {
+             "type":        "select",
+             "id":          "my-select",
+             "name":        "field_name",
+             "label":       "Choose one",
+             "required":    true,
+             "options": [
+               {"value": "a", "label": "Option A", "selected": true},
+               {"value": "b", "label": "Option B", "selected": false},
+             ]
+           },
+           {
+             "type":        "textarea",
+             "id":          "my-textarea",
+             "name":        "comment",
+             "label":       "Comment",
+             "placeholder": "Optional reason…",
+             "value":       "",
+             "rows":        3,
+           },
+         ],
+         submit_label = "Save",
+    ) }}
+
+  Once per page (e.g. just before </body> or at end of {% block content %}):
+
+    {{ render_modal_js() }}
+
+  Supported field types: "select", "textarea", "text", "email", "date".
+#}
+{# ------------------------------------------------------------------ #}
+{# render_modal                                                        #}
+{# ------------------------------------------------------------------ #}
+{% macro render_modal(modal_id, title, description="", action="", fields=[], submit_label="Save") %}
+  <div class="p-modal" id="{{ modal_id }}" style="display:none">
+    <section class="p-modal__dialog"
+             role="dialog"
+             aria-modal="true"
+             aria-labelledby="{{ modal_id }}-title"
+             {% if description %}aria-describedby="{{ modal_id }}-description"{% endif %}>
+      <header class="p-modal__header">
+        <h2 class="p-modal__title" id="{{ modal_id }}-title">{{ title }}</h2>
+        <button class="p-modal__close"
+                aria-label="Close active modal"
+                aria-controls="{{ modal_id }}">Close</button>
+      </header>
+      {% if description %}<p id="{{ modal_id }}-description">{{ description }}</p>{% endif %}
+      <form method="post" action="{{ action }}">
+        {% for field in fields %}
+          <div class="p-form__group u-sv2">
+            <label class="p-form__label" for="{{ field.id }}">{{ field.label }}</label>
+            {% if field.type == "select" %}
+              <select class="p-form__control"
+                      id="{{ field.id }}"
+                      name="{{ field.name }}"
+                      {% if field.get("required") %}required{% endif %}>
+                {% for opt in field.options %}
+                  <option value="{{ opt.value }}"
+                          {% if opt.get("selected") %}selected{% endif %}>{{ opt.label }}</option>
+                {% endfor %}
+              </select>
+            {% elif field.type == "textarea" %}
+              <textarea class="p-form__control"
+                        id="{{ field.id }}"
+                        name="{{ field.name }}"
+                        rows="{{ field.get('rows', 3) }}"
+                        placeholder="{{ field.get('placeholder', '') }}"
+                        {% if field.get("required") %}required{% endif %}>{{ field.get("value", "") }}</textarea>
+            {% else %}
+              {# text / email / date / number / etc. #}
+              <input class="p-form__control"
+                     type="{{ field.type }}"
+                     id="{{ field.id }}"
+                     name="{{ field.name }}"
+                     value="{{ field.get('value', '') }}"
+                     placeholder="{{ field.get('placeholder', '') }}"
+                     {% if field.get("required") %}required{% endif %}>
+            {% endif %}
+          </div>
+        {% endfor %}
+        <footer class="p-modal__footer">
+          <button type="button"
+                  class="u-no-margin--bottom"
+                  aria-controls="{{ modal_id }}">Cancel</button>
+          <button type="submit" class="p-button--positive u-no-margin--bottom">{{ submit_label }}</button>
+        </footer>
+      </form>
+    </section>
+  </div>
+{% endmacro %}
+{# ------------------------------------------------------------------ #}
+{# render_modal_js                                                     #}
+{# Emit once per page. Uses a sentinel so accidental double-import is  #}
+{# harmless.                                                           #}
+{# ------------------------------------------------------------------ #}
+{% macro render_modal_js() %}
+  <script>
+  // Vanilla Framework modal — WAI-ARIA focus-trap implementation.
+  // https://vanillaframework.io/docs/patterns/modal
+  if (!window.__vfModalInit) {
+    window.__vfModalInit = true;
+    (function () {
+      var currentDialog = null;
+      var lastFocus = null;
+      var ignoreFocusChanges = false;
+      var focusAfterClose = null;
+
+      function trapFocus(event) {
+        if (ignoreFocusChanges) return;
+        if (currentDialog.contains(event.target)) {
+          lastFocus = event.target;
+        } else {
+          focusFirstDescendant(currentDialog);
+          if (lastFocus === document.activeElement) {
+            focusLastDescendant(currentDialog);
+          }
+          lastFocus = document.activeElement;
+        }
+      }
+
+      function attemptFocus(child) {
+        if (child.focus) {
+          ignoreFocusChanges = true;
+          child.focus();
+          ignoreFocusChanges = false;
+          return document.activeElement === child;
+        }
+        return false;
+      }
+
+      function focusFirstDescendant(element) {
+        for (var i = 0; i < element.childNodes.length; i++) {
+          var child = element.childNodes[i];
+          if (attemptFocus(child) || focusFirstDescendant(child)) return true;
+        }
+        return false;
+      }
+
+      function focusLastDescendant(element) {
+        for (var i = element.childNodes.length - 1; i >= 0; i--) {
+          var child = element.childNodes[i];
+          if (attemptFocus(child) || focusLastDescendant(child)) return true;
+        }
+        return false;
+      }
+
+      function toggleModal(modal, sourceEl, open) {
+        if (!modal || !modal.classList.contains('p-modal')) return;
+        if (typeof open === 'undefined') {
+          open = modal.style.display === 'none';
+        }
+        if (open) {
+          currentDialog = modal;
+          modal.style.display = 'flex';
+          focusFirstDescendant(modal);
+          focusAfterClose = sourceEl;
+          document.addEventListener('focus', trapFocus, true);
+        } else {
+          modal.style.display = 'none';
+          if (focusAfterClose && focusAfterClose.focus) {
+            focusAfterClose.focus();
+          }
+          document.removeEventListener('focus', trapFocus, true);
+          currentDialog = null;
+        }
+      }
+
+      function closeModals() {
+        document.querySelectorAll('.p-modal').forEach(function (modal) {
+          toggleModal(modal, false, false);
+        });
+      }
+
+      document.addEventListener('click', function (event) {
+        var targetControls = event.target.getAttribute('aria-controls');
+        if (targetControls) {
+          toggleModal(document.getElementById(targetControls), event.target);
+        }
+      });
+
+      document.addEventListener('keydown', function (e) {
+        if (e.code === 'Escape' || e.keyCode === 27) {
+          closeModals();
+        }
+      });
+    })();
+  }
+  </script>
+{% endmacro %}

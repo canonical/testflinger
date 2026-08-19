@@ -1001,6 +1001,249 @@ def test_agents_post(mongo_app, agent_auth_header):
     assert agent_record["log"] == (logdata + logdata)[-100:]
 
 
+def test_agents_post_state_changed_at(mongo_app, agent_auth_header):
+    """Test that mode_changed_at and state_changed_at are stored correctly.
+
+    - mode_changed_at updates only when mode changes
+    - state_changed_at updates only when sub-state changes
+    - neither updates on a heartbeat POST with the same values
+    """
+    app, mongo = mongo_app
+    agent_name = "agent_sca"
+
+    # First POST: new agent with mode=online, state=waiting
+    output = app.post(
+        f"/v1/agents/data/{agent_name}",
+        json={"mode": "online", "state": "waiting"},
+        headers=agent_auth_header,
+    )
+    assert 200 == output.status_code
+    record = mongo.agents.find_one({"name": agent_name})
+    assert "mode_changed_at" in record
+    assert "state_changed_at" in record
+    first_mode_changed_at = record["mode_changed_at"]
+    first_state_changed_at = record["state_changed_at"]
+
+    # Second POST: same mode and state — neither timestamp must update
+    output = app.post(
+        f"/v1/agents/data/{agent_name}",
+        json={"mode": "online", "state": "waiting"},
+        headers=agent_auth_header,
+    )
+    assert 200 == output.status_code
+    record = mongo.agents.find_one({"name": agent_name})
+    assert record["mode_changed_at"] == first_mode_changed_at, (
+        "mode_changed_at should not change on a same-mode heartbeat POST"
+    )
+    assert record["state_changed_at"] == first_state_changed_at, (
+        "state_changed_at should not change on a same-state heartbeat POST"
+    )
+
+    # Third POST: mode changes to maintenance — mode_changed_at must update
+    output = app.post(
+        f"/v1/agents/data/{agent_name}",
+        json={"mode": "maintenance", "state": "waiting", "comment": "testing"},
+        headers=agent_auth_header,
+    )
+    assert 200 == output.status_code
+    record = mongo.agents.find_one({"name": agent_name})
+    assert record["mode_changed_at"] > first_mode_changed_at, (
+        "mode_changed_at should update when mode changes"
+    )
+    maintenance_changed_at = record["mode_changed_at"]
+
+    # Fourth POST: no mode/state field (queue update only) — timestamps
+    # unchanged
+    output = app.post(
+        f"/v1/agents/data/{agent_name}",
+        json={"queues": ["q1"]},
+        headers=agent_auth_header,
+    )
+    assert 200 == output.status_code
+    record = mongo.agents.find_one({"name": agent_name})
+    assert record["mode_changed_at"] == maintenance_changed_at, (
+        "mode_changed_at should not change when no mode key is in payload"
+    )
+
+
+def test_agents_state_changed_at_in_api_response(mongo_app, agent_auth_header):
+    """Test that state_changed_at is returned by the GET agents/data
+    endpoints.
+    """
+    app, _ = mongo_app
+    agent_name = "agent_sca2"
+
+    app.post(
+        f"/v1/agents/data/{agent_name}",
+        json={"state": "waiting"},
+        headers=agent_auth_header,
+    )
+
+    # Single agent endpoint
+    output = app.get(f"/v1/agents/data/{agent_name}")
+    assert 200 == output.status_code
+    data = output.json
+    assert "state_changed_at" in data, (
+        "state_changed_at should be present in single agent GET response"
+    )
+
+    # All agents endpoint
+    output = app.get("/v1/agents/data")
+    assert 200 == output.status_code
+    agents = output.json
+    agent = next((a for a in agents if a["name"] == agent_name), None)
+    assert agent is not None
+    assert "state_changed_at" in agent, (
+        "state_changed_at should be present in all-agents GET response"
+    )
+
+
+def test_agents_mode_changed_at_in_api_response(mongo_app, agent_auth_header):
+    """Test that mode_changed_at is returned by the GET agents/data
+    endpoints.
+    """
+    app, _ = mongo_app
+    agent_name = "agent_mca"
+
+    app.post(
+        f"/v1/agents/data/{agent_name}",
+        json={"mode": "online", "state": "waiting"},
+        headers=agent_auth_header,
+    )
+
+    # Single agent endpoint
+    output = app.get(f"/v1/agents/data/{agent_name}")
+    assert 200 == output.status_code
+    data = output.json
+    assert "mode_changed_at" in data, (
+        "mode_changed_at should be present in single agent GET response"
+    )
+
+    # All agents endpoint
+    output = app.get("/v1/agents/data")
+    assert 200 == output.status_code
+    agents = output.json
+    agent = next((a for a in agents if a["name"] == agent_name), None)
+    assert agent is not None
+    assert "mode_changed_at" in agent, (
+        "mode_changed_at should be present in all-agents GET response"
+    )
+
+
+def test_agents_state_changed_by_on_state_change(mongo_app, agent_auth_header):
+    """mode_changed_by must record the client_id that caused the mode change.
+    state_changed_by must record the client_id that caused the state change.
+    """
+    app, mongo = mongo_app
+    agent_name = "agent_scb1"
+
+    # First POST: new agent → mode_changed_by and state_changed_by set.
+    output = app.post(
+        f"/v1/agents/data/{agent_name}",
+        json={"mode": "online", "state": "waiting"},
+        headers=agent_auth_header,
+    )
+    assert 200 == output.status_code
+    record = mongo.agents.find_one({"name": agent_name})
+    assert "mode_changed_by" in record
+    assert "state_changed_by" in record
+    assert record["mode_changed_by"] == "agent-id"
+    assert record["state_changed_by"] == "agent-id"
+
+    # Second POST: same mode and state → neither changed_by must update.
+    output = app.post(
+        f"/v1/agents/data/{agent_name}",
+        json={"mode": "online", "state": "waiting"},
+        headers=agent_auth_header,
+    )
+    assert 200 == output.status_code
+    record = mongo.agents.find_one({"name": agent_name})
+    assert record.get("mode_changed_by") == "agent-id"
+    assert record.get("state_changed_by") == "agent-id"
+
+    # Third POST: mode changes → mode_changed_by updates.
+    output = app.post(
+        f"/v1/agents/data/{agent_name}",
+        json={"mode": "maintenance", "state": "waiting", "comment": "testing"},
+        headers=agent_auth_header,
+    )
+    assert 200 == output.status_code
+    record = mongo.agents.find_one({"name": agent_name})
+    assert record["mode_changed_by"] == "agent-id"
+
+    # Fourth POST: no mode key → mode_changed_by unchanged.
+    output = app.post(
+        f"/v1/agents/data/{agent_name}",
+        json={"queues": ["q1"]},
+        headers=agent_auth_header,
+    )
+    assert 200 == output.status_code
+    record = mongo.agents.find_one({"name": agent_name})
+    assert record.get("mode_changed_by") == "agent-id"
+
+
+def test_agents_state_changed_by_in_api_response(mongo_app, agent_auth_header):
+    """mode_changed_by and state_changed_by returned by GET endpoints."""
+    app, _ = mongo_app
+    agent_name = "agent_scb2"
+
+    app.post(
+        f"/v1/agents/data/{agent_name}",
+        json={"mode": "online", "state": "waiting"},
+        headers=agent_auth_header,
+    )
+
+    # Single agent endpoint
+    output = app.get(f"/v1/agents/data/{agent_name}")
+    assert 200 == output.status_code
+    data = output.json
+    assert "mode_changed_by" in data, (
+        "mode_changed_by should be present in single agent GET response"
+    )
+    assert data["mode_changed_by"] == "agent-id"
+    assert "state_changed_by" in data, (
+        "state_changed_by should be present in single agent GET response"
+    )
+    assert data["state_changed_by"] == "agent-id"
+
+    # All agents endpoint
+    output = app.get("/v1/agents/data")
+    assert 200 == output.status_code
+    agents = output.json
+    agent = next((a for a in agents if a["name"] == agent_name), None)
+    assert agent is not None
+    assert "mode_changed_by" in agent, (
+        "mode_changed_by should be present in all-agents GET response"
+    )
+
+
+def test_agents_state_changed_by_back_online(mongo_app, agent_auth_header):
+    """mode_changed_by is recorded when transitioning back to online."""
+    app, mongo = mongo_app
+    agent_name = "agent_scb3"
+
+    # Put agent into maintenance first
+    app.post(
+        f"/v1/agents/data/{agent_name}",
+        json={"mode": "maintenance", "state": "waiting", "comment": "testing"},
+        headers=agent_auth_header,
+    )
+
+    # Bring back online
+    output = app.post(
+        f"/v1/agents/data/{agent_name}",
+        json={"mode": "online", "state": "waiting"},
+        headers=agent_auth_header,
+    )
+    assert 200 == output.status_code
+    record = mongo.agents.find_one({"name": agent_name})
+    assert record["mode_changed_by"] == "agent-id", (
+        "mode_changed_by should be recorded when transitioning back to online"
+    )
+    assert record["mode"] == "online"
+    assert record["state"] == "waiting"
+
+
 def test_agents_post_bad(mongo_app, agent_auth_header):
     """Test posting agent data with bad data."""
     app, _ = mongo_app
@@ -1816,3 +2059,304 @@ def test_job_get_no_auth_headers(mongo_app):
 
     output = app.get("/v1/job?queue=test")
     assert output.status_code == HTTPStatus.FORBIDDEN  # AGENT role expected
+
+
+# ---------------------------------------------------------------------------
+# Tests for _normalise_agent_mode_state (via the agents POST endpoint)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "state_value,expected_mode,expected_state",
+    [
+        ("waiting", "online", "waiting"),
+        ("provision", "online", "provision"),
+        ("test", "online", "test"),
+    ],
+)
+def test_normalise_v1_legacy_state(
+    mongo_app, agent_auth_header, state_value, expected_mode, expected_state
+):
+    """v1 legacy path: bare ``state`` field is normalised to mode+state."""
+    app, mongo = mongo_app
+    agent_name = f"agent_norm_v1_{state_value}"
+
+    output = app.post(
+        f"/v1/agents/data/{agent_name}",
+        json={"state": state_value},
+        headers=agent_auth_header,
+    )
+    assert output.status_code == 200
+
+    record = mongo.agents.find_one({"name": agent_name})
+    assert record["mode"] == expected_mode, (
+        f"state={state_value!r} should map to mode={expected_mode!r}"
+    )
+    if expected_state is None:
+        assert "state" not in record or record.get("state") is None, (
+            f"mode={expected_mode} should carry no sub-state"
+        )
+    else:
+        assert record["state"] == expected_state
+
+
+@pytest.mark.parametrize("state_value", ["offline", "restart"])
+def test_normalise_v1_legacy_state_no_substate(
+    mongo_app, agent_auth_header, state_value
+):
+    """v1 legacy path: state=offline/restart maps to the matching mode with
+    no sub-state.  A comment is required for offline.
+    """
+    app, mongo = mongo_app
+    agent_name = f"agent_norm_v1_{state_value}"
+    payload = {"state": state_value}
+    if state_value == "offline":
+        payload["comment"] = "scheduled downtime"
+
+    output = app.post(
+        f"/v1/agents/data/{agent_name}",
+        json=payload,
+        headers=agent_auth_header,
+    )
+    assert output.status_code == 200
+
+    record = mongo.agents.find_one({"name": agent_name})
+    assert record["mode"] == state_value
+    assert "state" not in record
+
+
+def test_normalise_v1_legacy_state_maintenance_rejected(
+    mongo_app, agent_auth_header
+):
+    """v1 path: ``state=maintenance`` is rejected (400) — it was never valid
+    for v1 agents; the v2 CLI must use ``mode=maintenance``.
+    """
+    app, _ = mongo_app
+    agent_name = "agent_norm_maint_v1"
+
+    output = app.post(
+        f"/v1/agents/data/{agent_name}",
+        json={"state": "maintenance"},
+        headers=agent_auth_header,
+    )
+    assert output.status_code == HTTPStatus.BAD_REQUEST
+
+
+def test_normalise_v2_offline_mode(mongo_app, agent_auth_header):
+    """v2 path: mode=offline stores mode, clears sub-state."""
+    app, mongo = mongo_app
+    agent_name = "agent_norm_v2_offline"
+
+    # First bring online to have a state
+    app.post(
+        f"/v1/agents/data/{agent_name}",
+        json={"mode": "online", "state": "waiting"},
+        headers=agent_auth_header,
+    )
+
+    output = app.post(
+        f"/v1/agents/data/{agent_name}",
+        json={"mode": "offline", "comment": "scheduled downtime"},
+        headers=agent_auth_header,
+    )
+    assert output.status_code == 200
+
+    record = mongo.agents.find_one({"name": agent_name})
+    assert record["mode"] == "offline"
+    assert "state" not in record
+
+
+def test_normalise_v2_restart_mode(mongo_app, agent_auth_header):
+    """v2 path: mode=restart stores mode, clears sub-state."""
+    app, mongo = mongo_app
+    agent_name = "agent_norm_v2_restart"
+
+    output = app.post(
+        f"/v1/agents/data/{agent_name}",
+        json={"mode": "restart"},
+        headers=agent_auth_header,
+    )
+    assert output.status_code == 200
+
+    record = mongo.agents.find_one({"name": agent_name})
+    assert record["mode"] == "restart"
+    assert "state" not in record
+
+
+def test_normalise_v2_mode_with_state_rejected_for_offline(
+    mongo_app, agent_auth_header
+):
+    """v2 path: mode=offline does not accept a state value."""
+    app, _ = mongo_app
+    agent_name = "agent_norm_v2_offline_state"
+
+    output = app.post(
+        f"/v1/agents/data/{agent_name}",
+        json={"mode": "offline", "state": "waiting", "comment": "test"},
+        headers=agent_auth_header,
+    )
+    assert output.status_code == HTTPStatus.BAD_REQUEST
+
+
+def test_normalise_v2_online_requires_state(mongo_app, agent_auth_header):
+    """v2 path: mode=online requires a state value."""
+    app, _ = mongo_app
+    agent_name = "agent_norm_v2_online_nostate"
+
+    output = app.post(
+        f"/v1/agents/data/{agent_name}",
+        json={"mode": "online"},
+        headers=agent_auth_header,
+    )
+    assert output.status_code == HTTPStatus.BAD_REQUEST
+
+
+def test_normalise_v2_maintenance_requires_comment(
+    mongo_app, agent_auth_header
+):
+    """v2 path: mode=maintenance requires a non-empty comment."""
+    app, _ = mongo_app
+    agent_name = "agent_norm_v2_maint_nocomment"
+
+    output = app.post(
+        f"/v1/agents/data/{agent_name}",
+        json={"mode": "maintenance", "state": "waiting"},
+        headers=agent_auth_header,
+    )
+    assert output.status_code == HTTPStatus.BAD_REQUEST
+
+
+def test_normalise_v2_offline_requires_comment(mongo_app, agent_auth_header):
+    """v2 path: mode=offline requires a non-empty comment."""
+    app, _ = mongo_app
+    agent_name = "agent_norm_v2_offline_nocomment"
+
+    output = app.post(
+        f"/v1/agents/data/{agent_name}",
+        json={"mode": "offline"},
+        headers=agent_auth_header,
+    )
+    assert output.status_code == HTTPStatus.BAD_REQUEST
+
+
+def test_normalise_no_mode_or_state_is_noop(mongo_app, agent_auth_header):
+    """Payload with neither ``mode`` nor ``state`` leaves mode/state
+    unchanged.
+    """
+    app, mongo = mongo_app
+    agent_name = "agent_norm_noop"
+
+    # Establish a known mode/state
+    app.post(
+        f"/v1/agents/data/{agent_name}",
+        json={"mode": "online", "state": "waiting"},
+        headers=agent_auth_header,
+    )
+    before = mongo.agents.find_one({"name": agent_name})
+
+    # Heartbeat with only queues — should not alter mode/state/timestamps
+    output = app.post(
+        f"/v1/agents/data/{agent_name}",
+        json={"queues": ["q1"]},
+        headers=agent_auth_header,
+    )
+    assert output.status_code == 200
+    after = mongo.agents.find_one({"name": agent_name})
+    assert after["mode"] == before["mode"]
+    assert after["state"] == before["state"]
+    assert after["mode_changed_at"] == before["mode_changed_at"]
+
+
+# ---------------------------------------------------------------------------
+# Tests for _synthesise_legacy_state (via the agents GET endpoint)
+# ---------------------------------------------------------------------------
+
+
+def test_synthesise_legacy_state_offline(mongo_app, agent_auth_header):
+    """GET response: mode=offline synthesises state=offline for v1 agents."""
+    app, mongo = mongo_app
+    agent_name = "agent_synth_offline"
+
+    # Insert an agent document directly in the v2 shape (mode-only, no state)
+    mongo.agents.insert_one({"name": agent_name, "mode": "offline"})
+
+    output = app.get(f"/v1/agents/data/{agent_name}")
+    assert output.status_code == 200
+    assert output.json["state"] == "offline"
+    assert output.json["mode"] == "offline"
+
+
+def test_synthesise_legacy_state_restart(mongo_app, agent_auth_header):
+    """GET response: mode=restart synthesises state=restart for v1 agents."""
+    app, mongo = mongo_app
+    agent_name = "agent_synth_restart"
+
+    mongo.agents.insert_one({"name": agent_name, "mode": "restart"})
+
+    output = app.get(f"/v1/agents/data/{agent_name}")
+    assert output.status_code == 200
+    assert output.json["state"] == "restart"
+
+
+def test_synthesise_legacy_state_online_with_substate(
+    mongo_app, agent_auth_header
+):
+    """GET response: mode=online with state=provision, state unchanged."""
+    app, mongo = mongo_app
+    agent_name = "agent_synth_online"
+
+    mongo.agents.insert_one(
+        {"name": agent_name, "mode": "online", "state": "provision"}
+    )
+
+    output = app.get(f"/v1/agents/data/{agent_name}")
+    assert output.status_code == 200
+    assert output.json["state"] == "provision"
+
+
+def test_synthesise_legacy_state_online_no_substate_defaults_waiting(
+    mongo_app, agent_auth_header
+):
+    """GET response: mode present but no sub-state defaults to 'waiting'."""
+    app, mongo = mongo_app
+    agent_name = "agent_synth_nostate"
+
+    mongo.agents.insert_one({"name": agent_name, "mode": "online"})
+
+    output = app.get(f"/v1/agents/data/{agent_name}")
+    assert output.status_code == 200
+    assert output.json["state"] == "waiting"
+
+
+def test_synthesise_legacy_state_no_mode_left_as_is(
+    mongo_app, agent_auth_header
+):
+    """GET response: old document with no mode field leaves state as-is."""
+    app, mongo = mongo_app
+    agent_name = "agent_synth_nomode"
+
+    mongo.agents.insert_one({"name": agent_name, "state": "waiting"})
+
+    output = app.get(f"/v1/agents/data/{agent_name}")
+    assert output.status_code == 200
+    assert output.json["state"] == "waiting"
+
+
+def test_synthesise_legacy_state_in_all_agents_response(
+    mongo_app, agent_auth_header
+):
+    """GET /v1/agents/data synthesises legacy state for all agents."""
+    app, mongo = mongo_app
+    mongo.agents.insert_many(
+        [
+            {"name": "synth_all_offline", "mode": "offline"},
+            {"name": "synth_all_online", "mode": "online", "state": "waiting"},
+        ]
+    )
+
+    output = app.get("/v1/agents/data")
+    assert output.status_code == 200
+    agents_by_name = {a["name"]: a for a in output.json}
+
+    assert agents_by_name["synth_all_offline"]["state"] == "offline"
+    assert agents_by_name["synth_all_online"]["state"] == "waiting"

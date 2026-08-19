@@ -20,7 +20,12 @@ from apiflask.validators import Length, OneOf, Regexp
 from marshmallow import INCLUDE, ValidationError, validates_schema
 from marshmallow_oneofschema import OneOfSchema
 from testflinger_common.duration import DurationParseError, parse_duration
-from testflinger_common.enums import ServerRoles, TestPhase
+from testflinger_common.enums import (
+    AgentMode,
+    AgentState,
+    ServerRoles,
+    TestPhase,
+)
 
 ValidJobStates = (
     "setup",
@@ -47,8 +52,30 @@ class ProvisionLogsIn(Schema):
     detail = fields.String(required=False)
 
 
+ValidAgentModes = [m.value for m in AgentMode]
+ValidAgentStates = [s.value for s in AgentState]
+
+
 class AgentIn(Schema):
-    """Agent data input schema."""
+    """Agent data input schema.
+
+    Accepts both the legacy v1 flat ``state`` field and the new
+    ``mode`` + ``state`` pair introduced in v2.  The ingestion layer in
+    ``v1.py`` normalises whichever form is received into the canonical
+    ``mode`` + ``state`` document shape before writing to the database.
+
+    Legacy v1 rules (``mode`` absent):
+      - ``state`` in (``offline``, ``restart``) → inferred mode, no sub-state
+      - any other ``state`` value          → ``mode=online``, value
+        becomes sub-state
+      - ``state=maintenance``              → rejected (was never a
+        valid v1 value)
+
+    v2 rules (``mode`` present):
+      - ``mode=offline`` or ``mode=restart`` → ``state`` must be absent/null
+      - ``mode=online`` or ``mode=maintenance`` → ``state`` required, must be
+        a valid ``AgentState`` value
+    """
 
     identifier = fields.String(required=False)
     job_id = fields.String(required=False)
@@ -56,7 +83,10 @@ class AgentIn(Schema):
     log = fields.List(fields.String(), required=False)
     provision_type = fields.String(required=False)
     queues = fields.List(fields.String(), required=False)
+    # Legacy v1 field — free-form string; normalised on ingress.
     state = fields.String(required=False)
+    # v2 fields
+    mode = fields.String(required=False, validate=OneOf(ValidAgentModes))
     comment = fields.String(required=False)
 
 
@@ -64,7 +94,15 @@ class AgentOut(Schema):
     """Agent data output schema."""
 
     name = fields.String(required=True)
+    # Canonical mode field (v2).  A synthesised ``state`` is also returned
+    # for backward compatibility with v1 agents that read ``state`` from GET.
+    mode = fields.String(required=False)
+    mode_changed_at = fields.DateTime(required=False)
+    mode_changed_by = fields.String(required=False)
+    # Sub-state within the mode (v2 AgentState values).
     state = fields.String(required=False)
+    state_changed_at = fields.DateTime(required=False)
+    state_changed_by = fields.String(required=False)
     queues = fields.List(fields.String(), required=False)
     location = fields.String(required=False)
     provision_type = fields.String(required=False)

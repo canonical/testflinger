@@ -31,15 +31,15 @@ from .conftest import URL
 
 @pytest.mark.parametrize("state", ["offline", "maintenance"])
 def test_set_agent_status_online(auth_fixture, capsys, requests_mock, state):
-    """Validate we are able to change agent status to online."""
+    """Validate we are able to change agent mode to online."""
     auth_fixture(ServerRoles.ADMIN)
     fake_agent = "fake_agent"
     fake_return = {
         "name": "fake_agent",
         "queues": ["fake"],
-        "state": state,
+        "mode": state,
     }
-    fake_send_agent_data = [{"state": "waiting", "comment": ""}]
+    fake_send_agent_data = [{"mode": "online"}]
 
     sys.argv = [
         "",
@@ -59,7 +59,7 @@ def test_set_agent_status_online(auth_fixture, capsys, requests_mock, state):
     tfcli = testflinger_cli.TestflingerCli()
     tfcli.admin_cli.set_agent_status()
     std = capsys.readouterr()
-    assert "Agent fake_agent status is now: waiting" in std.out
+    assert "Agent fake_agent status is now: online" in std.out
 
 
 @pytest.mark.parametrize(
@@ -123,6 +123,120 @@ def test_set_offline_without_comments(auth_fixture, requests_mock):
     )
 
 
+def test_set_maintenance_without_comments(auth_fixture, requests_mock):
+    """Validate status can't change to maintenance without comments."""
+    auth_fixture(ServerRoles.ADMIN)
+    fake_agent = "fake_agent"
+    fake_return = {
+        "name": "fake_agent",
+        "queues": ["fake"],
+        "mode": "online",
+        "state": "waiting",
+    }
+    requests_mock.get(f"{URL}/v1/agents/data/{fake_agent}", json=fake_return)
+    sys.argv = [
+        "",
+        "admin",
+        "set",
+        "agent-status",
+        "--status",
+        "maintenance",
+        "--agents",
+        fake_agent,
+    ]
+
+    tfcli = testflinger_cli.TestflingerCli()
+    with pytest.raises(SystemExit) as excinfo:
+        tfcli.admin_cli.set_agent_status()
+    assert (
+        "Comment is required when setting agent status to maintenance"
+        in str(excinfo.value)
+    )
+
+
+def test_set_maintenance_with_comment(auth_fixture, capsys, requests_mock):
+    """Validate maintenance state can be set when comment is provided."""
+    auth_fixture(ServerRoles.ADMIN)
+    fake_agent = "fake_agent"
+    fake_return = {
+        "name": "fake_agent",
+        "queues": ["fake"],
+        "state": "waiting",
+    }
+    fake_send_agent_data = [
+        {"mode": "maintenance", "comment": "Replacing hardware component"}
+    ]
+    requests_mock.get(f"{URL}/v1/agents/data/{fake_agent}", json=fake_return)
+    requests_mock.post(
+        f"{URL}/v1/agents/data/{fake_agent}", json=fake_send_agent_data
+    )
+    sys.argv = [
+        "",
+        "admin",
+        "set",
+        "agent-status",
+        "--status",
+        "maintenance",
+        "--agents",
+        fake_agent,
+        "--comment",
+        "Replacing hardware component",
+    ]
+
+    tfcli = testflinger_cli.TestflingerCli()
+    tfcli.admin_cli.set_agent_status()
+    std = capsys.readouterr()
+    assert "Agent fake_agent status is now: maintenance" in std.out
+
+
+def test_set_maintenance_comment_is_raw_not_templated(
+    auth_fixture, capsys, requests_mock
+):
+    """The comment sent to the server must be the raw user-provided reason.
+
+    Previously the CLI formatted the comment with a template embedding the
+    user and a 'Reason:' prefix.  That responsibility now belongs to the
+    server (via state_changed_by metadata).  The CLI must send the raw comment
+    unchanged so the server can store it as the plain reason field.
+    """
+    auth_fixture(ServerRoles.ADMIN)
+    fake_agent = "fake_agent"
+    fake_return = {
+        "name": "fake_agent",
+        "queues": ["fake"],
+        "state": "waiting",
+    }
+    raw_comment = "Replacing hardware component"
+    requests_mock.get(f"{URL}/v1/agents/data/{fake_agent}", json=fake_return)
+    post_mock = requests_mock.post(
+        f"{URL}/v1/agents/data/{fake_agent}", json={}
+    )
+    sys.argv = [
+        "",
+        "admin",
+        "set",
+        "agent-status",
+        "--status",
+        "maintenance",
+        "--agents",
+        fake_agent,
+        "--comment",
+        raw_comment,
+    ]
+
+    tfcli = testflinger_cli.TestflingerCli()
+    tfcli.admin_cli.set_agent_status()
+
+    posted_body = post_mock.last_request.json()
+    assert posted_body.get("comment") == raw_comment, (
+        "CLI should send the raw comment; "
+        "server is responsible for adding metadata like 'Set by user'"
+    )
+    # Ensure the old template strings are NOT present
+    assert "Set to maintenance by" not in posted_body.get("comment", "")
+    assert "Reason:" not in posted_body.get("comment", "")
+
+
 @pytest.mark.parametrize("role", ["user", "contributor"])
 def test_set_agent_status_with_unprivileged_user(
     auth_fixture, requests_mock, role
@@ -158,7 +272,7 @@ def test_set_agent_status_with_unprivileged_user(
     "state", ["setup", "provision", "test", "allocate", "reserve"]
 )
 def test_deferred_offline_message(auth_fixture, capsys, requests_mock, state):
-    """Validate we receive a deffered message if agent under test phase."""
+    """Validate we receive a deferred message if agent under test phase."""
     auth_fixture(ServerRoles.ADMIN)
     fake_agent = "fake_agent"
     fake_return = {
@@ -176,16 +290,18 @@ def test_deferred_offline_message(auth_fixture, capsys, requests_mock, state):
         "maintenance",
         "--agents",
         fake_agent,
+        "--comment",
+        "Scheduled lab maintenance",
     ]
 
-    fake_send_agent_data = [{"state": "maintenance", "comment": ""}]
+    fake_send_agent_data = [{"mode": "maintenance", "comment": ""}]
     requests_mock.post(
         f"{URL}/v1/agents/data/{fake_agent}", json=fake_send_agent_data
     )
     tfcli = testflinger_cli.TestflingerCli()
     tfcli.admin_cli.set_agent_status()
     std = capsys.readouterr()
-    assert "Status maintenance deferred until job completion" in std.out
+    assert "Mode maintenance deferred until job completion" in std.out
 
 
 def test_set_status_unknown_agent(auth_fixture, capsys, requests_mock):
@@ -195,9 +311,10 @@ def test_set_status_unknown_agent(auth_fixture, capsys, requests_mock):
     fake_return = {
         "name": "fake_agent1",
         "queues": ["fake"],
+        "mode": "online",
         "state": "waiting",
     }
-    fake_send_agent_data = [{"state": "offline", "comment": ""}]
+    fake_send_agent_data = [{"mode": "online"}]
 
     sys.argv = [
         "",
@@ -220,7 +337,7 @@ def test_set_status_unknown_agent(auth_fixture, capsys, requests_mock):
     tfcli = testflinger_cli.TestflingerCli()
     tfcli.admin_cli.set_agent_status()
     std = capsys.readouterr()
-    assert "Agent fake_agent1 status is now: waiting" in std.out
+    assert "Agent fake_agent1 status is now: online" in std.out
     assert "Agent fake_agent2 does not exist." in std.out
 
 

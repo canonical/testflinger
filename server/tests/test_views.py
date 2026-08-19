@@ -17,7 +17,7 @@
 
 import re
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from http import HTTPStatus
 from unittest.mock import patch
 
@@ -25,7 +25,12 @@ import mongomock
 import pytest
 from testflinger_common.enums import LogType, TestPhase
 
-from testflinger.views import agent_detail, job_detail, queues_data
+from testflinger.views import (
+    _state_duration,
+    agent_detail,
+    job_detail,
+    queues_data,
+)
 
 
 def test_queues():
@@ -309,3 +314,280 @@ def test_home_accessible_without_auth_when_oidc_enabled(oidc_app):
     with app.test_client() as client:
         response = client.get("/")
     assert response.status_code == HTTPStatus.OK
+
+
+# ---------------------------------------------------------------------------
+# Tests for _state_duration
+# ---------------------------------------------------------------------------
+
+
+def test_state_duration_none_returns_dash():
+    """_state_duration(None) returns '—'."""
+    assert _state_duration(None) == "—"
+
+
+def test_state_duration_future_returns_dash():
+    """_state_duration with a future timestamp returns '—'."""
+    future = datetime.now(timezone.utc) + timedelta(hours=1)
+    assert _state_duration(future) == "—"
+
+
+def test_state_duration_zero_seconds():
+    """_state_duration for a just-now timestamp returns '0m'."""
+    now = datetime.now(timezone.utc)
+    assert _state_duration(now) == "0m"
+
+
+def test_state_duration_minutes_only():
+    """_state_duration for 45 minutes ago returns '45m'."""
+    ts = datetime.now(timezone.utc) - timedelta(minutes=45)
+    assert _state_duration(ts) == "45m"
+
+
+def test_state_duration_hours_and_minutes():
+    """_state_duration for 2h30m ago returns '2h 30m'."""
+    ts = datetime.now(timezone.utc) - timedelta(hours=2, minutes=30)
+    assert _state_duration(ts) == "2h 30m"
+
+
+def test_state_duration_days_hours_minutes():
+    """_state_duration for 1d 3h 15m ago returns '1d 3h 15m'."""
+    ts = datetime.now(timezone.utc) - timedelta(days=1, hours=3, minutes=15)
+    assert _state_duration(ts) == "1d 3h 15m"
+
+
+def test_state_duration_exact_one_hour():
+    """_state_duration for exactly 1 hour returns '1h' (0 minutes omitted)."""
+    ts = datetime.now(timezone.utc) - timedelta(hours=1)
+    assert _state_duration(ts) == "1h"
+
+
+def test_state_duration_naive_datetime():
+    """_state_duration handles a naive (tz-unaware) datetime."""
+    naive = datetime.utcnow() - timedelta(minutes=5)  # noqa: DTZ003
+    result = _state_duration(naive)
+    assert result == "5m"
+
+
+# ---------------------------------------------------------------------------
+# Tests for agent_state_update (POST /agents/<id>/state)
+# ---------------------------------------------------------------------------
+
+
+def test_agent_state_update_forbidden_without_oidc(testapp):
+    """agent_state_update always returns 403 when OIDC is not configured."""
+    mongo_client = mongomock.MongoClient()
+    mongo_client.db.agents.insert_one({"name": "agent1", "mode": "online"})
+    with (
+        patch("testflinger.views.mongo", mongo_client),
+        patch("testflinger.database.mongo", mongo_client),
+    ):
+        with testapp.test_client() as client:
+            response = client.post(
+                "/agents/agent1/state",
+                data={"mode": "offline", "comment": "test"},
+            )
+    assert response.status_code == HTTPStatus.FORBIDDEN
+
+
+def test_agent_state_update_unauthorized_without_session(oidc_app):
+    """agent_state_update returns 401 when no user_email is in session."""
+    app, _ = oidc_app
+    mongo_client = mongomock.MongoClient()
+    with (
+        app.test_client() as client,
+        patch("testflinger.views.mongo", mongo_client),
+        patch("testflinger.database.mongo", mongo_client),
+    ):
+        # No session set — user_email will be absent
+        response = client.post(
+            "/agents/agent1/state",
+            data={"mode": "offline", "comment": "test"},
+        )
+    assert response.status_code == HTTPStatus.UNAUTHORIZED
+
+
+def test_agent_state_update_forbidden_non_admin(oidc_app):
+    """agent_state_update returns 403 when the logged-in user is not admin."""
+    app, _ = oidc_app
+    non_admin_email = "user@example.com"
+    mongo_client = mongomock.MongoClient()
+    mongo_client.db.client_permissions.insert_one(
+        {"client_id": non_admin_email, "role": "contributor"}
+    )
+    with (
+        app.test_client() as client,
+        patch("testflinger.views.mongo", mongo_client),
+        patch("testflinger.database.mongo", mongo_client),
+    ):
+        with client.session_transaction() as sess:
+            sess["user"] = "testuser"
+            sess["user_email"] = non_admin_email
+        response = client.post(
+            "/agents/agent1/state",
+            data={"mode": "offline", "comment": "test"},
+        )
+    assert response.status_code == HTTPStatus.FORBIDDEN
+
+
+def test_agent_state_update_invalid_mode(oidc_app):
+    """agent_state_update returns 400 for an unrecognised mode value."""
+    app, _ = oidc_app
+    admin_email = "admin@example.com"
+    mongo_client = mongomock.MongoClient()
+    mongo_client.db.client_permissions.insert_one(
+        {"client_id": admin_email, "role": "admin"}
+    )
+    with (
+        app.test_client() as client,
+        patch("testflinger.views.mongo", mongo_client),
+        patch("testflinger.database.mongo", mongo_client),
+    ):
+        with client.session_transaction() as sess:
+            sess["user"] = "admin"
+            sess["user_email"] = admin_email
+        response = client.post(
+            "/agents/agent1/state",
+            data={"mode": "bogus", "comment": "test"},
+        )
+    assert response.status_code == HTTPStatus.BAD_REQUEST
+
+
+def test_agent_state_update_offline_requires_comment(oidc_app):
+    """agent_state_update returns 400 when mode=offline has no comment."""
+    app, _ = oidc_app
+    admin_email = "admin@example.com"
+    mongo_client = mongomock.MongoClient()
+    mongo_client.db.client_permissions.insert_one(
+        {"client_id": admin_email, "role": "admin"}
+    )
+    with (
+        app.test_client() as client,
+        patch("testflinger.views.mongo", mongo_client),
+        patch("testflinger.database.mongo", mongo_client),
+    ):
+        with client.session_transaction() as sess:
+            sess["user"] = "admin"
+            sess["user_email"] = admin_email
+        response = client.post(
+            "/agents/agent1/state",
+            data={"mode": "offline"},
+        )
+    assert response.status_code == HTTPStatus.BAD_REQUEST
+
+
+def test_agent_state_update_success_sets_mode(oidc_app):
+    """agent_state_update persists the new mode and redirects."""
+    app, _ = oidc_app
+    admin_email = "admin@example.com"
+    mongo_client = mongomock.MongoClient()
+    mongo_client.db.client_permissions.insert_one(
+        {"client_id": admin_email, "role": "admin"}
+    )
+    mongo_client.db.agents.insert_one(
+        {
+            "name": "agent1",
+            "mode": "online",
+            "updated_at": datetime.now(timezone.utc),
+        }
+    )
+    with (
+        app.test_client() as client,
+        patch("testflinger.views.mongo", mongo_client),
+        patch("testflinger.database.mongo", mongo_client),
+    ):
+        with client.session_transaction() as sess:
+            sess["user"] = "admin"
+            sess["user_email"] = admin_email
+        response = client.post(
+            "/agents/agent1/state",
+            data={"mode": "offline", "comment": "scheduled downtime"},
+        )
+    # Expect a redirect back to the agent detail page
+    assert response.status_code in (
+        HTTPStatus.FOUND,
+        HTTPStatus.SEE_OTHER,
+        HTTPStatus.MOVED_PERMANENTLY,
+    )
+    record = mongo_client.db.agents.find_one({"name": "agent1"})
+    assert record["mode"] == "offline"
+    assert record["comment"] == "scheduled downtime"
+    assert record["mode_changed_by"] == admin_email
+
+
+def _make_oidc_admin_client(oidc_app, mongo_client, admin_email):
+    """Return a test client with an admin session."""
+    app, _ = oidc_app
+    mongo_client.db.client_permissions.insert_one(
+        {"client_id": admin_email, "role": "admin"}
+    )
+    client = app.test_client()
+    with client.session_transaction() as sess:
+        sess["user"] = "admin"
+        sess["user_email"] = admin_email
+    return app, client
+
+
+@pytest.mark.parametrize(
+    "new_mode,comment,expected_mode",
+    [
+        ("maintenance", "Replacing hardware", "maintenance"),
+        ("restart", "", "restart"),
+        ("online", "", "online"),
+    ],
+)
+def test_agent_state_update_all_modes(
+    oidc_app, new_mode, comment, expected_mode
+):
+    """agent_state_update persists every valid mode correctly.
+
+    - maintenance requires a comment
+    - restart and online do not
+    """
+    admin_email = "admin@example.com"
+    mongo_client = mongomock.MongoClient()
+    app, client = _make_oidc_admin_client(oidc_app, mongo_client, admin_email)
+
+    mongo_client.db.agents.insert_one(
+        {
+            "name": "agent1",
+            "mode": "online",
+            "updated_at": datetime.now(timezone.utc),
+        }
+    )
+
+    form_data = {"mode": new_mode}
+    if comment:
+        form_data["comment"] = comment
+
+    with (
+        patch("testflinger.views.mongo", mongo_client),
+        patch("testflinger.database.mongo", mongo_client),
+    ):
+        response = client.post("/agents/agent1/state", data=form_data)
+
+    assert response.status_code in (
+        HTTPStatus.FOUND,
+        HTTPStatus.SEE_OTHER,
+        HTTPStatus.MOVED_PERMANENTLY,
+    ), f"Expected redirect for mode={new_mode!r}, got {response.status_code}"
+
+    record = mongo_client.db.agents.find_one({"name": "agent1"})
+    assert record["mode"] == expected_mode
+
+
+def test_agent_state_update_maintenance_requires_comment(oidc_app):
+    """agent_state_update returns 400 when mode=maintenance has no comment."""
+    admin_email = "admin@example.com"
+    mongo_client = mongomock.MongoClient()
+    app, client = _make_oidc_admin_client(oidc_app, mongo_client, admin_email)
+
+    with (
+        patch("testflinger.views.mongo", mongo_client),
+        patch("testflinger.database.mongo", mongo_client),
+    ):
+        response = client.post(
+            "/agents/agent1/state", data={"mode": "maintenance"}
+        )
+
+    assert response.status_code == HTTPStatus.BAD_REQUEST

@@ -1,3 +1,4 @@
+{% from "_macros.html" import agent_state_chip %}
 <table aria-label="Agents table"
        class="p-table--mobile-card"
        id="agentsTable">
@@ -50,13 +51,14 @@
           </td>
           <td data-heading="Location">{{ agent.location or "unknown" }}</td>
           <td class="has-overflow" data-heading="State">
-            <span>{{ agent.state }}</span>
+            {{ agent_state_chip(agent, "state-since-tooltip-" ~ agent.name) }}
             {% if agent.get('comment') %}
-              <span class="p-tooltip--top-left" aria-describedby="state-tooltip">
+              <span class="p-tooltip--top-left"
+                    aria-describedby="state-comment-tooltip-{{ agent.name }}">
                 <i class="p-icon--information"></i>
                 <span class="p-tooltip__message"
                       role="tooltip"
-                      id="state-tooltip"
+                      id="state-comment-tooltip-{{ agent.name }}"
                       style="white-space: nowrap;
                              text-align: left">{{ agent.comment }}</span>
               </span>

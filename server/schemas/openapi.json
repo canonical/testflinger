@@ -37,6 +37,15 @@
             },
             "type": "array"
           },
+          "mode": {
+            "enum": [
+              "online",
+              "maintenance",
+              "offline",
+              "restart"
+            ],
+            "type": "string"
+          },
           "provision_type": {
             "type": "string"
           },
@@ -64,6 +73,16 @@
           "location": {
             "type": "string"
           },
+          "mode": {
+            "type": "string"
+          },
+          "mode_changed_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "mode_changed_by": {
+            "type": "string"
+          },
           "name": {
             "type": "string"
           },
@@ -81,6 +100,13 @@
             "type": "object"
           },
           "state": {
+            "type": "string"
+          },
+          "state_changed_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "state_changed_by": {
             "type": "string"
           }
         },
@@ -832,7 +858,7 @@
         ]
       },
       "post": {
-        "description": "The json sent to this endpoint may contain data such as the following:\n{\n\"state\": string, # State the device is in\n\"queues\": array[string], # Queues the device is listening on\n\"location\": string, # Location of the device\n\"job_id\": string, # Job ID the device is running, if any\n\"log\": array[string], # push and keep only the last 100 lines\n}",
+        "description": "Accepts both the legacy v1 flat ``state`` field and the new v2\n``mode`` + ``state`` pair.  Whichever form is received is normalised\ninto the canonical document shape before writing:\n\n``mode``              \u2014 operating mode (AgentMode)\n``state``             \u2014 sub-state within the mode (AgentState)\n``mode_changed_at``   \u2014 server timestamp, updated only on mode change\n``mode_changed_by``   \u2014 authenticated caller, updated only on mode change\n``state_changed_at``  \u2014 server timestamp, updated only on state change\n``state_changed_by``  \u2014 authenticated caller, updated only on\nstate change\n\nExample payload (v2):\n{\"mode\": \"online\", \"state\": \"provision\"}\n\nExample payload (v1 legacy):\n{\"state\": \"provision\"}",
         "parameters": [
           {
             "in": "path",

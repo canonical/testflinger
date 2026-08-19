@@ -103,3 +103,27 @@ main {
 .p-navigation__nav {
     overflow: visible !important;
 }
+
+/* Agent-state chips */
+.p-chip.is-agent-state-online       { background-color: #0e8420; color: #fff; border-color: #0e8420; }
+.p-chip.is-agent-state-offline      { background-color: #c7162b; color: #fff; border-color: #c7162b; }
+.p-chip.is-agent-state-maintenance  { background-color: #f99b11; color: #000; border-color: #f99b11; }
+.p-chip[class*="is-agent-state-"] {
+    padding-top: 0.1rem;
+    padding-bottom: 0.1rem;
+}
+.p-chip.agent-state-chip { margin-bottom: 0; }
+button.agent-state-chip { cursor: pointer; display: inline-flex; align-items: center; }
+button.agent-state-chip .p-icon--edit { filter: invert(1); }
+.p-chip.is-agent-state-maintenance .p-icon--edit { filter: invert(0); }
+
+/* Job-state chips */
+.p-chip.is-job-state-waiting     { background-color: #757575; color: #fff; border-color: #757575; }
+.p-chip.is-job-state-active      { background-color: #0066cc; color: #fff; border-color: #0066cc; }
+.p-chip.is-job-state-completed   { background-color: #0e8420; color: #fff; border-color: #0e8420; }
+.p-chip.is-job-state-cancelled   { background-color: #c7162b; color: #fff; border-color: #c7162b; }
+.p-chip[class*="is-job-state-"] {
+    padding-top: 0.1rem;
+    padding-bottom: 0.1rem;
+}
+.p-chip.job-state-chip { margin-bottom: 0; }

@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_macros.html" import job_state_chip %}
 {% set active_page = "jobs" %}
 {% set title = "Jobs" %}
 {% block content %}
@@ -25,7 +26,7 @@
           <td data-heading="Queue">
             <a href="{{ url_for('testflinger.queue_detail', queue_name=job.job_data.job_queue) }}">{{ job.job_data.job_queue }}</a>
           </td>
-          <td data-heading="State">{{ job.result_data.job_state }}</td>
+          <td data-heading="State">{{ job_state_chip(job.result_data.job_state) }}</td>
           <td data-heading="Created At">{{ job.created_at.strftime("%Y-%m-%d %H:%M:%S") }}</td>
         </tr>
       {% endfor %}

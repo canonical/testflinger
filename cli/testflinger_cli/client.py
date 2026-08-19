@@ -484,15 +484,19 @@ class Client:
         data = self.get(endpoint)
         return json.loads(data)
 
-    def set_agent_status(self, agent: str, status: str, comment: str) -> None:
-        """Modify the status of an agent based on user request.
+    def set_agent_status(self, agent: str, mode: str, comment: str) -> None:
+        """Modify the operating mode of an agent based on user request.
 
         :param agent: Name of the agent
-        :param status: Status to send to the agent
-        :param comment: Reason for changing the status
+        :param mode: AgentMode value to send
+            (online/maintenance/offline/restart)
+        :param comment: Reason for the mode change
+            (required for offline/maintenance)
         """
         endpoint = f"/v1/agents/data/{agent}"
-        data = {"state": status, "comment": comment}
+        data: dict = {"mode": mode}
+        if comment:
+            data["comment"] = comment
         self.post(endpoint, data)
 
     def set_client_permissions(self, json_data: dict):

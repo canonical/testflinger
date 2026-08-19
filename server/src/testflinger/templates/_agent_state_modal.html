@@ -1,0 +1,34 @@
+{% from "_modal.html" import render_modal, render_modal_js %}
+{% if is_admin %}
+  {{ render_modal(modal_id     = "state-modal",
+    title        = "Change Agent Mode",
+    description  = "Select the new mode for agent " ~ agent.name ~ ". All mode changes take effect on the agent's next poll. A comment is required for offline and maintenance modes.",
+    action       = url_for('testflinger.agent_state_update', agent_id=agent.name) ,
+  fields       = [
+  {
+  "type":     "select",
+  "id":       "modal-mode",
+  "name":     "mode",
+  "label":    "New Mode",
+  "required": true,
+  "options":  [
+  {"value": "online",      "label": "Online",      "selected": agent.get("mode") == "online"},
+  {"value": "maintenance", "label": "Maintenance", "selected": agent.get("mode") == "maintenance"},
+  {"value": "offline",     "label": "Offline",     "selected": agent.get("mode") == "offline"},
+  {"value": "restart",     "label": "Restart",     "selected": agent.get("mode") == "restart"},
+  ],
+  },
+  {
+  "type":        "textarea",
+  "id":          "modal-comment",
+  "name":        "comment",
+  "label":       "Comment (required for offline and maintenance)",
+  "placeholder": "Reason for mode change",
+  "value":       agent.comment or "",
+  "rows":        3,
+  },
+  ],
+  submit_label = "Confirm",
+  ) }}
+  {{ render_modal_js() }}
+{% endif %}

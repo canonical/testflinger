@@ -26,8 +26,6 @@ from typing import Dict, List
 from urllib.parse import urljoin
 
 import requests
-from influxdb import InfluxDBClient
-from influxdb.exceptions import InfluxDBClientError
 from requests import HTTPError
 from requests.adapters import HTTPAdapter
 from requests.auth import AuthBase
@@ -88,8 +86,6 @@ class TestflingerClient:
         self.session = self._requests_retry(retries=5)
         self.session.auth = ClientAuth(self)
         self.session.hooks["response"].append(self._handle_token_refresh)
-        self.influx_agent_db = "agent_jobs"
-        self.influx_client = self._configure_influx()
 
     def _requests_retry(self, retries=3):
         session = requests.Session()
@@ -105,30 +101,6 @@ class TestflingerClient:
         session.mount("http://", adapter)
         session.mount("https://", adapter)
         return session
-
-    def _configure_influx(self):
-        """Configure InfluxDB client using environment variables.
-
-        :return: influxdb object or None
-        """
-        host = os.environ.get("INFLUX_HOST")
-        if not host:
-            logger.error("InfluxDB host undefined")
-            return None
-        port = int(os.environ.get("INFLUX_PORT", "8086"))
-        user = os.environ.get("INFLUX_USER", "")
-        password = os.environ.get("INFLUX_PW", "")
-
-        influx_client = InfluxDBClient(
-            host, port, user, password, self.influx_agent_db
-        )
-        # ensure we can connect to influxdb
-        try:
-            influx_client.create_database(self.influx_agent_db)
-        except requests.exceptions.ConnectionError as exc:
-            logger.error(exc)
-        else:
-            return influx_client
 
     def _handle_token_refresh(
         self, response: requests.Response, **kwargs
@@ -438,40 +410,6 @@ class TestflingerClient:
         try:
             self.session.post(agent_data_url, json=data, timeout=30)
         except requests.exceptions.RequestException as exc:
-            logger.error(exc)
-
-    def post_influx(self, phase, result=None):
-        """Post the relevant data points to testflinger server.
-
-        :param data:
-            dict of various agent data points to send to the api server
-        """
-        if not self.influx_client:
-            return
-
-        fields = {"phase": phase}
-
-        if result is not None:
-            fields["result"] = result
-
-        data = [
-            {
-                "measurement": "phase result",
-                "tags": {
-                    "agent": self.config.get("agent_id"),
-                },
-                "fields": fields,
-                "time": time.time_ns(),
-            }
-        ]
-
-        try:
-            self.influx_client.write_points(
-                data,
-                database=self.influx_agent_db,
-                protocol="json",
-            )
-        except InfluxDBClientError as exc:
             logger.error(exc)
 
     def post_provision_log(self, job_id: str, exit_code: int, detail: str):

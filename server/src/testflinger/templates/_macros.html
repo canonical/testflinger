@@ -1,0 +1,90 @@
+{#--
+  agent_state_chip(agent, tooltip_id, is_admin=false)
+
+  Renders a coloured p-chip for an agent mode/state.
+
+  Display rules:
+    - mode=offline  → label "offline",             red chip, no sub-state
+    - mode=restart  → label "restart",             red chip, no sub-state
+    - mode=online   → label "online: <state>",     green chip
+    - mode=maintenance → label "maintenance: <state>", amber chip
+
+  When mode_changed_at is available the chip is wrapped in a tooltip
+  showing "mode since <datetime> UTC (<duration>)".
+
+  When is_admin is true the chip is a <button> that opens the state
+  modal; otherwise it is a plain <span>.
+
+  tooltip_id must be unique per page (e.g. include agent.name).
+--#}
+{% macro agent_state_chip(agent, tooltip_id, is_admin=false) %}
+  {%- set mode = agent.get("mode") -%}
+  {%- if mode == "online" -%}
+    {%- set colour = "is-agent-state-online" -%}
+    {%- set label = "online: " ~ (agent.get("state") or "waiting") -%}
+  {%- elif mode == "maintenance" -%}
+    {%- set colour = "is-agent-state-maintenance" -%}
+    {%- set label = "maintenance: " ~ (agent.get("state") or "waiting") -%}
+  {%- elif mode == "offline" -%}
+    {%- set colour = "is-agent-state-offline" -%}
+    {%- set label = "offline" -%}
+  {%- elif mode == "restart" -%}
+    {%- set colour = "is-agent-state-offline" -%}
+    {%- set label = "restart" -%}
+  {%- else -%}
+    {%- set colour = "" -%}
+    {%- set label = mode or "unknown" -%}
+  {%- endif -%}
+  {%- if agent.get("mode_changed_at") -%}
+    {%- set tooltip_text = label ~ " since "
+        ~ agent.mode_changed_at.strftime("%Y-%m-%d %H:%M:%S")
+        ~ " UTC (" ~ agent.mode_duration ~ ")" -%}
+  {%- else -%}
+    {%- set tooltip_text = "" -%}
+  {%- endif -%}
+  {% if tooltip_text %}<span class="p-tooltip--top-left" aria-describedby="{{ tooltip_id }}">{% endif %}
+    {% if is_admin %}
+      <button class="p-chip agent-state-chip {{ colour }}"
+              aria-label="Change agent mode"
+              aria-controls="state-modal">
+        <span class="p-chip__value">{{ label }}</span>
+        <i class="p-icon--edit" style="margin-left: 0.25rem;" aria-hidden="true"></i>
+      </button>
+    {% else %}
+      <span class="p-chip agent-state-chip {{ colour }}">
+        <span class="p-chip__value">{{ label }}</span>
+      </span>
+    {% endif %}
+    {% if tooltip_text %}
+      <span class="p-tooltip__message"
+            role="tooltip"
+            id="{{ tooltip_id }}"
+            style="white-space: nowrap">{{ tooltip_text }}</span>
+    </span>
+  {% endif %}
+{% endmacro %}
+{#--
+  job_state_chip(state)
+
+  Renders a coloured p-chip for a job state value.
+
+  States are grouped into four visual categories:
+    waiting   – grey   (queued, not yet picked up)
+    active    – blue   (any in-progress phase)
+    completed – green  (terminal success)
+    cancelled – red    (terminal failure / cancellation)
+--#}
+{% macro job_state_chip(state) %}
+  {%- if state == 'waiting' -%}
+    {%- set colour = "is-job-state-waiting" -%}
+  {%- elif state in ('completed',) -%}
+    {%- set colour = "is-job-state-completed" -%}
+  {%- elif state in ('cancelled',) -%}
+    {%- set colour = "is-job-state-cancelled" -%}
+  {%- else -%}
+    {%- set colour = "is-job-state-active" -%}
+  {%- endif -%}
+  <span class="p-chip job-state-chip {{ colour }}">
+    <span class="p-chip__value">{{ state }}</span>
+  </span>
+{% endmacro %}
