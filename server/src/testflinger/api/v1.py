@@ -588,7 +588,17 @@ def result_post(job_id: str, json_data: dict) -> str:
     if content_length and content_length >= 16 * 1024 * 1024:
         abort(HTTPStatus.REQUEST_ENTITY_TOO_LARGE, message="Payload too large")
 
+    # Clear the job_id from the agent record when a terminal state is posted,
+    # so the agent no longer appears to be running a completed/cancelled job.
+    # Read job_state before add_job_results mutates json_data in-place.
+    terminal_states = {"complete", "completed", "cancelled"}
+    job_state = json_data.get("job_state")
+
     database.add_job_results(job_id, json_data)
+
+    if job_state in terminal_states:
+        database.clear_agent_job(job_id)
+
     return "OK"
 
 

@@ -1905,3 +1905,91 @@ def test_job_get_no_auth_headers(mongo_app):
 
     output = app.get("/v1/job?queue=test")
     assert output.status_code == HTTPStatus.FORBIDDEN  # AGENT role expected
+
+
+def test_agent_job_id_cleared_on_job_completion(mongo_app, agent_auth_header):
+    """Test that posting a terminal job state clears job_id from the agent
+    record.
+    """
+    app, mongo = mongo_app
+    agent_name = "agent1"
+
+    # Register agent, submit a job, and have the agent pick it up
+    app.post(
+        f"/v1/agents/data/{agent_name}",
+        json={"state": "waiting", "queues": ["test"], "location": "here"},
+        headers=agent_auth_header,
+    )
+    resp = app.post("/v1/job", json={"job_queue": "test"})
+    job_id = resp.json["job_id"]
+    app.get("/v1/job?queue=test", headers=agent_auth_header)
+
+    agent_record = mongo.agents.find_one({"name": agent_name})
+    assert agent_record["job_id"] == job_id
+
+    # Agent posts a terminal result
+    result = app.post(
+        f"/v1/result/{job_id}",
+        json={"job_state": "complete"},
+        headers=agent_auth_header,
+    )
+    assert result.status_code == HTTPStatus.OK
+
+    # job_id must be cleared from the agent record immediately
+    agent_record = mongo.agents.find_one({"name": agent_name})
+    assert "job_id" not in agent_record
+
+
+def test_agent_job_id_cleared_on_job_cancelled(mongo_app, agent_auth_header):
+    """Test that posting a cancelled state also clears job_id from the agent
+    record.
+    """
+    app, mongo = mongo_app
+    agent_name = "agent1"
+
+    app.post(
+        f"/v1/agents/data/{agent_name}",
+        json={"state": "waiting", "queues": ["test"], "location": "here"},
+        headers=agent_auth_header,
+    )
+    resp = app.post("/v1/job", json={"job_queue": "test"})
+    job_id = resp.json["job_id"]
+    app.get("/v1/job?queue=test", headers=agent_auth_header)
+
+    app.post(
+        f"/v1/result/{job_id}",
+        json={"job_state": "cancelled"},
+        headers=agent_auth_header,
+    )
+
+    agent_record = mongo.agents.find_one({"name": agent_name})
+    assert "job_id" not in agent_record
+
+
+def test_agent_job_id_not_cleared_for_nonterminal_state(
+    mongo_app, agent_auth_header
+):
+    """Test that posting a non-terminal state (e.g. running) does not clear
+    job_id.
+    """
+    app, mongo = mongo_app
+    agent_name = "agent1"
+
+    app.post(
+        f"/v1/agents/data/{agent_name}",
+        json={"state": "waiting", "queues": ["test"], "location": "here"},
+        headers=agent_auth_header,
+    )
+    resp = app.post("/v1/job", json={"job_queue": "test"})
+    job_id = resp.json["job_id"]
+    app.get("/v1/job?queue=test", headers=agent_auth_header)
+
+    # Post an intermediate result (e.g. a phase update)
+    app.post(
+        f"/v1/result/{job_id}",
+        json={"job_state": "running"},
+        headers=agent_auth_header,
+    )
+
+    agent_record = mongo.agents.find_one({"name": agent_name})
+    assert agent_record.get("job_id") == job_id

@@ -454,6 +454,20 @@ def set_agent_job(agent_name: str, job_id: str) -> None:
     )
 
 
+def clear_agent_job(job_id: str) -> None:
+    """Unset job_id on whichever agent was running the given job.
+
+    Called when a job reaches a terminal state so the agent record no longer
+    shows a stale job_id.
+
+    :param job_id: ID of the job that has completed or been cancelled.
+    """
+    mongo.db.agents.update_one(
+        {"job_id": job_id},
+        {"$unset": {"job_id": ""}},
+    )
+
+
 def queue_exists(queue: str) -> bool:
     """Validate the existance of a queue.
 
