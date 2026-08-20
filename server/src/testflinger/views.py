@@ -387,17 +387,16 @@ def attach_active_job(agents):
     """
     agents = list(agents)
     job_ids = [agent["job_id"] for agent in agents if agent.get("job_id")]
-    if not job_ids:
-        for agent in agents:
-            agent.setdefault("active_job", None)
-        return agents
-    job_data_map = {
-        doc["job_id"]: doc
-        for doc in mongo.db.jobs.find(
-            {"job_id": {"$in": job_ids}},
-            {"job_id": 1, "client_id": 1, "_id": 0},
-        )
-    }
+    if job_ids:
+        job_data_map = {
+            doc["job_id"]: doc
+            for doc in mongo.db.jobs.find(
+                {"job_id": {"$in": job_ids}},
+                {"job_id": 1, "client_id": 1, "_id": 0},
+            )
+        }
+    else:
+        job_data_map = {}
     for agent in agents:
         agent.setdefault("active_job", job_data_map.get(agent.get("job_id")))
     return agents
