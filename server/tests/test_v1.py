@@ -738,7 +738,7 @@ def test_resubmit_job_state(mongo_app):
 def test_job_post_stores_client_id(mongo_app):
     """Test that submitting a job stores client_id at top level.
 
-    When OIDC is not enabled, the client_id is None (anonymous), but
+    When OIDC is not enabled, the client_id can be None (anonymous), but
     the key should still be present on the job document.
     """
     app, mongo = mongo_app
