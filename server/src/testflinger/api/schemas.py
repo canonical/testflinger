@@ -437,6 +437,19 @@ class JobSearchResponse(Schema):
     jobs = fields.List(fields.Nested(Job), required=True)
 
 
+class ResultStatus(Schema):
+    """Result Status schema - job state and phase exit codes only, no logs."""
+
+    setup_status = fields.Integer(required=False)
+    provision_status = fields.Integer(required=False)
+    firmware_update_status = fields.Integer(required=False)
+    test_status = fields.Integer(required=False)
+    allocate_status = fields.Integer(required=False)
+    reserve_status = fields.Integer(required=False)
+    cleanup_status = fields.Integer(required=False)
+    job_state = fields.String(required=False)
+
+
 class ResultGet(Schema):
     """Result Get schema."""
 

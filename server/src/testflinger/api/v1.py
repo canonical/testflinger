@@ -544,6 +544,39 @@ def result_post(job_id: str, json_data: dict) -> str:
     return "OK"
 
 
+@v1.get("/result/<job_id>/status")
+@authenticate
+@require_role(*ServerRoles)
+@v1.output(schemas.ResultStatus)
+def result_status_get(job_id: str):
+    """Return job state and phase exit codes for a specified job_id.
+
+    This is a lightweight alternative to GET /result/<job_id> that omits
+    log data (output and serial).  Use this when only the job state or
+    phase statuses are needed.
+
+    :param job_id: UUID as a string for the job
+    :raises HTTPError: If the job_id is not a valid UUID
+    """
+    if not check_valid_uuid(job_id):
+        abort(HTTPStatus.BAD_REQUEST, message="Invalid job_id specified")
+
+    response = database.get_job_results(job_id)
+
+    if not response or not (result_data := response.get("result_data")):
+        return "", HTTPStatus.NO_CONTENT
+
+    phase_status = result_data.get("status", {})
+    status_response = {
+        f"{phase}_status": status
+        for phase in TestPhase
+        if (status := phase_status.get(phase)) is not None
+    }
+    if job_state := result_data.get("job_state"):
+        status_response["job_state"] = job_state
+    return status_response
+
+
 @v1.get("/result/<job_id>")
 @authenticate
 @require_role(*ServerRoles)
