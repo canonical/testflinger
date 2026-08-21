@@ -143,7 +143,7 @@ def home():
 @views.route("/agents")
 def agents():
     """Agents view."""
-    agent_info = attach_active_job(database.get_all_agents())
+    agent_info = attach_active_job(database.get_agents())
     return render_template("agents.html", agents=agent_info)
 
 
