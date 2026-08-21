@@ -12,7 +12,6 @@ help:
 start:
     #!/usr/bin/env bash
     set -euxo pipefail
-
     if ! workshop list --no-headers | grep -qE '^dev[[:space:]].*(Stopped|Ready)'; then
         workshop launch dev
     elif workshop list --no-headers | grep -qE '^dev[[:space:]].*Stopped'; then

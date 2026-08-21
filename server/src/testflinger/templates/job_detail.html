@@ -24,6 +24,14 @@
           <a href="{{ url_for('testflinger.queue_detail', queue_name=job.job_data.job_queue) }}">{{ job.job_data.job_queue }}</a>
         </td>
       </tr>
+      {% if job.agent_name %}
+        <tr>
+          <th scope="row">Agent</th>
+          <td>
+            <a href="{{ url_for('testflinger.agent_detail', agent_id=job.agent_name) }}">{{ job.agent_name }}</a>
+          </td>
+        </tr>
+      {% endif %}
       <tr>
         <th scope="row">State</th>
         <td>{{ job.result_data.job_state }}</td>
@@ -31,6 +39,10 @@
       <tr>
         <th scope="row">Created At</th>
         <td>{{ job.created_at.strftime("%Y-%m-%d %H:%M:%S") }}</td>
+      </tr>
+      <tr>
+        <th scope="row">Submitted By</th>
+        <td>{{ job.client_id or "" }}</td>
       </tr>
     </tbody>
   </table>

@@ -136,6 +136,7 @@ def create_indexes():
     mongo.db.client_permissions.create_index("sub", sparse=True)
     mongo.db.jobs.create_index("job_id")
     mongo.db.jobs.create_index(["result_data.job_state", "job_data.job_queue"])
+    mongo.db.agents.create_index("queues")
 
     # Faster lookups for logs
     mongo.db.logs.create_index(
@@ -230,7 +231,12 @@ def pop_job(queue_list: list[str], agent_name: str) -> dict | None:
 
         response = mongo.db.jobs.find_one_and_update(
             query_filter,
-            {"$set": {"result_data.job_state": "running"}},
+            {
+                "$set": {
+                    "result_data.job_state": "running",
+                    "result_data.agent_id": agent_name,
+                }
+            },
             projection={
                 "job_id": True,
                 "created_at": True,
@@ -259,6 +265,34 @@ def pop_job(queue_list: list[str], agent_name: str) -> dict | None:
     save_queue_wait_time(queue, started_at, created_at)
 
     return job
+
+
+def cancel_job(job_id):
+    """Cancel a specified job ID.
+
+    :param job_id:
+        UUID as a string for the job
+    """
+    modifications = 0
+    # Set the job status to cancelled
+    response = mongo.db.jobs.update_one(
+        {
+            "job_id": job_id,
+            "result_data.job_state": {
+                "$nin": ["cancelled", "complete", "completed"]
+            },
+        },
+        {"$set": {"result_data.job_state": "cancelled"}},
+    )
+    modifications += response.modified_count
+
+    # Furthermore disassociate from the agent:
+    modifications += clear_agent_job(job_id)
+
+    if not modifications:
+        return "The job is already completed or cancelled", 400
+
+    return "OK"
 
 
 def save_queue_wait_time(
@@ -414,6 +448,33 @@ def get_agent_info(agent: str) -> dict:
         {"name": agent}, {"_id": False, "log": False}
     )
     return agent_data
+
+
+def set_agent_job(agent_name: str, job_id: str) -> None:
+    """Record the job an agent is currently running.
+
+    :param agent_name: Name of the agent.
+    :param job_id: ID of the job the agent has been assigned.
+    """
+    mongo.db.agents.update_one(
+        {"name": agent_name},
+        {"$set": {"job_id": job_id}},
+    )
+
+
+def clear_agent_job(job_id: str) -> int:
+    """Unset job_id on whichever agent was running the given job.
+
+    Called when a job reaches a terminal state so the agent record no longer
+    shows a stale job_id.
+
+    :param job_id: ID of the job that has completed or been cancelled.
+    """
+    response = mongo.db.agents.update_one(
+        {"job_id": job_id},
+        {"$unset": {"job_id": ""}},
+    )
+    return response.modified_count
 
 
 def queue_exists(queue: str) -> bool:
@@ -642,6 +703,12 @@ def add_job_results(job_id: str, json_data: dict):
 
     mongo.db.jobs.update_one({"job_id": job_id}, {"$set": json_data})
 
+    # Additionally, because the job_data may reflect that the job is now done,
+    # we need to disassociate the agent from the job if the job is done:
+    terminal_states = {"complete", "completed", "cancelled"}
+    if json_data.get("result_data.job_state") in terminal_states:
+        clear_agent_job(job_id)
+
 
 def job_exists(job_id: str) -> bool:
     """Validate job exists on database.
@@ -693,3 +760,57 @@ def delete_oidc_device_code(request_id: str) -> None:
     :param request_id: The unique request ID to delete.
     """
     mongo.db.device_codes.delete_one({"request_id": request_id})
+
+
+def update_agent_provision_log(agent_name, json_data) -> bool:
+    """Update provision logs for the agent.
+
+    :param agent_name: The name of the agent.
+    :param json_data: The data to update.
+    :return: True if the update was successful, False otherwise.
+    """
+    agent_record = {}
+
+    # timestamp this agent record and provision log entry
+    timestamp = datetime.now(timezone.utc)
+    agent_record["updated_at"] = json_data["timestamp"] = timestamp
+
+    # Look up the client_id from the job so it can be displayed in the
+    # provision history table.
+    job = mongo.db.jobs.find_one(
+        {"job_id": json_data["job_id"]},
+        {"client_id": 1, "_id": 0},
+    )
+    json_data["client_id"] = job.get("client_id") if job else None
+
+    update_operation = {
+        "$set": json_data,
+        "$push": {
+            "provision_log": {"$each": [json_data], "$slice": -100},
+        },
+    }
+    mongo.db.provision_logs.update_one(
+        {"name": agent_name},
+        update_operation,
+        upsert=True,
+    )
+    agent = mongo.db.agents.find_one(
+        {"name": agent_name},
+        {"provision_streak_type": 1, "provision_streak_count": 1},
+    )
+
+    found = False
+    if agent:
+        prev_provision_streak_type = agent.get("provision_streak_type", "")
+        prev_provision_streak_count = agent.get("provision_streak_count", 0)
+
+        agent["provision_streak_type"] = (
+            "fail" if json_data["exit_code"] != 0 else "pass"
+        )
+        if agent["provision_streak_type"] == prev_provision_streak_type:
+            agent["provision_streak_count"] = prev_provision_streak_count + 1
+        else:
+            agent["provision_streak_count"] = 1
+        mongo.db.agents.update_one({"name": agent_name}, {"$set": agent})
+        found = True
+    return found
