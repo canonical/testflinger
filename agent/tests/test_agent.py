@@ -580,7 +580,7 @@ class TestClient:
         requests_mock.post(status_url, status_code=HTTPStatus.OK)
 
         requests_mock.get(
-            f"http://127.0.0.1:8000/v1/result/{job_id}",
+            f"http://127.0.0.1:8000/v1/result/{job_id}/status",
             json={"job_state": "cancelled"},
         )
         with patch("shutil.rmtree"):
