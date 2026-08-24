@@ -70,7 +70,9 @@ class TestflingerAgentHostCharm(ops.charm.CharmBase):
         self.install_dependencies()
         charm_utils.setup_docker()
         self.update_tf_cmd_scripts()
-        self.update_testflinger_repo()
+        if not self.update_testflinger_repo():
+            self._block("Failed to create virtualenv")
+            return
         try:
             charm_utils.update_config_files(self.typed_config)
         except (RuntimeError, OSError) as err:
@@ -92,8 +94,11 @@ class TestflingerAgentHostCharm(ops.charm.CharmBase):
             return
         run_with_logged_errors(["pipx", "install", "uv"])
 
-    def update_testflinger_repo(self, branch: str | None = None):
-        """Update the testflinger repo."""
+    def update_testflinger_repo(self, branch: str | None = None) -> bool:
+        """Update the testflinger repo.
+
+        :returns: True if the update succeeded, False otherwise.
+        """
         self.unit.status = ops.MaintenanceStatus("Cloning testflinger repo")
         if branch is not None:
             testflinger_source.clone_repo(
@@ -101,8 +106,21 @@ class TestflingerAgentHostCharm(ops.charm.CharmBase):
             )
         else:
             testflinger_source.clone_repo(LOCAL_TESTFLINGER_PATH)
+
         self.unit.status = ops.MaintenanceStatus("Creating virtualenv")
-        testflinger_source.create_virtualenv(LOCAL_TESTFLINGER_PATH)
+        new_venv = testflinger_source.create_virtualenv(LOCAL_TESTFLINGER_PATH)
+        if new_venv is None:
+            logger.error("Failed to create virtualenv. ")
+            return False
+
+        try:
+            testflinger_source.update_virtualenv(new_venv)
+        except OSError:
+            logger.error("Failed to atomically update virtualenv. ")
+            return False
+
+        testflinger_source.cleanup_old_virtualenvs()
+        return True
 
     def write_supervisor_service_files(self):
         """
@@ -185,7 +203,11 @@ class TestflingerAgentHostCharm(ops.charm.CharmBase):
         self.unit.status = ops.MaintenanceStatus("Handling upgrade_charm hook")
         self.install_dependencies()
         self.update_tf_cmd_scripts()
-        self.update_testflinger_repo()
+        if not self.update_testflinger_repo():
+            logger.error(
+                "Failed to update Testflinger repo during upgrade. "
+                "Rerun the update-testflinger action to try again."
+            )
         self.unit.status = ops.ActiveStatus()
 
     def on_start(self, event: ops.StartEvent):
@@ -308,7 +330,12 @@ class TestflingerAgentHostCharm(ops.charm.CharmBase):
             "Updating Testflinger Agent Code"
         )
         branch = event.params.get("branch")
-        self.update_testflinger_repo(branch)
+        if not self.update_testflinger_repo(branch):
+            event.fail(
+                "Failed to update Testflinger virtualenv. "
+                "Check at the logs for additional details."
+            )
+            return
         supervisord.restart_agents()
         self.unit.status = ops.ActiveStatus()
 
