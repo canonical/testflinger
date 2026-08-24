@@ -22,6 +22,7 @@ import threading
 import time
 from collections import defaultdict
 from enum import Enum
+from pathlib import Path
 from typing import Callable, List, Optional, Tuple
 
 from testflinger_common.enums import TestEvent
@@ -48,7 +49,7 @@ class CommandRunner:
     known event types are defined in RunnerEvents.
     """
 
-    def __init__(self, cwd: Optional[str], env: Optional[dict]):
+    def __init__(self, cwd: Optional[Path], env: Optional[dict]):
         self.output_handlers: List[OutputHandlerType] = []
         self.stop_condition_checkers: List[StopConditionType] = []
         self.process: Optional[subprocess.Popen] = None

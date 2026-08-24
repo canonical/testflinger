@@ -14,13 +14,13 @@
 
 import json
 import logging
-import os
 import shutil
 import signal
 import sys
 import tempfile
 import time
 from pathlib import Path
+from typing import Optional
 
 from testflinger_common.enums import AgentState, JobState, TestEvent, TestPhase
 
@@ -74,7 +74,7 @@ def secure_filter(member, path):
     return tarfile.data_filter(member, path)
 
 
-def parse_error_logs(error_log_path: str, phase: str):
+def parse_error_logs(error_log_path: Path, phase: str):
     with open(error_log_path, "r") as error_file:
         error_file_contents = error_file.read()
         try:
@@ -297,7 +297,7 @@ class TestflingerAgent:
         # Check for the first job before looping for more
         job_data = self.get_job_data()
         while job_data:
-            rundir = None
+            rundir: Optional[Path] = None
             job = None
             event_emitter = None
             release = ""
@@ -318,20 +318,19 @@ class TestflingerAgent:
                     TestEvent.JOB_START,
                     f"{self.client.server}/jobs/{job.job_id}",
                 )
-                rundir = os.path.join(
-                    self.client.config.get("execution_basedir"), job.job_id
+                rundir = (
+                    Path(self.client.config.get("execution_basedir"))
+                    / job.job_id
                 )
-                os.makedirs(rundir)
+                rundir.mkdir(parents=True, exist_ok=False)
 
                 self.client.post_agent_data({"job_id": job.job_id})
 
                 # Dump the job data to testflinger.json in our execution dir
-                with open(os.path.join(rundir, "testflinger.json"), "w") as f:
+                with (rundir / "testflinger.json").open("w") as f:
                     json.dump(job_data, f)
                 # Create json outcome file where phases will store their output
-                with open(
-                    os.path.join(rundir, "testflinger-outcome.json"), "w"
-                ) as f:
+                with (rundir / "testflinger-outcome.json").open("w") as f:
                     json.dump({}, f)
 
                 # Handle job attachments, if any.
@@ -344,11 +343,9 @@ class TestflingerAgent:
                 #   file will still contain all the data received and
                 #   pass it on to the device container
                 if job_data.get("attachments_status") == "complete":
-                    self.unpack_attachments(job_data, cwd=Path(rundir))
+                    self.unpack_attachments(job_data, cwd=rundir)
 
-                error_log_path = os.path.join(
-                    rundir, "device-connector-error.json"
-                )
+                error_log_path = rundir / "device-connector-error.json"
                 # Clear  error log before starting
                 open(error_log_path, "w").close()
 
@@ -463,8 +460,11 @@ class TestflingerAgent:
                 # Other errors can happen too for things like connection
                 # problems
                 logger.exception(e)
-                results_basedir = self.client.config.get("results_basedir")
-                shutil.move(rundir, results_basedir)
+                results_basedir = Path(
+                    self.client.config.get("results_basedir")
+                )
+                if rundir is not None:
+                    shutil.move(str(rundir), results_basedir)
 
             # Complete cleanup only if server is reachable
             self.client.wait_for_server_connectivity()
@@ -488,13 +488,11 @@ class TestflingerAgent:
 
     def retry_old_results(self):
         """Retry sending results that we previously failed to send."""
-        results_dir = self.client.config.get("results_basedir")
+        results_dir = Path(self.client.config.get("results_basedir"))
         # List all the directories in 'results_basedir', where we store the
         # results that we couldn't transmit before
         old_results = [
-            os.path.join(results_dir, d)
-            for d in os.listdir(results_dir)
-            if os.path.isdir(os.path.join(results_dir, d))
+            entry for entry in results_dir.iterdir() if entry.is_dir()
         ]
         for result in old_results:
             try:

@@ -66,7 +66,7 @@ class TestflingerJob:
             self.client, self.job_id, self.phase
         )
 
-    def get_runner(self, rundir: str, phase: TestPhase):
+    def get_runner(self, rundir: Path, phase: TestPhase):
         try:
             secrets = self.job_data[f"{phase}_data"]["secrets"]
         except KeyError:
@@ -88,7 +88,7 @@ class TestflingerJob:
             ),
         )
 
-    def run_test_phase(self, phase, rundir):
+    def run_test_phase(self, phase, rundir: Optional[Path]):
         """Run the specified test phase in rundir.
 
         :param phase:
@@ -122,9 +122,9 @@ class TestflingerJob:
                     "Skipping %s phase as requested in job data", phase
                 )
                 return 0, None, None
-        results_file = Path(rundir) / "testflinger-outcome.json"
-        output_log = Path(rundir) / f"{phase}.log"
-        serial_log = Path(rundir) / f"{phase}-serial.log"
+        results_file = rundir / "testflinger-outcome.json"
+        output_log = rundir / f"{phase}.log"
+        serial_log = rundir / f"{phase}-serial.log"
 
         logger.info("Running %s_command: %s", phase, cmd)
         runner = self.get_runner(rundir, phase)
@@ -231,7 +231,7 @@ class TestflingerJob:
                 exc,
             )
 
-    def allocate_phase(self, rundir):
+    def allocate_phase(self, rundir: Optional[Path]):
         """
         Read the json dict from "device-info.json" and send it to the server
         so that the multi-device agent can find the IP addresses of all
@@ -308,15 +308,15 @@ class TestflingerJob:
         yield "* {} *".format(line)
         yield "*" * (len(line) + 4)
 
-    def get_device_info(self, rundir: str) -> Optional[dict]:
+    def get_device_info(self, rundir: Optional[Path]) -> Optional[dict]:
         """Read the json dict from "device-info.json" with information
         about the device associated with an agent.
 
-        :param rundir: String with the directory on where to locate the file
+        :param rundir: Path to the directory where the file is located
         :return: Device information from device-info.json
         """
         if rundir:
-            device_info_file = Path(rundir) / "device-info.json"
+            device_info_file = rundir / "device-info.json"
             try:
                 with device_info_file.open() as f:
                     device_info = json.load(f)

@@ -299,14 +299,14 @@ class TestflingerClient:
             logger.error("Failed to retrieve agent data: %s", exc)
             return {}
 
-    def transmit_job_outcome(self, rundir):
+    def transmit_job_outcome(self, rundir: Path):
         """Post job outcome json data to the testflinger server.
 
         :param rundir:
             Execution dir where the results can be found
         """
         try:
-            with open(os.path.join(rundir, "testflinger.json")) as f:
+            with (rundir / "testflinger.json").open() as f:
                 job_data = json.load(f)
         except OSError:
             logger.error(
@@ -326,7 +326,7 @@ class TestflingerClient:
             logger.exception("Unable to save artifacts")
 
         # Do not retransmit outcome if it's already been done and removed
-        outcome_file = Path(rundir) / "testflinger-outcome.json"
+        outcome_file = rundir / "testflinger-outcome.json"
         if outcome_file.is_file():
             logger.info("Submitting job outcome for job: %s", job_id)
             with outcome_file.open() as f:
@@ -341,7 +341,7 @@ class TestflingerClient:
             outcome_file.unlink()
         shutil.rmtree(rundir)
 
-    def save_artifacts(self, rundir, job_id):
+    def save_artifacts(self, rundir: Path, job_id: str):
         """Save artifacts to the testflinger server.
 
         :param rundir:
@@ -349,16 +349,16 @@ class TestflingerClient:
         :param job_id:
             id for the job
         """
-        artifacts_dir = os.path.join(rundir, "artifacts")
-        if not os.path.isdir(artifacts_dir) or not os.listdir(artifacts_dir):
+        artifacts_dir = rundir / "artifacts"
+        if not artifacts_dir.is_dir() or not any(artifacts_dir.iterdir()):
             return
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            artifact_file = os.path.join(tmpdir, "artifacts")
+            artifact_file = str(Path(tmpdir) / "artifacts")
             shutil.make_archive(
                 artifact_file,
                 format="gztar",
-                root_dir=rundir,
+                root_dir=str(rundir),
                 base_dir="artifacts",
             )
             # Create uri for API: /v1/result/<job_id>
