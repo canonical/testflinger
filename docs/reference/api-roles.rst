@@ -69,7 +69,6 @@ that are permitted to call it.  The four roles are:
        credential.
 
 .. rst-class:: api-roles-table
-
 .. list-table:: Endpoint permissions by role
    :header-rows: 1
    :widths: 8 36 10 13 10 8
@@ -147,19 +146,19 @@ that are permitted to call it.  The four roles are:
      - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
      - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
    * - ``GET``
-      - ``/v1/result/{job_id}``
-      - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
-      - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
-      - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
-      - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
+     - ``/v1/result/{job_id}``
+     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
+     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
+     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
+     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
    * - ``GET``
-      - ``/v1/result/{job_id}/status``
-      - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
-      - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
-      - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
-      - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
+     - ``/v1/result/{job_id}/status``
+     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
+     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
+     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
+     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
    * - ``GET``
-      - ``/v1/agents/data``
+     - ``/v1/agents/data``
      - :octicon:`x-circle-fill;1em;sd-text-danger` :vh:`restricted`
      - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
      - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
