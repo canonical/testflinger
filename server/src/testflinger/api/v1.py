@@ -623,9 +623,7 @@ def result_get(job_id: str):
 
     # Reconstruct result format with logs and phase statuses
     log_handler = MongoLogHandler(database.mongo)
-    result = log_handler.format_logs_as_results(job_id, result_data)
-    result["cancelled_by"] = result_data.get("cancelled_by")
-    return result
+    return log_handler.format_logs_as_results(job_id, result_data)
 
 
 @v1.post("/job/<job_id>/action")
