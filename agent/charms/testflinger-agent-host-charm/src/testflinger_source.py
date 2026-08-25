@@ -134,36 +134,38 @@ def update_virtualenv(new_venv: Path):
         tmp_symlink.replace(venv_path)
 
 
-def is_venv_in_use(venv_path: Path) -> bool:
-    """Check if the virtualenv is currently in use by any process.
+def cleanup_old_virtualenvs():
+    """Remove old virtualenvs that are no longer in use.
 
-    :param venv_path: The path to the virtualenv.
-    :return: True if the virtualenv is in use, False otherwise.
+    A venv is considered safe to remove once all agents that could have
+    been using it have restarted. For each old venv, the cutoff is the
+    mtime of the next newer venv (when the next one was created, this one
+    was superseded).
     """
-    resolved_path = venv_path.resolve()
-    for proc in psutil.process_iter(["pid", "exe", "open_files"]):
+    venv_path = Path(VIRTUAL_ENV_PATH)
+    if not venv_path.is_symlink():
+        return
+
+    active_symlink = venv_path.resolve()
+
+    # Find all old venvs that match the naming pattern
+    # and are not the active one
+    old_venvs = sorted(
+        venv
+        for venv in venv_path.parent.glob(f"{venv_path.name}-*")
+        if venv.is_dir() and venv.resolve() != active_symlink
+    )
+    if not old_venvs:
+        return
+
+    # Determine the oldest running agent process and its create_time so we can
+    # later identify which venv may still be in use
+    oldest_agent = float("inf")
+    for proc in psutil.process_iter(["cmdline", "create_time"]):
         try:
-            # Check binary executable path
-            if proc.info["exe"] and Path(
-                proc.info["exe"]
-            ).resolve().is_relative_to(resolved_path):
-                return True
-
-            # Check open file descriptors
-            if proc.info["open_files"]:
-                for open_file in proc.info["open_files"]:
-                    if (
-                        Path(open_file.path)
-                        .resolve()
-                        .is_relative_to(resolved_path)
-                    ):
-                        return True
-
-            # Check memory-mapped files (e.g. .so libs loaded from the venv).
-            for mmap in proc.memory_maps():
-                if Path(mmap.path).resolve().is_relative_to(resolved_path):
-                    return True
-
+            cmdline = proc.info.get("cmdline") or []
+            if any("testflinger-agent" in arg for arg in cmdline):
+                oldest_agent = min(oldest_agent, proc.info["create_time"])
         except (
             psutil.NoSuchProcess,
             psutil.AccessDenied,
@@ -171,29 +173,15 @@ def is_venv_in_use(venv_path: Path) -> bool:
         ):
             continue
 
-    return False
-
-
-def cleanup_old_virtualenvs():
-    """Remove virtualenvs that are not currently in use.
-
-    This skips the active virtualenv to prevent accidental deletion.
-    """
-    venv_path = Path(VIRTUAL_ENV_PATH)
-
-    active_symlink = venv_path.resolve() if venv_path.is_symlink() else None
-
-    pattern = f"{venv_path.name}-*"
-    for old_venv in venv_path.parent.glob(pattern):
-        if not old_venv.is_dir():
+    # The cutoff for each old venv is the modification time of the next newer
+    # venv. For the most recently superseded venv, the symlink mtime is used
+    # instead.
+    cutoffs = [v.stat().st_mtime for v in old_venvs[1:]] + [
+        venv_path.lstat().st_mtime
+    ]
+    for old_venv, cutoff in zip(old_venvs, cutoffs, strict=True):
+        if oldest_agent < cutoff:
+            logger.debug("Skipping in-use virtualenv: %s", old_venv)
             continue
-
-        # Skip the active virtualenv symlink
-        if active_symlink and old_venv.resolve() == active_symlink:
-            logger.debug("Skipping active virtualenv: %s", old_venv)
-            continue
-
-        # Check if the virtualenv is in use, if not, remove it
-        if not is_venv_in_use(old_venv):
-            logger.info("Removing old virtualenv: %s", old_venv)
-            shutil.rmtree(old_venv, ignore_errors=True)
+        logger.info("Removing old virtualenv: %s", old_venv)
+        shutil.rmtree(old_venv, ignore_errors=True)
