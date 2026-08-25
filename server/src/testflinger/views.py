@@ -143,7 +143,7 @@ def home():
 @views.route("/agents")
 def agents():
     """Agents view."""
-    agent_info = attach_active_job(database.get_agents())
+    agent_info = database.get_agents()
     return render_template("agents.html", agents=agent_info)
 
 
@@ -209,7 +209,7 @@ def agent_detail(agent_id):
         stop_datetime=stop_datetime,
     )
 
-    # Enrich provision log entries with the client_id from the
+    # Enrich provision log entries with the submitted_by from the
     # corresponding job.
     job_ids = {
         entry["job_id"]
@@ -217,16 +217,16 @@ def agent_detail(agent_id):
         if entry.get("job_id")
     }
     if job_ids:
-        client_id_map = {
-            doc["job_id"]: doc.get("client_id")
+        submitted_by_map = {
+            doc["job_id"]: doc.get("submitted_by")
             for doc in mongo.db.jobs.find(
                 {"job_id": {"$in": list(job_ids)}},
-                {"job_id": 1, "client_id": 1, "_id": 0},
+                {"job_id": 1, "submitted_by": 1, "_id": 0},
             )
         }
         for entry in agent_info["provision_log"]:
             entry.setdefault(
-                "client_id", client_id_map.get(entry.get("job_id"))
+                "submitted_by", submitted_by_map.get(entry.get("job_id"))
             )
 
     if agent_info["provision_log"]:
@@ -258,7 +258,7 @@ def jobs():
 @views.route("/jobs/<job_id>")
 def job_detail(job_id):
     """Job detail view."""
-    job_data = mongo.db.jobs.find_one({"job_id": job_id})
+    job_data = database.get_job(job_id)
     if not job_data:
         response = make_response(
             render_template("job_not_found.html", job_id=job_id),
@@ -352,8 +352,7 @@ def queue_detail(queue_name):
     for key, value in queue_percentile_data.items():
         queue_percentile_data[key] = seconds_to_hms(value)
 
-    agents_data = database.get_agents_on_queue(queue_name)
-    agents_data = attach_active_job(agents_data)
+    agents_data = database.get_agents(queue=queue_name)
 
     return render_template(
         "queue_detail.html",
@@ -371,32 +370,3 @@ def seconds_to_hms(seconds: float) -> str:
     minutes = (seconds % 3600) // 60
     seconds = seconds % 60
     return f"{hours:02d}h {minutes:02d}m {seconds:02d}s"
-
-
-def attach_active_job(agents):
-    """Attach job_id and client_id from each agent's current job.
-
-    For each agent that has a job_id, look up the corresponding job
-    document and attach its job_id and client_id to the agent dict
-    under ``active_job``.  Agents without a job_id or whose job
-    no longer exists get ``active_job`` set to None.
-
-    :param agents: an iterable of agent dictionaries (e.g. a Mongo
-        cursor or a list).
-    :returns: a list of agent dictionaries with active_job set.
-    """
-    agents = list(agents)
-    job_ids = [agent["job_id"] for agent in agents if agent.get("job_id")]
-    if job_ids:
-        job_data_map = {
-            doc["job_id"]: doc
-            for doc in mongo.db.jobs.find(
-                {"job_id": {"$in": job_ids}},
-                {"job_id": 1, "client_id": 1, "_id": 0},
-            )
-        }
-    else:
-        job_data_map = {}
-    for agent in agents:
-        agent.setdefault("active_job", job_data_map.get(agent.get("job_id")))
-    return agents

@@ -735,10 +735,10 @@ def test_resubmit_job_state(mongo_app):
     assert "waiting" == updated_data.get("job_state")
 
 
-def test_job_post_stores_client_id(mongo_app):
-    """Test that submitting a job stores client_id at top level.
+def test_job_post_stores_submitted_by(mongo_app):
+    """Test that submitting a job stores submitted_by at top level.
 
-    When OIDC is not enabled, the client_id can be None (anonymous), but
+    When OIDC is not enabled, submitted_by can be None (anonymous), but
     the key should still be present on the job document.
     """
     app, mongo = mongo_app
@@ -746,12 +746,12 @@ def test_job_post_stores_client_id(mongo_app):
     output = app.post("/v1/job", json=job_data)
     job_id = output.json.get("job_id")
     job = mongo.jobs.find_one({"job_id": job_id})
-    assert "client_id" in job
-    assert job["client_id"] is None
+    assert "submitted_by" in job
+    assert job["submitted_by"] is None
 
 
-def test_job_builder_stores_client_id(testapp):
-    """Test that job_builder stores g.client_id on the job document."""
+def test_job_builder_stores_submitted_by(testapp):
+    """Test that job_builder stores g.client_id as submitted_by on the job."""
     from unittest.mock import patch
 
     data = {"job_queue": "test"}
@@ -763,7 +763,7 @@ def test_job_builder_stores_client_id(testapp):
         mock_g.client_id = "test-client-123"
         mock_g.permissions = {}
         job = v1.job_builder(data)
-    assert job["client_id"] == "test-client-123"
+    assert job["submitted_by"] == "test-client-123"
 
 
 def test_get_nonexistant_job(mongo_app, agent_auth_header):

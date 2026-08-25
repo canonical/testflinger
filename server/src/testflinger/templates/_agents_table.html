@@ -81,7 +81,7 @@
               <a href="{{ url_for('testflinger.job_detail', job_id=agent.job_id) }}">{{ agent.job_id }}</a>
             {% endif %}
           </td>
-          <td data-heading="Submitted By">{{ agent.active_job.client_id if agent.active_job else "" }}</td>
+          <td data-heading="Submitted By">{{ agent.job_submitted_by or "" }}</td>
         </tr>
       {% endfor %}
     {% else %}

@@ -123,7 +123,7 @@
             <td>
               <a href="{{ url_for('testflinger.job_detail', job_id=log.job_id) }}">{{ log.job_id }}</a>
             </td>
-            <td>{{ log.client_id or "" }}</td>
+            <td>{{ log.submitted_by or "" }}</td>
             <td class="u-align--right p-table__cell--icon-placeholder">
               <i class="{{ 'p-icon--success' if log.exit_code==0 else 'p-icon--error' }}"></i>{{ log.exit_code }}
             </td>

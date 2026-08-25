@@ -71,6 +71,7 @@ class AgentOut(Schema):
     job_id = fields.String(required=False)
     comment = fields.String(required=False)
     restricted_to = fields.Dict(required=False)
+    job_submitted_by = fields.String(load_default=None)
 
 
 class ActionIn(Schema):
@@ -412,6 +413,12 @@ class JobId(Schema):
     job_id = fields.String(required=True)
 
 
+class JobOut(Job):
+    """Job output schema — extends Job with server-assigned fields."""
+
+    submitted_by = fields.String(load_default=None)
+
+
 class JobSearchRequest(Schema):
     """Job search request schema."""
 
@@ -464,6 +471,7 @@ class ResultGet(Schema):
 
     device_info = fields.Dict(required=False)
     job_state = fields.String(required=False)
+    cancelled_by = fields.String(load_default=None)
 
 
 class ResultPost(Schema):

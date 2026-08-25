@@ -201,9 +201,9 @@ def job_builder(data: dict) -> dict:
         },
     }
 
-    # Always store the client_id of the submitting user at the top level of
-    # the job document so it can be displayed in the web views.
-    job["client_id"] = g.client_id
+    # Always store the submitted_by field at the top level of the job
+    # document so it can be displayed in the web views and API.
+    job["submitted_by"] = g.client_id
 
     # If the job_id is provided, keep it as long as the uuid is good.
     # This is for job resubmission
@@ -305,7 +305,7 @@ def retrieve_secrets(data: dict) -> dict | None:
 @v1.get("/job/<job_id>")
 @authenticate
 @require_role(ServerRoles.ADMIN, ServerRoles.MANAGER, ServerRoles.CONTRIBUTOR)
-@v1.output(schemas.Job)
+@v1.output(schemas.JobOut)
 def job_get_id(job_id):
     """Request the json job definition for a specified job, even if it has
        already run.
@@ -318,12 +318,14 @@ def job_get_id(job_id):
     if not check_valid_uuid(job_id):
         abort(400, message="Invalid job_id specified")
     response = database.mongo.db.jobs.find_one(
-        {"job_id": job_id}, projection={"job_data": True, "_id": False}
+        {"job_id": job_id},
+        projection={"job_data": True, "submitted_by": True, "_id": False},
     )
     if not response:
         return {}, 204
     job_data = response.get("job_data")
     job_data["job_id"] = job_id
+    job_data["submitted_by"] = response.get("submitted_by")
     return job_data
 
 
@@ -621,7 +623,9 @@ def result_get(job_id: str):
 
     # Reconstruct result format with logs and phase statuses
     log_handler = MongoLogHandler(database.mongo)
-    return log_handler.format_logs_as_results(job_id, result_data)
+    result = log_handler.format_logs_as_results(job_id, result_data)
+    result["cancelled_by"] = result_data.get("cancelled_by")
+    return result
 
 
 @v1.post("/job/<job_id>/action")
@@ -646,7 +650,7 @@ def action_post(job_id, json_data):
 
 
 def _cancel_job(job_id):
-    modifications = database.cancel_job(job_id)
+    modifications = database.cancel_job(job_id, client_id=g.client_id)
     if not modifications:
         return (
             "The job is already completed or cancelled",

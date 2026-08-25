@@ -267,13 +267,18 @@ def pop_job(queue_list: list[str], agent_name: str) -> dict | None:
     return job
 
 
-def cancel_job(job_id):
+def cancel_job(job_id, client_id: str | None = None):
     """Cancel a specified job ID.
 
     :param job_id:
         UUID as a string for the job
+    :param client_id:
+        The client ID of the user requesting the cancellation
     """
     modifications = 0
+    update_fields = {"result_data.job_state": "cancelled"}
+    if client_id is not None:
+        update_fields["result_data.cancelled_by"] = client_id
     # Set the job status to cancelled
     response = mongo.db.jobs.update_one(
         {
@@ -282,7 +287,7 @@ def cancel_job(job_id):
                 "$nin": ["cancelled", "complete", "completed"]
             },
         },
-        {"$set": {"result_data.job_state": "cancelled"}},
+        {"$set": update_fields},
     )
     modifications += response.modified_count
 
@@ -323,7 +328,7 @@ def get_queue_wait_times(queues: list[str] | None = None) -> list[dict]:
 
 
 def get_agents_on_queue(queue: str) -> list[dict]:
-    """Get the agents that are listening on the specified queue."""
+    """Return a list of agents listening on the given queue."""
     agents = mongo.db.agents.find(
         {"queues": {"$in": [queue]}},
         {"_id": 0},
@@ -439,12 +444,57 @@ def check_queue_restricted(queue: str) -> bool:
     return queue_count != 0
 
 
-def get_agent_info(agent: str) -> dict:
-    """Return the information for a specified agent."""
-    agent_data = mongo.db.agents.find_one(
-        {"name": agent}, {"_id": False, "log": False}
-    )
-    return agent_data
+def _active_job_pipeline_stages() -> list[dict]:
+    """Return aggregation stages that join agents with their active job.
+
+    The ``$lookup`` uses only basic localField/foreignField form for broad
+    driver and mongomock compatibility.  A subsequent ``$addFields`` stage
+    projects ``client_id`` from the matched job doc as ``job_submitted_by``
+    (or ``None`` when there is no active job).
+    """
+    return [
+        {
+            "$lookup": {
+                "from": "jobs",
+                "localField": "job_id",
+                "foreignField": "job_id",
+                "as": "_job_docs",
+            }
+        },
+        {
+            "$addFields": {
+                "job_submitted_by": {
+                    "$let": {
+                        "vars": {"job": {"$arrayElemAt": ["$_job_docs", 0]}},
+                        "in": {
+                            "$cond": [
+                                {"$gt": [{"$size": "$_job_docs"}, 0]},
+                                "$$job.submitted_by",
+                                None,
+                            ]
+                        },
+                    }
+                }
+            }
+        },
+        {"$project": {"_job_docs": False}},
+    ]
+
+
+def get_agent_info(agent: str) -> dict | None:
+    """Return the information for a specified agent, with active job attached.
+
+    Uses a single aggregation pipeline to join the agent with its current
+    job document (if any), populating ``job_submitted_by`` from the job's
+    ``submitted_by`` field.
+    """
+    pipeline = [
+        {"$match": {"name": agent}},
+        {"$project": {"_id": False, "log": False}},
+        *_active_job_pipeline_stages(),
+    ]
+    results = list(mongo.db.agents.aggregate(pipeline))
+    return results[0] if results else None
 
 
 def set_agent_job(agent_name: str, job_id: str) -> None:
@@ -502,10 +552,26 @@ def get_restricted_queues_owners() -> dict[str, list[str]]:
     return queue_to_clients
 
 
-def get_agents() -> list[dict]:
-    """Return a list of all agents."""
-    agents = mongo.db.agents.find({}, {"_id": False, "log": False})
-    return list(agents)
+def get_agents(queue: str | None = None) -> list[dict]:
+    """Return a list of agents with active job info attached.
+
+    Uses a single aggregation pipeline to join each agent with its
+    current job document (if any), returning ``job_submitted_by`` as the
+    ``submitted_by`` field from the job document.
+
+    :param queue: If provided, filter agents to those listening on this
+        queue.
+    :returns: List of agent dicts, each with a ``job_submitted_by`` field.
+    """
+    match_stage = (
+        {"$match": {"queues": {"$in": [queue]}}} if queue else {"$match": {}}
+    )
+    pipeline = [
+        match_stage,
+        {"$project": {"_id": False, "log": False}},
+        *_active_job_pipeline_stages(),
+    ]
+    return list(mongo.db.agents.aggregate(pipeline))
 
 
 def add_restricted_queue(queue: str, client_id: str):
@@ -688,8 +754,18 @@ def register_oidc_client(userinfo: dict) -> None:
 def get_job_results(job_id: str):
     """Retrieve results for a specific job id."""
     return mongo.db.jobs.find_one(
-        {"job_id": job_id}, {"result_data": True, "_id": False}
+        {"job_id": job_id},
+        {"result_data": True, "_id": False},
     )
+
+
+def get_job(job_id: str) -> dict | None:
+    """Retrieve the full job document for a specific job id.
+
+    :param job_id: UUID as a string for the job.
+    :returns: The full job document, or None if not found.
+    """
+    return mongo.db.jobs.find_one({"job_id": job_id}, {"_id": False})
 
 
 def add_job_results(job_id: str, json_data: dict):
@@ -772,13 +848,13 @@ def update_agent_provision_log(agent_name, json_data) -> bool:
     timestamp = datetime.now(timezone.utc)
     agent_record["updated_at"] = json_data["timestamp"] = timestamp
 
-    # Look up the client_id from the job so it can be displayed in the
+    # Look up the submitted_by from the job so it can be displayed in the
     # provision history table.
     job = mongo.db.jobs.find_one(
         {"job_id": json_data["job_id"]},
-        {"client_id": 1, "_id": 0},
+        {"submitted_by": 1, "_id": 0},
     )
-    json_data["client_id"] = job.get("client_id") if job else None
+    json_data["submitted_by"] = job.get("submitted_by") if job else None
 
     update_operation = {
         "$set": json_data,
