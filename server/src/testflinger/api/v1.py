@@ -639,10 +639,20 @@ def action_post(job_id, json_data):
         return "Invalid job id\n", 400
     action = json_data["action"]
     supported_actions = {
-        "cancel": database.cancel_job,
+        "cancel": _cancel_job,
     }
     # Validation of actions happens in schemas.py:ActionIn
     return supported_actions[action](job_id)
+
+
+def _cancel_job(job_id):
+    modifications = database.cancel_job(job_id)
+    if not modifications:
+        return (
+            "The job is already completed or cancelled",
+            HTTPStatus.BAD_REQUEST,
+        )
+    return "OK"
 
 
 @v1.get("/agents/queues")

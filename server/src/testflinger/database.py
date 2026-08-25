@@ -289,10 +289,7 @@ def cancel_job(job_id):
     # Furthermore disassociate from the agent:
     modifications += clear_agent_job(job_id)
 
-    if not modifications:
-        return "The job is already completed or cancelled", 400
-
-    return "OK"
+    return modifications
 
 
 def save_queue_wait_time(
