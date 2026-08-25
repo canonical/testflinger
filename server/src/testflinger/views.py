@@ -209,26 +209,6 @@ def agent_detail(agent_id):
         stop_datetime=stop_datetime,
     )
 
-    # Enrich provision log entries with the submitted_by from the
-    # corresponding job.
-    job_ids = {
-        entry["job_id"]
-        for entry in agent_info["provision_log"]
-        if entry.get("job_id")
-    }
-    if job_ids:
-        submitted_by_map = {
-            doc["job_id"]: doc.get("submitted_by")
-            for doc in mongo.db.jobs.find(
-                {"job_id": {"$in": list(job_ids)}},
-                {"job_id": 1, "submitted_by": 1, "_id": 0},
-            )
-        }
-        for entry in agent_info["provision_log"]:
-            entry.setdefault(
-                "submitted_by", submitted_by_map.get(entry.get("job_id"))
-            )
-
     if agent_info["provision_log"]:
         agent_info["provision_success_rate"] = int(
             100

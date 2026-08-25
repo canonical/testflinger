@@ -501,7 +501,7 @@ def test_get_agents_job_not_found():
 
 
 def test_agent_detail_provision_log_with_client_id(testapp):
-    """Test that provision log entries are enriched with submitted_by."""
+    """Test that provision log entries display submitted_by."""
     mongo = mongomock.MongoClient()
     job_id_1 = str(uuid.uuid4())
     job_id_2 = str(uuid.uuid4())
@@ -511,22 +511,18 @@ def test_agent_detail_provision_log_with_client_id(testapp):
             "updated_at": datetime.now(tz=timezone.utc),
         }
     )
-    mongo.db.jobs.insert_many(
-        [
-            {"job_id": job_id_1, "submitted_by": "client-A"},
-            {"job_id": job_id_2, "submitted_by": "client-B"},
-        ]
-    )
     provision_log = [
         {
             "job_id": job_id_1,
             "exit_code": 0,
             "timestamp": datetime.now(tz=timezone.utc),
+            "submitted_by": "client-A",
         },
         {
             "job_id": job_id_2,
             "exit_code": 1,
             "timestamp": datetime.now(tz=timezone.utc),
+            "submitted_by": "client-B",
         },
     ]
 

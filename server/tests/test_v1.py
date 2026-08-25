@@ -1105,6 +1105,52 @@ def test_agents_provision_logs_post(mongo_app, agent_auth_header):
     assert agent_data["provision_streak_count"] == 1
 
 
+def test_provision_log_submitted_by_copied_from_job(
+    mongo_app, agent_auth_header, role_clients_factory
+):
+    """Test that submitted_by is copied from the job onto the provision log entry.
+
+    When an agent posts a provision log, the server looks up the job to find
+    who submitted it and stores that on the provision log entry.
+    """
+    app, mongo = mongo_app
+    contributor = role_clients_factory[ServerRoles.CONTRIBUTOR]
+    agent_name = "agent1"
+
+    # Register the agent
+    app.post(
+        f"/v1/agents/data/{agent_name}",
+        json={"state": "waiting", "queues": ["test"], "location": "here"},
+        headers=agent_auth_header,
+    )
+
+    # Submit a job as a known client
+    result = app.post(
+        "/v1/job",
+        json={"job_queue": "test"},
+        headers=contributor["bearer_header"],
+    )
+    assert result.status_code == 200
+    job_id = result.json["job_id"]
+
+    # Confirm submitted_by was stored on the job
+    job = mongo.jobs.find_one({"job_id": job_id})
+    assert job["submitted_by"] == contributor["id"]
+
+    # Agent posts a provision log for that job
+    result = app.post(
+        f"/v1/agents/provision_logs/{agent_name}",
+        json={"job_id": job_id, "exit_code": 0, "detail": "provision_success"},
+        headers=agent_auth_header,
+    )
+    assert result.status_code == 200
+
+    # submitted_by should be copied from the job onto the provision log entry
+    provision_log_records = mongo.provision_logs.find_one({"name": agent_name})
+    entry = provision_log_records["provision_log"][0]
+    assert entry["submitted_by"] == contributor["id"]
+
+
 def test_agents_status_put(mongo_app, agent_auth_header, webhook_fixture):
     """Test api to receive agent status requests."""
     app, _ = mongo_app
