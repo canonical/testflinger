@@ -548,6 +548,7 @@ def result_post(job_id: str, json_data: dict) -> str:
 @authenticate
 @require_role(*ServerRoles)
 @v1.output(schemas.ResultStatus)
+@v1.doc(responses=schemas.result_empty)
 def result_status_get(job_id: str):
     """Return job state and phase exit codes for a specified job_id.
 
@@ -581,6 +582,7 @@ def result_status_get(job_id: str):
 @authenticate
 @require_role(*ServerRoles)
 @v1.output(schemas.ResultGet)
+@v1.doc(responses=schemas.result_empty)
 def result_get(job_id: str):
     """Return results for a specified job_id.
 

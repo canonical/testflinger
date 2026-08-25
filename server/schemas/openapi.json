@@ -2095,6 +2095,9 @@
             },
             "description": "Successful response"
           },
+          "204": {
+            "description": "No result found"
+          },
           "404": {
             "content": {
               "application/json": {
@@ -2380,6 +2383,9 @@
               }
             },
             "description": "Successful response"
+          },
+          "204": {
+            "description": "No result found"
           },
           "404": {
             "content": {

@@ -564,6 +564,12 @@ job_empty = {
     }
 }
 
+result_empty = {
+    204: {
+        "description": "No result found",
+    }
+}
+
 queues_out = {
     200: {
         "description": "Mapping of queue names and descriptions",
