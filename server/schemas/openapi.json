@@ -557,6 +557,9 @@
       "ResultPost": {
         "additionalProperties": false,
         "properties": {
+          "agent_id": {
+            "type": "string"
+          },
           "device_info": {
             "additionalProperties": {},
             "type": "object"

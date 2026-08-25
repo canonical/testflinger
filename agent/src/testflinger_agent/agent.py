@@ -302,6 +302,7 @@ class TestflingerAgent:
             event_emitter = None
             release = ""
             identifier = self.client.config.get("identifier", "")
+            job_end_reason = TestEvent.NORMAL_EXIT
             try:
                 job = TestflingerJob(job_data, self.client)
                 event_emitter = EventEmitter(
@@ -310,7 +311,6 @@ class TestflingerAgent:
                     self.client,
                     job.job_id,
                 )
-                job_end_reason = TestEvent.NORMAL_EXIT
 
                 logger.info("Starting job %s", job.job_id)
                 self.metrics_handler.report_new_job()
@@ -322,8 +322,6 @@ class TestflingerAgent:
                     self.client.config.get("execution_basedir"), job.job_id
                 )
                 os.makedirs(rundir)
-
-                self.client.post_agent_data({"job_id": job.job_id})
 
                 # Dump the job data to testflinger.json in our execution dir
                 with open(os.path.join(rundir, "testflinger.json"), "w") as f:
@@ -468,9 +466,6 @@ class TestflingerAgent:
 
             # Complete cleanup only if server is reachable
             self.client.wait_for_server_connectivity()
-
-            # clear job id
-            self.client.post_agent_data({"job_id": ""})
 
             # Check if offline is needed after job completion
             needs_offline, offline_comment = self.check_offline()
