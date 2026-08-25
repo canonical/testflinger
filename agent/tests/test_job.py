@@ -76,12 +76,12 @@ class TestJob:
         """Test that timeout from job_data is respected."""
         timeout_str = "ERROR: Global timeout reached! (1s)"
         logfile = tmp_path / "testlog"
-        runner = CommandRunner(tmp_path, env={})
+        runner = CommandRunner(tmp_path, env={}, output_polling_interval=0.1)
         log_handler = FileLogHandler(logfile)
         runner.register_output_handler(log_handler)
         global_timeout_checker = GlobalTimeoutChecker(1)
         runner.register_stop_condition_checker(global_timeout_checker)
-        exit_code, exit_event, exit_reason = runner.run("sleep 12")
+        exit_code, exit_event, exit_reason = runner.run("sleep 2")
         with open(logfile) as log:
             log_data = log.read()
         assert timeout_str in log_data
@@ -101,14 +101,12 @@ class TestJob:
         """Test that output timeout from job_data is respected."""
         timeout_str = "ERROR: Output timeout reached! (1s)"
         logfile = tmp_path / "testlog"
-        runner = CommandRunner(tmp_path, env={})
+        runner = CommandRunner(tmp_path, env={}, output_polling_interval=0.1)
         log_handler = FileLogHandler(logfile)
         runner.register_output_handler(log_handler)
         output_timeout_checker = OutputTimeoutChecker(1)
         runner.register_stop_condition_checker(output_timeout_checker)
-        # unfortunately, we need to sleep for longer that 10 seconds here
-        # or else we fall under the polling time
-        exit_code, exit_event, exit_reason = runner.run("sleep 12")
+        exit_code, exit_event, exit_reason = runner.run("sleep 2")
         with open(logfile) as log:
             log_data = log.read()
         assert timeout_str in log_data
@@ -131,9 +129,8 @@ class TestJob:
         timeout_str = "complete\n"
         logfile = tmp_path / "provision.log"
         fake_job_data = {"output_timeout": 1, "provision_data": {"url": "foo"}}
-        self.config["provision_command"] = (
-            "bash -c 'sleep 12 && echo complete'"
-        )
+        self.config["output_polling_interval"] = 0.1
+        self.config["provision_command"] = "bash -c 'sleep 2 && echo complete'"
         requests_mock.post(rmock.ANY, status_code=HTTPStatus.OK)
         job = _TestflingerJob(fake_job_data, client)
         job.phase = "provision"
@@ -142,9 +139,6 @@ class TestJob:
         with open(tmp_path / "testflinger-outcome.json", "w") as outcome_file:
             outcome_file.write("{}")
 
-        # unfortunately, we need to sleep for longer that 10 seconds here
-        # or else we fall under the polling time
-        # job.run_with_log("sleep 12 && echo complete", logfile)
         job.run_test_phase("provision", tmp_path)
         with open(logfile) as log:
             log_data = log.read()
