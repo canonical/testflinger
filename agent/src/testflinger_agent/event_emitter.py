@@ -14,25 +14,43 @@
 
 
 from datetime import datetime, timezone
+from typing import List, Optional, Union
 
 from testflinger_common.enums import TestEvent
 
 from testflinger_agent.client import TestflingerClient
 
 
+def normalize_webhooks(
+    webhooks: Optional[Union[str, dict, List[Union[str, dict]]]],
+) -> List[Union[str, dict]]:
+    """Normalize the job webhook definition into a list.
+
+    :param webhooks:
+        webhook, list of webhooks, or None
+    :return:
+        List of webhooks, empty if no webhook was specified
+    """
+    if not webhooks:
+        return []
+    if isinstance(webhooks, (str, dict)):
+        return [webhooks]
+    return list(webhooks)
+
+
 class EventEmitter:
     def __init__(
         self,
         job_queue: str,
-        webhook: str,
+        webhooks: Optional[Union[str, dict, List[Union[str, dict]]]],
         client: TestflingerClient,
         job_id: str,
     ):
         """
         :param job_queue:
             String representing job_queue the running job belongs to
-        :param webhook:
-            String url to send status updates to
+        :param webhooks:
+            Webhook, or list of webhooks, to send status updates to
         :param client:
             TestflingerClient used to post status updates to the server
         :param job_id:
@@ -40,7 +58,7 @@ class EventEmitter:
 
         """
         self.job_queue = job_queue
-        self.webhook = webhook
+        self.webhooks = normalize_webhooks(webhooks)
         self.events = []
         self.client = client
         self.job_id = job_id
@@ -54,5 +72,5 @@ class EventEmitter:
             }
             self.events.append(new_event_json)
             self.client.post_status_update(
-                self.job_queue, self.webhook, self.events, self.job_id
+                self.job_queue, self.webhooks, self.events, self.job_id
             )

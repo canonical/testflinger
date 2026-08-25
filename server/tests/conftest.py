@@ -275,6 +275,6 @@ def role_clients_factory(mongo_app):
 def webhook_fixture(requests_mock, monkeypatch):
     """Set up a working webhook for when we need it."""
     webhook = "http://mywebhook.com/v1/test-executions/1234/status_update"
-    monkeypatch.setenv("WEBHOOK_URL", "http://mywebhook.com/")
+    monkeypatch.setenv("WEBHOOK_URLS", "http://mywebhook.com/")
     requests_mock.put(webhook, status_code=HTTPStatus.OK)
     return webhook

@@ -22,7 +22,7 @@ from dataclasses import asdict, dataclass
 from functools import cached_property
 from http import HTTPStatus
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Union
 from urllib.parse import urljoin
 
 import requests
@@ -517,31 +517,32 @@ class TestflingerClient:
     def post_status_update(
         self,
         job_queue: str,
-        webhook: str,
+        webhooks: List[Union[str, Dict]],
         events: List[Dict[str, str]],
         job_id: str,
     ):
         """
-        Post status updates about the running job as long as there is a
-        webhook.
+        Post status updates about the running job as long as there is at
+        least one webhook.
 
         :param job_queue:
             TestFlinger queue the currently running job belongs to
-        :param webhook:
-            String URL to post status update to
+        :param webhooks:
+            List of webhooks to post status updates to, each of them either
+            a URL string or an object describing the webhook
         :param events:
             List of accumulated test events
         :param job_id:
             id for the job on which we want to post results
 
         """
-        if webhook is None:
+        if not webhooks:
             return
 
         status_update_request = {
             "agent_id": self.config.get("agent_id"),
             "job_queue": job_queue,
-            "job_status_webhook": webhook,
+            "job_status_webhooks": webhooks,
             "events": events,
         }
         status_update_uri = urljoin(self.server, f"/v1/job/{job_id}/events")

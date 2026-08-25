@@ -32,28 +32,43 @@ def test_invalid_external_hostname():
         TestflingerServerConfig(external_hostname="https://testflinger.local")
 
 
-def test_valid_webhook_url():
+def test_valid_webhook_urls():
     """Test that valid webhook urls are accepted."""
     config = TestflingerServerConfig(
-        webhook_url="https://test-observer-api.local/"
+        webhook_urls="https://test-observer-api.local/"
     )
-    assert config.webhook_url == "https://test-observer-api.local/"
+    assert config.webhook_urls == "https://test-observer-api.local/"
 
     config = TestflingerServerConfig(
-        webhook_url="http://test-observer-api.local"
+        webhook_urls="http://test-observer-api.local"
     )
-    assert config.webhook_url == "http://test-observer-api.local"
+    assert config.webhook_urls == "http://test-observer-api.local"
+
+    # Accept a comma separated list of webhook urls
+    webhook_urls = "https://test-observer-api.local/, http://other.local"
+    config = TestflingerServerConfig(webhook_urls=webhook_urls)
+    assert config.webhook_urls == webhook_urls
 
 
-def test_invalid_webhook_url():
+def test_invalid_webhook_urls():
     """Test that invalid webhook urls are rejected."""
     # Reject webhook url that do not include protocol
     with pytest.raises(ValueError):
-        TestflingerServerConfig(webhook_url="test-observer-api.local")
+        TestflingerServerConfig(webhook_urls="test-observer-api.local")
 
     # Reject webhook url that does not include hostname
     with pytest.raises(ValueError):
-        TestflingerServerConfig(webhook_url="https:///v1/test-executions/")
+        TestflingerServerConfig(webhook_urls="https:///v1/test-executions/")
+
+    # Reject an empty list of webhook urls
+    with pytest.raises(ValueError):
+        TestflingerServerConfig(webhook_urls=" , ")
+
+    # Reject a list where any of the webhook urls is invalid
+    with pytest.raises(ValueError):
+        TestflingerServerConfig(
+            webhook_urls="https://test-observer-api.local/, other.local"
+        )
 
 
 def test_valid_oidc_configuration():
