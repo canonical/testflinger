@@ -461,7 +461,7 @@ class TestflingerAgent:
                     results_basedir = Path(
                         self.client.config.get("results_basedir")
                     )
-                    shutil.move(str(rundir), results_basedir)
+                    shutil.move(rundir, results_basedir)
 
             # Complete cleanup only if server is reachable
             self.client.wait_for_server_connectivity()
