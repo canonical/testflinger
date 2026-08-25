@@ -360,6 +360,7 @@ def require_role(*roles):
 
             return func(*args, **kwargs)
 
+        wrapper._role_requirements = list(roles)
         return wrapper
 
     return decorator

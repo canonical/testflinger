@@ -480,6 +480,7 @@ class ResultPost(Schema):
         values=fields.Integer(),
         required=False,
     )
+    agent_id = fields.String(required=False)
     device_info = fields.Dict(required=False)
     job_state = fields.String(required=False)
 

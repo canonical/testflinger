@@ -99,7 +99,16 @@ def get_version():
 @v1.input(schemas.Job, location="json")
 @v1.output(schemas.JobId)
 def job_post(json_data: dict) -> dict:
-    """Add a job to the queue."""
+    """Add a job to the queue.
+
+    The ``job_queue`` field in the submitted JSON determines which queue the
+    job is placed on. All other fields are passed through to the agent
+    unchanged.
+
+    Returns HTTP 422 if the job references secrets that are inaccessible at
+    submission time (e.g. the secrets store is unreachable or the secret path
+    does not exist for the submitting client).
+    """
     job_queue = json_data["job_queue"]
     exclude_agents = json_data["exclude_agents"]
     if exclude_agents:
@@ -191,6 +200,11 @@ def job_builder(data: dict) -> dict:
             "job_state": "waiting",
         },
     }
+
+    # Always store the client_id of the submitting user at the top level of
+    # the job document so it can be displayed in the web views.
+    job["client_id"] = g.client_id
+
     # If the job_id is provided, keep it as long as the uuid is good.
     # This is for job resubmission
     job_id = data.pop("job_id", None)
@@ -224,7 +238,18 @@ def job_builder(data: dict) -> dict:
 @v1.output(schemas.Job)
 @v1.doc(responses=schemas.job_empty)
 def job_get():
-    """Request a job to run from supported queues."""
+    """Request a job to run from supported queues.
+
+    The agent must identify itself via the ``agent_name`` cookie. One or more
+    ``queue`` query parameters must be supplied; the server returns the first
+    available job across those queues.
+
+    Any secrets referenced in the job are resolved against the secrets store
+    at this point. Secrets that are inaccessible (store unreachable, path not
+    found, or insufficient permissions) are silently resolved to an empty
+    string rather than causing the request to fail.  Agents must therefore
+    handle the possibility of empty secret values.
+    """
     queue_list = request.args.getlist("queue")
     if not queue_list:
         abort(
@@ -238,6 +263,7 @@ def job_get():
         return jsonify({}), HTTPStatus.NO_CONTENT
     if (secrets := retrieve_secrets(job)) is not None:
         job["test_data"]["secrets"] = secrets
+    database.set_agent_job(agent_name, job["job_id"])
     job["started_at"] = datetime.now(timezone.utc)
     return jsonify(job)
 
@@ -456,6 +482,19 @@ class LogTypeConverter(BaseConverter):
 def log_get(job_id: str, log_type: LogType):
     """Get logs for a specified job_id.
 
+    Logs are persistent and may be retrieved multiple times.  Results are
+    organised by phase.  Each phase entry contains:
+
+    - ``last_fragment_number``: highest fragment number stored for that phase
+    - ``log_data``: combined log text from all matching fragments
+
+    Optional query parameters for filtering:
+
+    - ``phase``: restrict results to a single test phase
+    - ``start_fragment``: return only fragments from this number onwards
+    - ``start_timestamp``: return only fragments created after this
+      ISO 8601 timestamp
+
     :param job_id: UUID as a string for the job
     :param log_type: LogType enum value for the type of log requested
     :raises HTTPError: If the job_id is not a valid UUID or if invalid query
@@ -500,6 +539,15 @@ def log_get(job_id: str, log_type: LogType):
 @v1.input(schemas.LogPost, location="json")
 def log_post(job_id: str, log_type: LogType, json_data: dict) -> str:
     """Post logs for a specified job ID.
+
+    Agents stream log data in sequential fragments.  Each request must
+    include:
+
+    - ``fragment_number``: sequential integer starting from 0
+    - ``timestamp``: ISO 8601 timestamp when the fragment was created
+    - ``phase``: test phase name (setup, provision, firmware_update, test,
+      allocate, reserve, cleanup)
+    - ``log_data``: the log content for this fragment
 
     :param job_id: UUID as a string for the job
     :param log_type: LogType enum value for the type of log being posted
@@ -586,6 +634,15 @@ def result_status_get(job_id: str):
 def result_get(job_id: str):
     """Return results for a specified job_id.
 
+    Results are reconstructed from the log storage system to maintain
+    backward compatibility.  Phase exit codes are combined with captured
+    log data and returned as a flat structure:
+
+    - ``{phase}_status``: exit code for each phase
+    - ``{phase}_output``: stdout log for that phase (if available)
+    - ``{phase}_serial``: serial console log for that phase (if available)
+    - Additional metadata fields such as ``device_info`` and ``job_state``
+
     :param job_id: UUID as a string for the job
     :raises HTTPError: If the job_id is not a valid UUID
     """
@@ -617,10 +674,20 @@ def action_post(job_id, json_data):
         return "Invalid job id\n", 400
     action = json_data["action"]
     supported_actions = {
-        "cancel": cancel_job,
+        "cancel": _cancel_job,
     }
     # Validation of actions happens in schemas.py:ActionIn
     return supported_actions[action](job_id)
+
+
+def _cancel_job(job_id):
+    modifications = database.cancel_job(job_id)
+    if not modifications:
+        return (
+            "The job is already completed or cancelled",
+            HTTPStatus.BAD_REQUEST,
+        )
+    return "OK"
 
 
 @v1.get("/agents/queues")
@@ -800,40 +867,9 @@ def agents_post(agent_name, json_data):
 @v1.input(schemas.ProvisionLogsIn, location="json")
 def agents_provision_logs_post(agent_name, json_data):
     """Post provision logs for the agent to the server."""
-    agent_record = {}
-
-    # timestamp this agent record and provision log entry
-    timestamp = datetime.now(timezone.utc)
-    agent_record["updated_at"] = json_data["timestamp"] = timestamp
-
-    update_operation = {
-        "$set": json_data,
-        "$push": {
-            "provision_log": {"$each": [json_data], "$slice": -100},
-        },
-    }
-    database.mongo.db.provision_logs.update_one(
-        {"name": agent_name},
-        update_operation,
-        upsert=True,
-    )
-    agent = database.mongo.db.agents.find_one(
-        {"name": agent_name},
-        {"provision_streak_type": 1, "provision_streak_count": 1},
-    )
-    if not agent:
-        return "Agent not found\n", 404
-    previous_provision_streak_type = agent.get("provision_streak_type", "")
-    previous_provision_streak_count = agent.get("provision_streak_count", 0)
-
-    agent["provision_streak_type"] = (
-        "fail" if json_data["exit_code"] != 0 else "pass"
-    )
-    if agent["provision_streak_type"] == previous_provision_streak_type:
-        agent["provision_streak_count"] = previous_provision_streak_count + 1
-    else:
-        agent["provision_streak_count"] = 1
-    database.mongo.db.agents.update_one({"name": agent_name}, {"$set": agent})
+    found = database.update_agent_provision_log(agent_name, json_data)
+    if not found:
+        abort(HTTPStatus.NOT_FOUND, message="Agent not found")
     return "OK"
 
 
@@ -976,27 +1012,6 @@ def job_position_get(job_id):
     if job_id in jobs_id_position:
         return str(jobs_id_position[job_id])
     return "Job not found or already started\n", 410
-
-
-def cancel_job(job_id):
-    """Cancel a specified job ID.
-
-    :param job_id:
-        UUID as a string for the job
-    """
-    # Set the job status to cancelled
-    response = database.mongo.db.jobs.update_one(
-        {
-            "job_id": job_id,
-            "result_data.job_state": {
-                "$nin": ["cancelled", "complete", "completed"]
-            },
-        },
-        {"$set": {"result_data.job_state": "cancelled"}},
-    )
-    if response.modified_count == 0:
-        return "The job is already completed or cancelled", 400
-    return "OK"
 
 
 @v1.get("/queues/wait_times")

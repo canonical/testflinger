@@ -45,6 +45,18 @@ def test_proxyfix_enabled(monkeypatch):
     assert isinstance(app.wsgi_app, ProxyFix)
 
 
+def test_templates_auto_reload_enabled(monkeypatch):
+    """Ensure templates reload when TEMPLATES_AUTO_RELOAD is true."""
+    monkeypatch.setenv("TEMPLATES_AUTO_RELOAD", "true")
+    app = create_flask_app(type("", (), {"TESTING": True})())
+    assert app.config.get("TEMPLATES_AUTO_RELOAD") is True
+
+
+def test_templates_auto_reload_disabled(testapp):
+    """Ensure template auto-reload is off when the env var is not set."""
+    assert not testapp.config.get("TEMPLATES_AUTO_RELOAD")
+
+
 def test_proxyfix_disabled(testapp):
     """Ensure ProxyFix is disabled when ENABLE_PROXYFIX is not set."""
     assert not isinstance(testapp.wsgi_app, ProxyFix)
