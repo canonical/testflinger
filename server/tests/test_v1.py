@@ -1108,7 +1108,7 @@ def test_agents_provision_logs_post(mongo_app, agent_auth_header):
 def test_provision_log_submitted_by_copied_from_job(
     mongo_app, agent_auth_header, role_clients_factory
 ):
-    """Test that submitted_by is copied from the job onto the provision log entry.
+    """Test that submitted_by is copied from the job onto the provision log.
 
     When an agent posts a provision log, the server looks up the job to find
     who submitted it and stores that on the provision log entry.
