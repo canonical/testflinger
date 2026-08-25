@@ -141,6 +141,12 @@ def is_venv_in_use(venv_path: Path) -> bool:
                         .is_relative_to(resolved_path)
                     ):
                         return True
+
+            # Check memory-mapped files (e.g. .so libs loaded from the venv).
+            for mmap in proc.memory_maps():
+                if Path(mmap.path).resolve().is_relative_to(resolved_path):
+                    return True
+
         except (
             psutil.NoSuchProcess,
             psutil.AccessDenied,

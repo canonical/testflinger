@@ -166,9 +166,27 @@ def test_is_venv_in_use_false(mock_process_iter):
         "exe": "/usr/bin/python3",
         "open_files": [],
     }
+    mock_proc.memory_maps.return_value = []
     mock_process_iter.return_value = [mock_proc]
 
     assert testflinger_source.is_venv_in_use(venv_path) is False
+
+
+@patch("testflinger_source.psutil.process_iter")
+def test_is_venv_in_use_true_via_memory_map(mock_process_iter):
+    """Test returns True when a process has a memory-mapped file."""
+    venv_path = Path("/srv/tf-agent-venv-20260824_103045")
+    mmap = MagicMock()
+    mmap.path = str(venv_path / "path/to/memory-mapped-file.so")
+    mock_proc = MagicMock()
+    mock_proc.info = {
+        "exe": "/usr/bin/python3",
+        "open_files": [],
+    }
+    mock_proc.memory_maps.return_value = [mmap]
+    mock_process_iter.return_value = [mock_proc]
+
+    assert testflinger_source.is_venv_in_use(venv_path) is True
 
 
 @patch("testflinger_source.psutil.process_iter")
