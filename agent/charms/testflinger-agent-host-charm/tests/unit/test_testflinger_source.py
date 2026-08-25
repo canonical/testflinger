@@ -102,9 +102,9 @@ def test_create_virtualenv_package_install_fails(
 
 def test_update_virtualenv(tmp_path, monkeypatch):
     """Test that update_virtualenv atomically replaces the symlink."""
-    new_venv = tmp_path / "tf-agent-venv-20260824_103045"
+    new_venv = tmp_path / "testflinger-venv-20260824_103045"
     new_venv.mkdir()
-    live_venv = tmp_path / "tf-agent-venv"
+    live_venv = tmp_path / "testflinger-venv"
 
     monkeypatch.setattr("testflinger_source.VIRTUAL_ENV_PATH", str(live_venv))
     testflinger_source.update_virtualenv(new_venv)
@@ -113,14 +113,30 @@ def test_update_virtualenv(tmp_path, monkeypatch):
     assert live_venv.resolve() == new_venv.resolve()
 
 
+def test_update_virtualenv_migrates_legacy_dir(tmp_path, monkeypatch):
+    """Test legacy real directory is renamed before creating the symlink."""
+    new_venv = tmp_path / "testflinger-venv-20260824_103045"
+    new_venv.mkdir()
+    live_venv = tmp_path / "testflinger-venv"
+    live_venv.mkdir()  # real dir — simulates pre-atomic installation
+
+    monkeypatch.setattr("testflinger_source.VIRTUAL_ENV_PATH", str(live_venv))
+    testflinger_source.update_virtualenv(new_venv)
+
+    assert live_venv.is_symlink()
+    assert live_venv.resolve() == new_venv.resolve()
+    legacy_dirs = list(tmp_path.glob("testflinger-venv-*-legacy"))
+    assert len(legacy_dirs) == 1
+
+
 @patch("pathlib.Path.replace", side_effect=OSError("replace failed"))
 def test_update_virtualenv_raises_on_oserror(
     mock_replace, tmp_path, monkeypatch
 ):
     """Test that update_virtualenv propagates OSError."""
-    new_venv = tmp_path / "tf-agent-venv-20260824_103045"
+    new_venv = tmp_path / "testflinger-venv-20260824_103045"
     new_venv.mkdir()
-    live_venv = tmp_path / "tf-agent-venv"
+    live_venv = tmp_path / "testflinger-venv"
 
     monkeypatch.setattr("testflinger_source.VIRTUAL_ENV_PATH", str(live_venv))
     with pytest.raises(OSError):
@@ -130,7 +146,7 @@ def test_update_virtualenv_raises_on_oserror(
 @patch("testflinger_source.psutil.process_iter")
 def test_is_venv_in_use_true_via_exe(mock_process_iter):
     """Test returns True when a process exe is inside the venv."""
-    venv_path = Path("/srv/tf-agent-venv-20260824_103045")
+    venv_path = Path("/srv/testflinger-venv-20260824_103045")
     mock_proc = MagicMock()
     mock_proc.info = {
         "exe": str(venv_path / "bin" / "python3"),
@@ -144,7 +160,7 @@ def test_is_venv_in_use_true_via_exe(mock_process_iter):
 @patch("testflinger_source.psutil.process_iter")
 def test_is_venv_in_use_true_via_open_file(mock_process_iter):
     """Test returns True when a process has an open file inside the venv."""
-    venv_path = Path("/srv/tf-agent-venv-20260824_103045")
+    venv_path = Path("/srv/testflinger-venv-20260824_103045")
     open_file = MagicMock()
     open_file.path = str(venv_path / "lib" / "python3.10" / "site.py")
     mock_proc = MagicMock()
@@ -160,7 +176,7 @@ def test_is_venv_in_use_true_via_open_file(mock_process_iter):
 @patch("testflinger_source.psutil.process_iter")
 def test_is_venv_in_use_false(mock_process_iter):
     """Test returns False when no process uses the venv."""
-    venv_path = Path("/srv/tf-agent-venv-20260824_103045")
+    venv_path = Path("/srv/testflinger-venv-20260824_103045")
     mock_proc = MagicMock()
     mock_proc.info = {
         "exe": "/usr/bin/python3",
@@ -175,7 +191,7 @@ def test_is_venv_in_use_false(mock_process_iter):
 @patch("testflinger_source.psutil.process_iter")
 def test_is_venv_in_use_true_via_memory_map(mock_process_iter):
     """Test returns True when a process has a memory-mapped file."""
-    venv_path = Path("/srv/tf-agent-venv-20260824_103045")
+    venv_path = Path("/srv/testflinger-venv-20260824_103045")
     mmap = MagicMock()
     mmap.path = str(venv_path / "path/to/memory-mapped-file.so")
     mock_proc = MagicMock()
@@ -192,7 +208,7 @@ def test_is_venv_in_use_true_via_memory_map(mock_process_iter):
 @patch("testflinger_source.psutil.process_iter")
 def test_is_venv_in_use_handles_process_exceptions(mock_process_iter):
     """Test that psutil process exceptions are handled gracefully."""
-    venv_path = Path("/srv/tf-agent-venv-20260824_103045")
+    venv_path = Path("/srv/testflinger-venv-20260824_103045")
     mock_proc = MagicMock()
     mock_proc.info = MagicMock()
     mock_proc.info.__getitem__ = MagicMock(
@@ -209,11 +225,11 @@ def test_cleanup_removes_unused_virtualenvs(
     mock_is_venv, mock_rmtree, tmp_path, monkeypatch
 ):
     """Test that old venvs not in use are removed."""
-    old_venv = tmp_path / "tf-agent-venv-20260824_100000"
+    old_venv = tmp_path / "testflinger-venv-20260824_100000"
     old_venv.mkdir()
-    active_venv = tmp_path / "tf-agent-venv-20260824_110000"
+    active_venv = tmp_path / "testflinger-venv-20260824_110000"
     active_venv.mkdir()
-    live_venv = tmp_path / "tf-agent-venv"
+    live_venv = tmp_path / "testflinger-venv"
     live_venv.symlink_to(active_venv)
 
     monkeypatch.setattr("testflinger_source.VIRTUAL_ENV_PATH", str(live_venv))
@@ -228,9 +244,9 @@ def test_cleanup_skips_active_virtualenv(
     mock_is_venv, mock_rmtree, tmp_path, monkeypatch
 ):
     """Test that the active venv (current symlink target) is not removed."""
-    active_venv = tmp_path / "tf-agent-venv-20260824_110000"
+    active_venv = tmp_path / "testflinger-venv-20260824_110000"
     active_venv.mkdir()
-    live_venv = tmp_path / "tf-agent-venv"
+    live_venv = tmp_path / "testflinger-venv"
     live_venv.symlink_to(active_venv)
 
     monkeypatch.setattr("testflinger_source.VIRTUAL_ENV_PATH", str(live_venv))
@@ -245,11 +261,12 @@ def test_cleanup_skips_in_use_virtualenvs(
     mock_is_venv, mock_rmtree, tmp_path, monkeypatch
 ):
     """Test that venvs still in use by running processes are not removed."""
-    old_venv = tmp_path / "tf-agent-venv-20260824_100000"
+    old_venv = tmp_path / "testflinger-venv-20260824_100000"
     old_venv.mkdir()
 
     monkeypatch.setattr(
-        "testflinger_source.VIRTUAL_ENV_PATH", str(tmp_path / "tf-agent-venv")
+        "testflinger_source.VIRTUAL_ENV_PATH",
+        str(tmp_path / "testflinger-venv"),
     )
     testflinger_source.cleanup_old_virtualenvs()
 
@@ -264,7 +281,8 @@ def test_cleanup_no_active_symlink(
     """Test cleanup is not made whenever there is no active symlink."""
     # On first deployment, there are no timestamped venvs and no symlink
     monkeypatch.setattr(
-        "testflinger_source.VIRTUAL_ENV_PATH", str(tmp_path / "tf-agent-venv")
+        "testflinger_source.VIRTUAL_ENV_PATH",
+        str(tmp_path / "testflinger-venv"),
     )
     testflinger_source.cleanup_old_virtualenvs()
 

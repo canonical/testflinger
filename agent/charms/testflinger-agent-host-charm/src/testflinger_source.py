@@ -103,9 +103,26 @@ def update_virtualenv(new_venv: Path):
     For atomicity, a temporary symlink is created and then renamed
     to the target path where the virtualenv resides.
 
+    On first deployment, VIRTUAL_ENV_PATH may be a real directory left
+    by the previous non-atomic install. It is renamed to a timestamped
+    path so the symlink can be properly created
+
     :param new_venv: The path to the new virtualenv.
     """
-    # Attempt to create a temporary symlink and replace the existing symlink
+    venv_path = Path(VIRTUAL_ENV_PATH)
+
+    # Migrate a legacy real directory to a timestamped backup
+    if venv_path.exists() and not venv_path.is_symlink():
+        timestamp = datetime.now(tz=timezone.utc).strftime("%Y%m%d_%H%M%S")
+        legacy = venv_path.parent / f"{venv_path.name}-{timestamp}-legacy"
+        logger.info(
+            "Migrating legacy virtualenv directory %s to %s",
+            venv_path,
+            legacy,
+        )
+        venv_path.rename(legacy)
+
+    # Attempt to create a temporary symlink and replace the existing symlink.
     # Failures are bubbled up to the caller to handle.
     with tempfile.NamedTemporaryFile(
         dir=new_venv.parent, prefix="tmp_link_", delete=True
@@ -114,7 +131,7 @@ def update_virtualenv(new_venv: Path):
         # Close the file as we only need the name for the symlink
         tmp.close()
         tmp_symlink.symlink_to(new_venv)
-        tmp_symlink.replace(Path(VIRTUAL_ENV_PATH))
+        tmp_symlink.replace(venv_path)
 
 
 def is_venv_in_use(venv_path: Path) -> bool:
