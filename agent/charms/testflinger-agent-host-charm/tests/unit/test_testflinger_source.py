@@ -87,7 +87,7 @@ def test_create_virtualenv_uv_venv_fails(mock_run, mock_rmtree, mock_datetime):
 def test_create_virtualenv_package_install_fails(
     mock_run, mock_rmtree, mock_datetime
 ):
-    """Test venv creation returns None and cleans up when a package install fails."""
+    """Test venv creation cleanup is made when package installation fails."""
     timestamp = datetime.now(tz=timezone.utc).strftime("%Y%m%d_%H%M%S")
     mock_datetime.now.return_value.strftime.return_value = timestamp
     expected_venv = Path(f"{VIRTUAL_ENV_PATH}-{timestamp}")
@@ -114,8 +114,10 @@ def test_update_virtualenv(tmp_path, monkeypatch):
 
 
 @patch("pathlib.Path.replace", side_effect=OSError("replace failed"))
-def test_update_virtualenv_raises_on_oserror(mock_replace, tmp_path, monkeypatch):
-    """Test that update_virtualenv propagates OSError"""
+def test_update_virtualenv_raises_on_oserror(
+    mock_replace, tmp_path, monkeypatch
+):
+    """Test that update_virtualenv propagates OSError."""
     new_venv = tmp_path / "tf-agent-venv-20260824_103045"
     new_venv.mkdir()
     live_venv = tmp_path / "tf-agent-venv"
@@ -185,7 +187,9 @@ def test_is_venv_in_use_handles_process_exceptions(mock_process_iter):
 
 @patch("testflinger_source.shutil.rmtree")
 @patch("testflinger_source.is_venv_in_use", return_value=False)
-def test_cleanup_removes_unused_virtualenvs(mock_is_venv, mock_rmtree, tmp_path, monkeypatch):
+def test_cleanup_removes_unused_virtualenvs(
+    mock_is_venv, mock_rmtree, tmp_path, monkeypatch
+):
     """Test that old venvs not in use are removed."""
     old_venv = tmp_path / "tf-agent-venv-20260824_100000"
     old_venv.mkdir()
@@ -202,7 +206,9 @@ def test_cleanup_removes_unused_virtualenvs(mock_is_venv, mock_rmtree, tmp_path,
 
 @patch("testflinger_source.shutil.rmtree")
 @patch("testflinger_source.is_venv_in_use", return_value=False)
-def test_cleanup_skips_active_virtualenv(mock_is_venv, mock_rmtree, tmp_path, monkeypatch):
+def test_cleanup_skips_active_virtualenv(
+    mock_is_venv, mock_rmtree, tmp_path, monkeypatch
+):
     """Test that the active venv (current symlink target) is not removed."""
     active_venv = tmp_path / "tf-agent-venv-20260824_110000"
     active_venv.mkdir()
@@ -217,7 +223,9 @@ def test_cleanup_skips_active_virtualenv(mock_is_venv, mock_rmtree, tmp_path, mo
 
 @patch("testflinger_source.shutil.rmtree")
 @patch("testflinger_source.is_venv_in_use", return_value=True)
-def test_cleanup_skips_in_use_virtualenvs(mock_is_venv, mock_rmtree, tmp_path, monkeypatch):
+def test_cleanup_skips_in_use_virtualenvs(
+    mock_is_venv, mock_rmtree, tmp_path, monkeypatch
+):
     """Test that venvs still in use by running processes are not removed."""
     old_venv = tmp_path / "tf-agent-venv-20260824_100000"
     old_venv.mkdir()
@@ -232,7 +240,9 @@ def test_cleanup_skips_in_use_virtualenvs(mock_is_venv, mock_rmtree, tmp_path, m
 
 @patch("testflinger_source.shutil.rmtree")
 @patch("testflinger_source.is_venv_in_use", return_value=False)
-def test_cleanup_no_active_symlink(mock_is_venv, mock_rmtree, tmp_path, monkeypatch):
+def test_cleanup_no_active_symlink(
+    mock_is_venv, mock_rmtree, tmp_path, monkeypatch
+):
     """Test cleanup is not made whenever there is no active symlink."""
     # On first deployment, there are no timestamped venvs and no symlink
     monkeypatch.setattr(
