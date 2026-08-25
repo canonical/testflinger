@@ -88,7 +88,7 @@ class TestflingerJob:
             ),
         )
 
-    def run_test_phase(self, phase, rundir: Optional[Path]):
+    def run_test_phase(self, phase, rundir: Path):
         """Run the specified test phase in rundir.
 
         :param phase:
@@ -231,7 +231,7 @@ class TestflingerJob:
                 exc,
             )
 
-    def allocate_phase(self, rundir: Optional[Path]):
+    def allocate_phase(self, rundir: Path):
         """
         Read the json dict from "device-info.json" and send it to the server
         so that the multi-device agent can find the IP addresses of all
@@ -308,7 +308,7 @@ class TestflingerJob:
         yield "* {} *".format(line)
         yield "*" * (len(line) + 4)
 
-    def get_device_info(self, rundir: Optional[Path]) -> Optional[dict]:
+    def get_device_info(self, rundir: Path) -> Optional[dict]:
         """Read the json dict from "device-info.json" with information
         about the device associated with an agent.
 

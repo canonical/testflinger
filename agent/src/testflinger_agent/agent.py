@@ -20,7 +20,6 @@ import sys
 import tempfile
 import time
 from pathlib import Path
-from typing import Optional
 
 from testflinger_common.enums import AgentState, JobState, TestEvent, TestPhase
 
@@ -297,7 +296,7 @@ class TestflingerAgent:
         # Check for the first job before looping for more
         job_data = self.get_job_data()
         while job_data:
-            rundir: Optional[Path] = None
+            rundir = None
             job = None
             event_emitter = None
             release = ""
@@ -453,17 +452,17 @@ class TestflingerAgent:
                             event_emitter.emit_event(TestEvent.CLEANUP_SUCCESS)
                     event_emitter.emit_event(TestEvent.JOB_END, job_end_reason)
 
-            try:
-                self.client.transmit_job_outcome(rundir)
-            except Exception as e:
-                # TFServerError will happen if we get other-than-good status
-                # Other errors can happen too for things like connection
-                # problems
-                logger.exception(e)
-                results_basedir = Path(
-                    self.client.config.get("results_basedir")
-                )
-                if rundir is not None:
+            if rundir:
+                try:
+                    self.client.transmit_job_outcome(rundir)
+                except Exception as e:
+                    # TFServerError will happen if we get other-than-good
+                    # status; other errors can happen too for things like
+                    # connection problems
+                    logger.exception(e)
+                    results_basedir = Path(
+                        self.client.config.get("results_basedir")
+                    )
                     shutil.move(str(rundir), results_basedir)
 
             # Complete cleanup only if server is reachable

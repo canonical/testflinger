@@ -49,7 +49,7 @@ class CommandRunner:
     known event types are defined in RunnerEvents.
     """
 
-    def __init__(self, cwd: Optional[Path], env: Optional[dict]):
+    def __init__(self, cwd: Path, env: Optional[dict]):
         self.output_handlers: List[OutputHandlerType] = []
         self.stop_condition_checkers: List[StopConditionType] = []
         self.process: Optional[subprocess.Popen] = None
