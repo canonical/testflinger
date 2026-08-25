@@ -200,6 +200,11 @@ def job_builder(data: dict) -> dict:
             "job_state": "waiting",
         },
     }
+
+    # Always store the client_id of the submitting user at the top level of
+    # the job document so it can be displayed in the web views.
+    job["client_id"] = g.client_id
+
     # If the job_id is provided, keep it as long as the uuid is good.
     # This is for job resubmission
     job_id = data.pop("job_id", None)
@@ -258,6 +263,7 @@ def job_get():
         return jsonify({}), HTTPStatus.NO_CONTENT
     if (secrets := retrieve_secrets(job)) is not None:
         job["test_data"]["secrets"] = secrets
+    database.set_agent_job(agent_name, job["job_id"])
     job["started_at"] = datetime.now(timezone.utc)
     return jsonify(job)
 
@@ -633,10 +639,20 @@ def action_post(job_id, json_data):
         return "Invalid job id\n", 400
     action = json_data["action"]
     supported_actions = {
-        "cancel": cancel_job,
+        "cancel": _cancel_job,
     }
     # Validation of actions happens in schemas.py:ActionIn
     return supported_actions[action](job_id)
+
+
+def _cancel_job(job_id):
+    modifications = database.cancel_job(job_id)
+    if not modifications:
+        return (
+            "The job is already completed or cancelled",
+            HTTPStatus.BAD_REQUEST,
+        )
+    return "OK"
 
 
 @v1.get("/agents/queues")
@@ -816,40 +832,9 @@ def agents_post(agent_name, json_data):
 @v1.input(schemas.ProvisionLogsIn, location="json")
 def agents_provision_logs_post(agent_name, json_data):
     """Post provision logs for the agent to the server."""
-    agent_record = {}
-
-    # timestamp this agent record and provision log entry
-    timestamp = datetime.now(timezone.utc)
-    agent_record["updated_at"] = json_data["timestamp"] = timestamp
-
-    update_operation = {
-        "$set": json_data,
-        "$push": {
-            "provision_log": {"$each": [json_data], "$slice": -100},
-        },
-    }
-    database.mongo.db.provision_logs.update_one(
-        {"name": agent_name},
-        update_operation,
-        upsert=True,
-    )
-    agent = database.mongo.db.agents.find_one(
-        {"name": agent_name},
-        {"provision_streak_type": 1, "provision_streak_count": 1},
-    )
-    if not agent:
-        return "Agent not found\n", 404
-    previous_provision_streak_type = agent.get("provision_streak_type", "")
-    previous_provision_streak_count = agent.get("provision_streak_count", 0)
-
-    agent["provision_streak_type"] = (
-        "fail" if json_data["exit_code"] != 0 else "pass"
-    )
-    if agent["provision_streak_type"] == previous_provision_streak_type:
-        agent["provision_streak_count"] = previous_provision_streak_count + 1
-    else:
-        agent["provision_streak_count"] = 1
-    database.mongo.db.agents.update_one({"name": agent_name}, {"$set": agent})
+    found = database.update_agent_provision_log(agent_name, json_data)
+    if not found:
+        abort(HTTPStatus.NOT_FOUND, message="Agent not found")
     return "OK"
 
 
@@ -992,27 +977,6 @@ def job_position_get(job_id):
     if job_id in jobs_id_position:
         return str(jobs_id_position[job_id])
     return "Job not found or already started\n", 410
-
-
-def cancel_job(job_id):
-    """Cancel a specified job ID.
-
-    :param job_id:
-        UUID as a string for the job
-    """
-    # Set the job status to cancelled
-    response = database.mongo.db.jobs.update_one(
-        {
-            "job_id": job_id,
-            "result_data.job_state": {
-                "$nin": ["cancelled", "complete", "completed"]
-            },
-        },
-        {"$set": {"result_data.job_state": "cancelled"}},
-    )
-    if response.modified_count == 0:
-        return "The job is already completed or cancelled", 400
-    return "OK"
 
 
 @v1.get("/queues/wait_times")
