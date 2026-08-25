@@ -113,7 +113,7 @@ def test_update_virtualenv(tmp_path, monkeypatch):
     assert live_venv.resolve() == new_venv.resolve()
 
 
-@patch("testflinger_source.os.replace", side_effect=OSError("replace failed"))
+@patch("pathlib.Path.replace", side_effect=OSError("replace failed"))
 def test_update_virtualenv_raises_on_oserror(mock_replace, tmp_path, monkeypatch):
     """Test that update_virtualenv propagates OSError"""
     new_venv = tmp_path / "tf-agent-venv-20260824_103045"

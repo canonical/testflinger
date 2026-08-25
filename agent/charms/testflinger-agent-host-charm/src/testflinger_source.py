@@ -3,7 +3,6 @@
 """Module for managing Testflinger agent source code."""
 
 import logging
-import os
 import shutil
 import tempfile
 from datetime import datetime, timezone
@@ -115,7 +114,7 @@ def update_virtualenv(new_venv: Path):
         # Close the file as we only need the name for the symlink
         tmp.close()
         tmp_symlink.symlink_to(new_venv)
-        os.replace(tmp_symlink, Path(VIRTUAL_ENV_PATH))
+        tmp_symlink.replace(Path(VIRTUAL_ENV_PATH))
 
 
 def is_venv_in_use(venv_path: Path) -> bool:
