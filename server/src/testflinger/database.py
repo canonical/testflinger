@@ -466,13 +466,11 @@ def _active_job_pipeline_stages() -> list[dict]:
                 "job_submitted_by": {
                     "$let": {
                         "vars": {"job": {"$arrayElemAt": ["$_job_docs", 0]}},
-                        "in": {
-                            "$cond": [
-                                {"$gt": [{"$size": "$_job_docs"}, 0]},
-                                "$$job.submitted_by",
-                                None,
-                            ]
-                        },
+                        "in": "$$job.submitted_by",
+                    }
+                }
+            }
+        },
                     }
                 }
             }
