@@ -226,9 +226,27 @@ class TestflingerClient:
                     attachments.write(chunk)
 
     def check_job_state(self, job_id):
-        job_data = self.get_result(job_id)
-        if job_data:
-            return job_data.get("job_state")
+        """Get the current job_state for the specified job.
+
+        :param job_id: id for the job
+        :return: job_state string, or None on error
+        """
+        status_uri = urljoin(self.server, f"/v1/result/{job_id}/status")
+        try:
+            response = self.session.get(status_uri, timeout=30)
+        except requests.exceptions.RequestException as exc:
+            logger.error(exc)
+            return None
+        if not response:
+            logger.error(
+                "Unable to get job status from: %s (error: %d)",
+                status_uri,
+                response.status_code,
+            )
+            return None
+        if response.content:
+            return response.json().get("job_state")
+        return None
 
     def post_job_state(self, job_id, phase):
         """Update the job_state on the testflinger server."""

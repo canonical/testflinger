@@ -576,6 +576,36 @@
         },
         "type": "object"
       },
+      "ResultStatus": {
+        "additionalProperties": false,
+        "properties": {
+          "allocate_status": {
+            "type": "integer"
+          },
+          "cleanup_status": {
+            "type": "integer"
+          },
+          "firmware_update_status": {
+            "type": "integer"
+          },
+          "job_state": {
+            "type": "string"
+          },
+          "provision_status": {
+            "type": "integer"
+          },
+          "reserve_status": {
+            "type": "integer"
+          },
+          "setup_status": {
+            "type": "integer"
+          },
+          "test_status": {
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
       "SecretIn": {
         "additionalProperties": false,
         "properties": {
@@ -2199,6 +2229,10 @@
             },
             "description": "Successful response"
           },
+          "204": {
+            "content": {},
+            "description": "No result found"
+          },
           "404": {
             "content": {
               "application/json": {
@@ -2482,6 +2516,57 @@
           "V1"
         ],
         "x-permission-roles": [
+          "agent"
+        ]
+      }
+    },
+    "/v1/result/{job_id}/status": {
+      "get": {
+        "description": "This is a lightweight alternative to GET /result/<job_id> that omits\nlog data (output and serial).  Use this when only the job state or\nphase statuses are needed.\n\n:param job_id: UUID as a string for the job\n:raises HTTPError: If the job_id is not a valid UUID",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultStatus"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "204": {
+            "content": {},
+            "description": "No result found"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          }
+        },
+        "summary": "Return job state and phase exit codes for a specified job_id.",
+        "tags": [
+          "V1"
+        ],
+        "x-permission-roles": [
+          "admin",
+          "manager",
+          "contributor",
           "agent"
         ]
       }

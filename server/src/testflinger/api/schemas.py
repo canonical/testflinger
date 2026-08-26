@@ -437,28 +437,34 @@ class JobSearchResponse(Schema):
     jobs = fields.List(fields.Nested(Job), required=True)
 
 
-class ResultGet(Schema):
-    """Result Get schema."""
+class ResultStatus(Schema):
+    """Result Status schema - job state and phase exit codes only, no logs."""
 
     setup_status = fields.Integer(required=False)
+    provision_status = fields.Integer(required=False)
+    firmware_update_status = fields.Integer(required=False)
+    test_status = fields.Integer(required=False)
+    allocate_status = fields.Integer(required=False)
+    reserve_status = fields.Integer(required=False)
+    cleanup_status = fields.Integer(required=False)
+    job_state = fields.String(required=False)
+
+
+class ResultGet(ResultStatus):
+    """Result Get schema."""
+
     setup_output = fields.String(required=False)
     setup_serial = fields.String(required=False)
-    provision_status = fields.Integer(required=False)
     provision_output = fields.String(required=False)
     provision_serial = fields.String(required=False)
-    firmware_update_status = fields.Integer(required=False)
     firmware_update_output = fields.String(required=False)
     firmware_update_serial = fields.String(required=False)
-    test_status = fields.Integer(required=False)
     test_output = fields.String(required=False)
     test_serial = fields.String(required=False)
-    allocate_status = fields.Integer(required=False)
     allocate_output = fields.String(required=False)
     allocate_serial = fields.String(required=False)
-    reserve_status = fields.Integer(required=False)
     reserve_output = fields.String(required=False)
     reserve_serial = fields.String(required=False)
-    cleanup_status = fields.Integer(required=False)
     cleanup_output = fields.String(required=False)
     cleanup_serial = fields.String(required=False)
 
@@ -556,6 +562,12 @@ job_empty = {
                 "schema": {"type": "object", "properties": {}}
             }
         },
+    }
+}
+
+result_empty = {
+    204: {
+        "description": "No result found",
     }
 }
 
