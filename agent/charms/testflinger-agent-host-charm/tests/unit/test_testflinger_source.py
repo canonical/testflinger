@@ -2,12 +2,12 @@
 # See LICENSE file for licensing details.
 """Unit tests for testflinger_source module."""
 
+import fcntl
 import os
 from datetime import datetime, timezone
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
-import psutil
 import pytest
 
 import testflinger_source
@@ -130,6 +130,32 @@ def test_update_virtualenv_migrates_legacy_dir(tmp_path, monkeypatch):
     assert len(legacy_dirs) == 1
 
 
+def test_update_virtualenv_bumps_deactivated_venv_mtime(tmp_path, monkeypatch):
+    """Test that swapping away from a venv refreshes its mtime.
+
+    This lets cleanup_old_virtualenvs()'s grace period protect the venv
+    for a while after deactivation, even if it was created long ago —
+    covering processes (e.g. the main agent) that have not yet noticed
+    the swap and restarted against the new symlink target.
+    """
+    old_venv = tmp_path / "testflinger-venv-20260824_090000"
+    old_venv.mkdir()
+    old_timestamp = datetime.now(tz=timezone.utc).timestamp() - 10_000
+    os.utime(old_venv, times=(old_timestamp, old_timestamp))
+
+    new_venv = tmp_path / "testflinger-venv-20260824_103045"
+    new_venv.mkdir()
+    live_venv = tmp_path / "testflinger-venv"
+    live_venv.symlink_to(old_venv)
+
+    monkeypatch.setattr("testflinger_source.VIRTUAL_ENV_PATH", str(live_venv))
+    testflinger_source.update_virtualenv(new_venv)
+
+    assert live_venv.resolve() == new_venv.resolve()
+    now = datetime.now(tz=timezone.utc).timestamp()
+    assert now - old_venv.stat().st_mtime < 5
+
+
 @patch("pathlib.Path.replace", side_effect=OSError("replace failed"))
 def test_update_virtualenv_raises_on_oserror(
     mock_replace, tmp_path, monkeypatch
@@ -144,32 +170,36 @@ def test_update_virtualenv_raises_on_oserror(
         testflinger_source.update_virtualenv(new_venv)
 
 
-@patch("testflinger_source.psutil.process_iter")
+def _age(path: Path, seconds_old: float) -> None:
+    """Set a path's mtime to be `seconds_old` seconds in the past."""
+    timestamp = datetime.now(tz=timezone.utc).timestamp() - seconds_old
+    os.utime(str(path), times=(timestamp, timestamp), follow_symlinks=False)
+
+
+def _lock_venv(venv: Path) -> int:
+    """Open and hold a shared flock on a venv's lock file.
+
+    :return: The open fd holding the lock. Caller is responsible for
+        closing it (which releases the lock) once the test is done.
+    """
+    lock_path = venv / testflinger_source.VENV_LOCK_FILENAME
+    fd = os.open(lock_path, os.O_RDWR | os.O_CREAT, 0o600)
+    fcntl.flock(fd, fcntl.LOCK_SH)
+    return fd
+
+
 @patch("testflinger_source.shutil.rmtree")
 def test_cleanup_removes_unused_virtualenvs(
-    mock_rmtree, mock_process_iter, tmp_path, monkeypatch
+    mock_rmtree, tmp_path, monkeypatch
 ):
-    """Test that old venvs are removed when all agents postdate the symlink."""
+    """Test that an old, unlocked venv (past the grace period) is removed."""
     old_venv = tmp_path / "testflinger-venv-20260824_100000"
     old_venv.mkdir()
+    _age(old_venv, testflinger_source.MIN_VENV_AGE_SECONDS + 60)
     active_venv = tmp_path / "testflinger-venv-20260824_110000"
     active_venv.mkdir()
     live_venv = tmp_path / "testflinger-venv"
     live_venv.symlink_to(active_venv)
-
-    symlink_mtime = 1000.0
-    os.utime(
-        str(live_venv),
-        times=(symlink_mtime, symlink_mtime),
-        follow_symlinks=False,
-    )
-
-    mock_proc = MagicMock()
-    mock_proc.info = {
-        "cmdline": ["testflinger-agent", "--config", "test.conf"],
-        "create_time": 2000.0,
-    }
-    mock_process_iter.return_value = [mock_proc]
 
     monkeypatch.setattr("testflinger_source.VIRTUAL_ENV_PATH", str(live_venv))
     testflinger_source.cleanup_old_virtualenvs()
@@ -177,18 +207,14 @@ def test_cleanup_removes_unused_virtualenvs(
     mock_rmtree.assert_called_once_with(old_venv, ignore_errors=True)
 
 
-@patch("testflinger_source.psutil.process_iter")
 @patch("testflinger_source.shutil.rmtree")
-def test_cleanup_skips_active_virtualenv(
-    mock_rmtree, mock_process_iter, tmp_path, monkeypatch
-):
+def test_cleanup_skips_active_virtualenv(mock_rmtree, tmp_path, monkeypatch):
     """Test that the active venv (current symlink target) is not removed."""
     active_venv = tmp_path / "testflinger-venv-20260824_110000"
     active_venv.mkdir()
+    _age(active_venv, testflinger_source.MIN_VENV_AGE_SECONDS + 60)
     live_venv = tmp_path / "testflinger-venv"
     live_venv.symlink_to(active_venv)
-
-    mock_process_iter.return_value = []
 
     monkeypatch.setattr("testflinger_source.VIRTUAL_ENV_PATH", str(live_venv))
     testflinger_source.cleanup_old_virtualenvs()
@@ -196,32 +222,39 @@ def test_cleanup_skips_active_virtualenv(
     mock_rmtree.assert_not_called()
 
 
-@patch("testflinger_source.psutil.process_iter")
 @patch("testflinger_source.shutil.rmtree")
-def test_cleanup_skips_in_use_virtualenvs(
-    mock_rmtree, mock_process_iter, tmp_path, monkeypatch
-):
-    """Test that old venvs are kept when an agent predates the symlink."""
+def test_cleanup_skips_in_use_virtualenvs(mock_rmtree, tmp_path, monkeypatch):
+    """Test that an old venv still holding a lock is kept."""
     old_venv = tmp_path / "testflinger-venv-20260824_100000"
     old_venv.mkdir()
+    _age(old_venv, testflinger_source.MIN_VENV_AGE_SECONDS + 60)
     active_venv = tmp_path / "testflinger-venv-20260824_110000"
     active_venv.mkdir()
     live_venv = tmp_path / "testflinger-venv"
     live_venv.symlink_to(active_venv)
 
-    symlink_mtime = 1000.0
-    os.utime(
-        str(live_venv),
-        times=(symlink_mtime, symlink_mtime),
-        follow_symlinks=False,
-    )
+    fd = _lock_venv(old_venv)
+    try:
+        monkeypatch.setattr(
+            "testflinger_source.VIRTUAL_ENV_PATH", str(live_venv)
+        )
+        testflinger_source.cleanup_old_virtualenvs()
+    finally:
+        os.close(fd)
 
-    mock_proc = MagicMock()
-    mock_proc.info = {
-        "cmdline": ["testflinger-agent", "--config", "test.conf"],
-        "create_time": 500.0,
-    }
-    mock_process_iter.return_value = [mock_proc]
+    mock_rmtree.assert_not_called()
+
+
+@patch("testflinger_source.shutil.rmtree")
+def test_cleanup_respects_grace_period(mock_rmtree, tmp_path, monkeypatch):
+    """Test that a recently created, unlocked venv is not removed yet."""
+    recent_venv = tmp_path / "testflinger-venv-20260824_100000"
+    recent_venv.mkdir()
+    active_venv = tmp_path / "testflinger-venv-20260824_110000"
+    active_venv.mkdir()
+    _age(active_venv, testflinger_source.MIN_VENV_AGE_SECONDS + 60)
+    live_venv = tmp_path / "testflinger-venv"
+    live_venv.symlink_to(active_venv)
 
     monkeypatch.setattr("testflinger_source.VIRTUAL_ENV_PATH", str(live_venv))
     testflinger_source.cleanup_old_virtualenvs()
@@ -229,45 +262,8 @@ def test_cleanup_skips_in_use_virtualenvs(
     mock_rmtree.assert_not_called()
 
 
-@patch("testflinger_source.psutil.process_iter")
 @patch("testflinger_source.shutil.rmtree")
-def test_cleanup_ignores_non_agent_processes(
-    mock_rmtree, mock_process_iter, tmp_path, monkeypatch
-):
-    """Test that non-agent processes do not prevent venv cleanup."""
-    old_venv = tmp_path / "testflinger-venv-20260824_100000"
-    old_venv.mkdir()
-    active_venv = tmp_path / "testflinger-venv-20260824_110000"
-    active_venv.mkdir()
-    live_venv = tmp_path / "testflinger-venv"
-    live_venv.symlink_to(active_venv)
-
-    symlink_mtime = 1000.0
-    os.utime(
-        str(live_venv),
-        times=(symlink_mtime, symlink_mtime),
-        follow_symlinks=False,
-    )
-
-    # Non-agent process with old create_time should not block removal
-    mock_proc = MagicMock()
-    mock_proc.info = {
-        "cmdline": ["/usr/bin/python3", "some_other_script.py"],
-        "create_time": 100.0,
-    }
-    mock_process_iter.return_value = [mock_proc]
-
-    monkeypatch.setattr("testflinger_source.VIRTUAL_ENV_PATH", str(live_venv))
-    testflinger_source.cleanup_old_virtualenvs()
-
-    mock_rmtree.assert_called_once_with(old_venv, ignore_errors=True)
-
-
-@patch("testflinger_source.psutil.process_iter")
-@patch("testflinger_source.shutil.rmtree")
-def test_cleanup_no_active_symlink(
-    mock_rmtree, mock_process_iter, tmp_path, monkeypatch
-):
+def test_cleanup_no_active_symlink(mock_rmtree, tmp_path, monkeypatch):
     """Test cleanup does nothing when there is no active symlink."""
     monkeypatch.setattr(
         "testflinger_source.VIRTUAL_ENV_PATH",
@@ -275,85 +271,41 @@ def test_cleanup_no_active_symlink(
     )
     testflinger_source.cleanup_old_virtualenvs()
 
-    mock_process_iter.assert_not_called()
     mock_rmtree.assert_not_called()
 
 
-@patch("testflinger_source.psutil.process_iter")
-@patch("testflinger_source.shutil.rmtree")
-def test_cleanup_handles_process_exceptions(
-    mock_rmtree, mock_process_iter, tmp_path, monkeypatch
-):
-    """Test that psutil exceptions during process collection are ignored."""
-    old_venv = tmp_path / "testflinger-venv-20260824_100000"
-    old_venv.mkdir()
-    active_venv = tmp_path / "testflinger-venv-20260824_110000"
-    active_venv.mkdir()
-    live_venv = tmp_path / "testflinger-venv"
-    live_venv.symlink_to(active_venv)
-
-    symlink_mtime = 1000.0
-    os.utime(
-        str(live_venv),
-        times=(symlink_mtime, symlink_mtime),
-        follow_symlinks=False,
-    )
-
-    # Simulate a process that raises NoSuchProcess when its info is accessed
-    bad_proc = MagicMock()
-    bad_proc.info = MagicMock()
-    bad_proc.info.get = MagicMock(side_effect=psutil.NoSuchProcess(pid=999))
-    mock_process_iter.return_value = [bad_proc]
-
-    monkeypatch.setattr("testflinger_source.VIRTUAL_ENV_PATH", str(live_venv))
-    testflinger_source.cleanup_old_virtualenvs()
-
-    # Exception swallowed, old venv removed (no agents blocking it)
-    mock_rmtree.assert_called_once_with(old_venv, ignore_errors=True)
-
-
-@patch("testflinger_source.psutil.process_iter")
 @patch("testflinger_source.shutil.rmtree")
 def test_cleanup_per_venv_independent_removal(
-    mock_rmtree, mock_process_iter, tmp_path, monkeypatch
+    mock_rmtree, tmp_path, monkeypatch
 ):
     """Test that each old venv is evaluated independently.
 
-    With multiple old venvs, an in-use venv should not prevent cleanup of
-    older venvs that have already been superseded before the oldest running
-    agent was started.
+    Reproduces the reported gap: an agent still running against venv1 and
+    an agent restarted onto venv3 must not prevent removal of venv2, which
+    nobody holds a lock on.
     """
-    # Three old venvs, sorted chronologically by name
-    venv_old = tmp_path / "testflinger-venv-20260821_000000"
-    venv_mid = tmp_path / "testflinger-venv-20260822_000000"
-    venv_prev = tmp_path / "testflinger-venv-20260823_000000"
-    active_venv = tmp_path / "testflinger-venv-20260824_000000"
-    for d in (venv_old, venv_mid, venv_prev, active_venv):
+    venv1 = tmp_path / "testflinger-venv-20260821_000000"
+    venv2 = tmp_path / "testflinger-venv-20260822_000000"
+    venv3 = tmp_path / "testflinger-venv-20260823_000000"
+    for d in (venv1, venv2, venv3):
         d.mkdir()
+        _age(d, testflinger_source.MIN_VENV_AGE_SECONDS + 60)
 
     live_venv = tmp_path / "testflinger-venv"
-    live_venv.symlink_to(active_venv)
+    live_venv.symlink_to(venv3)
 
-    # Set mtimes to control sort order and per-venv cutoffs:
-    #   venv_old.mtime = 100  → cutoff = venv_mid.mtime = 500
-    #   venv_mid.mtime = 500  → cutoff = venv_prev.mtime = 1000
-    #   venv_prev.mtime = 1000 → cutoff = symlink.mtime = 2000
-    os.utime(str(venv_old), times=(100.0, 100.0))
-    os.utime(str(venv_mid), times=(500.0, 500.0))
-    os.utime(str(venv_prev), times=(1000.0, 1000.0))
-    os.utime(str(live_venv), times=(2000.0, 2000.0), follow_symlinks=False)
+    # agent1 still running against venv1; agent2 restarted onto venv3
+    # (the active symlink target, so it's excluded from consideration
+    # regardless of locking). venv2 has no holder.
+    fd1 = _lock_venv(venv1)
+    fd3 = _lock_venv(venv3)
+    try:
+        monkeypatch.setattr(
+            "testflinger_source.VIRTUAL_ENV_PATH", str(live_venv)
+        )
+        testflinger_source.cleanup_old_virtualenvs()
+    finally:
+        os.close(fd1)
+        os.close(fd3)
 
-    # An agent started at 700 — after venv_old was superseded (500) but before
-    # venv_mid was superseded (1000), so venv_mid and venv_prev must be kept.
-    mock_proc = MagicMock()
-    mock_proc.info = {
-        "cmdline": ["testflinger-agent", "--config", "test.conf"],
-        "create_time": 700.0,
-    }
-    mock_process_iter.return_value = [mock_proc]
-
-    monkeypatch.setattr("testflinger_source.VIRTUAL_ENV_PATH", str(live_venv))
-    testflinger_source.cleanup_old_virtualenvs()
-
-    # Only venv_old should be removed; venv_mid and venv_prev still in use
-    mock_rmtree.assert_called_once_with(venv_old, ignore_errors=True)
+    mock_rmtree.assert_called_once_with(venv2, ignore_errors=True)

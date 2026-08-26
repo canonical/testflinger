@@ -2,13 +2,15 @@
 # See LICENSE file for licensing details.
 """Module for managing Testflinger agent source code."""
 
+import fcntl
 import logging
+import os
 import shutil
 import tempfile
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
-import psutil
 from git import Repo
 
 from common import run_with_logged_errors
@@ -21,6 +23,15 @@ from defaults import (
 
 # Only keep these directories from the repo in the sparse checkout
 TESTFLINGER_PACKAGES = ("agent", "common", "device-connectors")
+
+# Name of the advisory lock file held (via flock) inside a virtualenv
+# directory by any process that depends on that specific venv.
+VENV_LOCK_FILENAME = ".venv.lock"
+
+# Minimum age a venv must have before it is eligible for
+# removal. This is measured from the venv's mtime, which reflects either
+# its creation time or the moment it was deactivated.
+MIN_VENV_AGE_SECONDS = 60
 
 logger = logging.getLogger(__name__)
 
@@ -111,6 +122,10 @@ def update_virtualenv(new_venv: Path):
     """
     venv_path = Path(VIRTUAL_ENV_PATH)
 
+    # Capture the currently active venv (if any) before swapping, so it
+    # can be marked as just-deactivated once the swap completes below.
+    previously_active = venv_path.resolve() if venv_path.is_symlink() else None
+
     # Migrate a legacy real directory to a timestamped backup
     if venv_path.exists() and not venv_path.is_symlink():
         timestamp = datetime.now(tz=timezone.utc).strftime("%Y%m%d_%H%M%S")
@@ -138,14 +153,56 @@ def update_virtualenv(new_venv: Path):
         # If the replace fails, avoid leaving tmp_link_* behind
         tmp_symlink.unlink(missing_ok=True)
 
+    # Bump the mtime of the venv that was just deactivated so that
+    # cleanup grace period is measured from the moment it stopped being
+    # active, not from its creation time.
+    if previously_active is not None and previously_active != new_venv:
+        try:
+            os.utime(previously_active)
+        except OSError:
+            logger.warning(
+                "Could not update mtime for deactivated virtualenv: %s",
+                previously_active,
+            )
+
+
+def _is_venv_in_use(venv: Path) -> bool:
+    """Check whether any process currently depends on this venv.
+
+    A venv is considered in use if a shared advisory lock (flock) is held
+    on its lock file by another process.
+
+    :param venv: The path to the virtualenv directory to check.
+    :return: True if the venv is still in use, False otherwise.
+    """
+    lock_path = venv / VENV_LOCK_FILENAME
+
+    # Conservatively assume the venv is in use if we can't open its lock file
+    try:
+        file_descriptor = os.open(lock_path, os.O_RDWR | os.O_CREAT, 0o600)
+    except OSError:
+        logger.warning("Could not open lock file for %s", venv)
+        return True
+
+    # Attempt to acquire a non-blocking exclusive lock on the venv's lock file
+    try:
+        fcntl.flock(file_descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError:
+        # If we can't exclusively lock the file, in use by another process
+        return True
+    else:
+        # If we successfully acquired the lock, release it immediately
+        fcntl.flock(file_descriptor, fcntl.LOCK_UN)
+        return False
+    finally:
+        os.close(file_descriptor)
+
 
 def cleanup_old_virtualenvs():
     """Remove old virtualenvs that are no longer in use.
 
-    A venv is considered safe to remove once all agents that could have
-    been using it have restarted. For each old venv, the cutoff is the
-    mtime of the next newer venv (when the next one was created, this one
-    was superseded).
+    A venv is considered safe to remove once no process holds an advisory
+    lock (flock) on it.
     """
     venv_path = Path(VIRTUAL_ENV_PATH)
     if not venv_path.is_symlink():
@@ -153,44 +210,26 @@ def cleanup_old_virtualenvs():
 
     active_symlink = venv_path.resolve()
 
-    # Find all old venvs that match the naming pattern and are not the active
-    # one. Sort by modification time so that a legacy dir
-    # always precedes the first timestamped venv
-    old_venvs = sorted(
-        (
-            venv
-            for venv in venv_path.parent.glob(f"{venv_path.name}-*")
-            if venv.is_dir() and venv.resolve() != active_symlink
-        ),
-        key=lambda mtime: mtime.stat().st_mtime,
+    # Find all old venvs that match the naming pattern and are not the
+    # active one.
+    old_venvs = (
+        venv
+        for venv in venv_path.parent.glob(f"{venv_path.name}-*")
+        if venv.is_dir() and venv.resolve() != active_symlink
     )
-    if not old_venvs:
-        return
 
-    # Determine the oldest running agent process and its create_time so we can
-    # later identify which venv may still be in use
-    oldest_agent = float("inf")
-    for proc in psutil.process_iter(["cmdline", "create_time"]):
-        try:
-            cmdline = proc.info.get("cmdline") or []
-            if any("testflinger-agent" in arg for arg in cmdline):
-                oldest_agent = min(oldest_agent, proc.info["create_time"])
-        except (
-            psutil.NoSuchProcess,
-            psutil.AccessDenied,
-            psutil.ZombieProcess,
-        ):
+    now = time.time()
+    for old_venv in old_venvs:
+        # Skip venvs that were only just created, to avoid a race with a
+        # process that has been spawned against this venv but has not yet
+        # had a chance to acquire its lock.
+        if now - old_venv.stat().st_mtime < MIN_VENV_AGE_SECONDS:
+            logger.debug("Skipping recently created virtualenv: %s", old_venv)
             continue
 
-    # The cutoff for each old venv is the modification time of the next newer
-    # venv. For the most recently superseded venv, the symlink mtime is used
-    # instead.
-    cutoffs = [v.stat().st_mtime for v in old_venvs[1:]] + [
-        venv_path.lstat().st_mtime
-    ]
-    for old_venv, cutoff in zip(old_venvs, cutoffs, strict=True):
-        if oldest_agent < cutoff:
+        if _is_venv_in_use(old_venv):
             logger.debug("Skipping in-use virtualenv: %s", old_venv)
             continue
+
         logger.info("Removing old virtualenv: %s", old_venv)
         shutil.rmtree(old_venv, ignore_errors=True)

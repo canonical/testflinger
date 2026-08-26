@@ -13,7 +13,6 @@ dependencies = [
     "charmlibs-apt==1.0.0.post1",
     "requests>=2.33.1",
     "pydantic>=2.12,<3",
-    "psutil>=7.2.2",
 ]
 
 [dependency-groups]
