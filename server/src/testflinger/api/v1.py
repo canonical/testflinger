@@ -115,9 +115,9 @@ def job_post(json_data: dict) -> dict:
         # Make sure that there are at least some agents in the selected queue
         # which can run this job.
         agents_can_run = [
-            agent
-            for agent in database.get_agents_on_queue(job_queue)
-            if agent["name"] not in exclude_agents
+            name
+            for name in database.get_agent_names_on_queue(job_queue)
+            if name not in exclude_agents
         ]
         if not agents_can_run:
             abort(
@@ -201,9 +201,9 @@ def job_builder(data: dict) -> dict:
         },
     }
 
-    # Always store the client_id of the submitting user at the top level of
-    # the job document so it can be displayed in the web views.
-    job["client_id"] = g.client_id
+    # Always store the submitted_by field at the top level of the job
+    # document so it can be displayed in the web views and API.
+    job["submitted_by"] = g.client_id
 
     # If the job_id is provided, keep it as long as the uuid is good.
     # This is for job resubmission
@@ -305,7 +305,7 @@ def retrieve_secrets(data: dict) -> dict | None:
 @v1.get("/job/<job_id>")
 @authenticate
 @require_role(ServerRoles.ADMIN, ServerRoles.MANAGER, ServerRoles.CONTRIBUTOR)
-@v1.output(schemas.Job)
+@v1.output(schemas.JobOut)
 def job_get_id(job_id):
     """Request the json job definition for a specified job, even if it has
        already run.
@@ -318,12 +318,14 @@ def job_get_id(job_id):
     if not check_valid_uuid(job_id):
         abort(400, message="Invalid job_id specified")
     response = database.mongo.db.jobs.find_one(
-        {"job_id": job_id}, projection={"job_data": True, "_id": False}
+        {"job_id": job_id},
+        projection={"job_data": True, "submitted_by": True, "_id": False},
     )
     if not response:
         return {}, 204
     job_data = response.get("job_data")
     job_data["job_id"] = job_id
+    job_data["submitted_by"] = response.get("submitted_by")
     return job_data
 
 
@@ -681,7 +683,7 @@ def action_post(job_id, json_data):
 
 
 def _cancel_job(job_id):
-    modifications = database.cancel_job(job_id)
+    modifications = database.cancel_job(job_id, client_id=g.client_id)
     if not modifications:
         return (
             "The job is already completed or cancelled",
@@ -1041,7 +1043,7 @@ def get_agents_on_queue(queue_name):
             message=f"Queue '{queue_name}' does not exist.",
         )
 
-    agents = database.get_agents_on_queue(queue_name)
+    agents = database.get_agents(queue=queue_name)
     if not agents:
         return [], HTTPStatus.NO_CONTENT
     return agents

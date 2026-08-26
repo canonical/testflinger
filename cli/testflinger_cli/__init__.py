@@ -99,6 +99,7 @@ FIELDS_CHOICES = (
     "provision_type",
     "comment",
     "job_id",
+    "submitted_by",
     "queues",
 )
 
@@ -513,6 +514,13 @@ class TestflingerCli:
             default=None,
             help="Filter agents by comment (regex)",
         )
+        parser.add_argument(
+            "--filter-submitted-by",
+            dest="filter_submitted_by",
+            type=helpers.regex_arg,
+            default=None,
+            help="Filter agents by the submitter of their current job (regex)",
+        )
 
     def _add_queue_status_args(self, subparsers):
         """Command line arguments for queue status."""
@@ -749,6 +757,14 @@ class TestflingerCli:
                 return lambda a: regex.search(str(a.get(field, "")))
             return lambda a: True
 
+        def nested_job_re_filter(field: str, regex: object) -> callable:
+            """Filter on a field nested inside agent['job']."""
+            if regex:
+                return lambda a: regex.search(
+                    str((a.get("job") or {}).get(field, ""))
+                )
+            return lambda a: True
+
         # Filter agents by allowed states
         return [
             a
@@ -763,6 +779,9 @@ class TestflingerCli:
                         "provision_type", self.args.filter_provision_type
                     )(a),
                     re_filter("comment", self.args.filter_comment)(a),
+                    nested_job_re_filter(
+                        "submitted_by", self.args.filter_submitted_by
+                    )(a),
                 )
             )
         ]
@@ -827,6 +846,16 @@ class TestflingerCli:
         # Map 'status' to 'state' in agent dicts for backward compatibility
         field_map = {"status": "state"}
 
+        def get_field(agent: dict, field: str) -> str:
+            """Resolve a field value from an agent dict, including nested."""
+            if field in ("job_id", "submitted_by"):
+                return (agent.get("job") or {}).get(field, "-")
+            key = field_map.get(field, field)
+            val = agent.get(key, "-")
+            if isinstance(val, list):
+                val = ", ".join(str(v) for v in val)
+            return str(val)
+
         # Header names and valid fields
         header_map = {
             "name": "Name",
@@ -835,22 +864,19 @@ class TestflingerCli:
             "provision_type": "Provision Type",
             "comment": "Comment",
             "job_id": "Job ID",
+            "submitted_by": "Submitted By",
             "queues": "Queues",
         }
         headers = [header_map[f] for f in self.args.fields]
 
         # Calculate column widths
-        col_widths = []
-        for field, header in zip(self.args.fields, headers, strict=False):
-            key = field_map.get(field, field)
-            width = max(
+        col_widths = [
+            max(
                 len(header),
-                max(
-                    (len(str(agent.get(key, "-"))) for agent in agents),
-                    default=0,
-                ),
+                max((len(get_field(a, f)) for a in agents), default=0),
             )
-            col_widths.append(width)
+            for f, header in zip(self.args.fields, headers, strict=False)
+        ]
 
         # Print header
         print(
@@ -861,14 +887,10 @@ class TestflingerCli:
         )
         # Print rows
         for agent in agents:
-            row = []
-            for f, w in zip(self.args.fields, col_widths, strict=True):
-                key = field_map.get(f, f)
-                val = agent.get(key, "-")
-                # Convert list values to comma-separated string
-                if isinstance(val, list):
-                    val = ", ".join(str(v) for v in val)
-                row.append(f"{val:<{w}}")
+            row = [
+                f"{get_field(agent, f):<{w}}"
+                for f, w in zip(self.args.fields, col_widths, strict=True)
+            ]
             print("  ".join(row))
 
     def _print_agent_names(self, agents: list[dict]) -> None:

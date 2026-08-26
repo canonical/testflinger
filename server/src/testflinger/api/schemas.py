@@ -60,17 +60,31 @@ class AgentIn(Schema):
     comment = fields.String(required=False)
 
 
+class AgentJob(Schema):
+    """Lightweight summary of the job currently assigned to an agent."""
+
+    job_id = fields.String(required=True)
+    submitted_by = fields.String(load_default=None)
+    created_at = fields.DateTime(required=False)
+    started_at = fields.DateTime(required=False)
+    job_queue = fields.String(required=False)
+    job_state = fields.String(required=False)
+    job_priority = fields.Integer(required=False)
+    tags = fields.List(fields.String(), required=False)
+
+
 class AgentOut(Schema):
     """Agent data output schema."""
 
     name = fields.String(required=True)
+    job_id = fields.String(required=False)
     state = fields.String(required=False)
     queues = fields.List(fields.String(), required=False)
     location = fields.String(required=False)
     provision_type = fields.String(required=False)
-    job_id = fields.String(required=False)
     comment = fields.String(required=False)
     restricted_to = fields.Dict(required=False)
+    job = fields.Nested(AgentJob, required=False, allow_none=True)
 
 
 class ActionIn(Schema):
@@ -412,6 +426,12 @@ class JobId(Schema):
     job_id = fields.String(required=True)
 
 
+class JobOut(Job):
+    """Job output schema — extends Job with server-assigned fields."""
+
+    submitted_by = fields.String(load_default=None)
+
+
 class JobSearchRequest(Schema):
     """Job search request schema."""
 
@@ -470,6 +490,7 @@ class ResultGet(ResultStatus):
 
     device_info = fields.Dict(required=False)
     job_state = fields.String(required=False)
+    cancelled_by = fields.String(load_default=None)
 
 
 class ResultPost(Schema):
