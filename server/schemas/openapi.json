@@ -52,19 +52,62 @@
         },
         "type": "object"
       },
+      "AgentJob": {
+        "additionalProperties": false,
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "job_id": {
+            "type": "string"
+          },
+          "job_priority": {
+            "type": "integer"
+          },
+          "job_queue": {
+            "type": "string"
+          },
+          "job_state": {
+            "type": "string"
+          },
+          "started_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "submitted_by": {
+            "default": null,
+            "nullable": true,
+            "type": "string"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "job_id"
+        ],
+        "type": "object"
+      },
       "AgentOut": {
         "additionalProperties": false,
         "properties": {
           "comment": {
             "type": "string"
           },
-          "job_id": {
-            "type": "string"
-          },
-          "job_submitted_by": {
-            "default": null,
-            "nullable": true,
-            "type": "string"
+          "job": {
+            "anyOf": [
+              {
+                "nullable": true,
+                "type": "object"
+              },
+              {
+                "$ref": "#/components/schemas/AgentJob"
+              }
+            ]
           },
           "location": {
             "type": "string"

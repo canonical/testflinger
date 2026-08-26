@@ -327,13 +327,13 @@ def get_queue_wait_times(queues: list[str] | None = None) -> list[dict]:
     return list(wait_times)
 
 
-def get_agents_on_queue(queue: str) -> list[dict]:
-    """Return a list of agents listening on the given queue."""
+def get_agent_names_on_queue(queue: str) -> list[str]:
+    """Return a list of agent names listening on the given queue."""
     agents = mongo.db.agents.find(
         {"queues": {"$in": [queue]}},
-        {"_id": 0},
+        {"_id": 0, "name": 1},
     )
-    return list(agents)
+    return [agent["name"] for agent in agents]
 
 
 def get_jobs_on_queue(queue: str) -> list[dict]:
@@ -447,10 +447,12 @@ def check_queue_restricted(queue: str) -> bool:
 def _active_job_pipeline_stages() -> list[dict]:
     """Return aggregation stages that join agents with their active job.
 
-    The ``$lookup`` uses only basic localField/foreignField form for broad
+    The ``$lookup`` uses the basic localField/foreignField form for broad
     driver and mongomock compatibility.  A subsequent ``$addFields`` stage
-    projects ``submitted_by`` from the matched job doc as ``job_submitted_by``
-    (or ``None`` when there is no active job).
+    builds a nested ``job`` object containing lightweight job data
+    (``job_id``, ``submitted_by``, ``created_at``, ``started_at``,
+    ``job_queue``, ``job_state``, ``job_priority``, ``tags``) from the
+    matched job document, or ``None`` when the agent has no active job.
     """
     return [
         {
@@ -463,14 +465,25 @@ def _active_job_pipeline_stages() -> list[dict]:
         },
         {
             "$addFields": {
-                "job_submitted_by": {
+                "job": {
                     "$let": {
-                        "vars": {"job": {"$arrayElemAt": ["$_job_docs", 0]}},
-                        "in": "$$job.submitted_by",
-                    }
-                }
-            }
-        },
+                        "vars": {"j": {"$arrayElemAt": ["$_job_docs", 0]}},
+                        "in": {
+                            "$cond": {
+                                "if": {"$eq": ["$$j", None]},
+                                "then": None,
+                                "else": {
+                                    "job_id": "$$j.job_id",
+                                    "submitted_by": "$$j.submitted_by",
+                                    "created_at": "$$j.created_at",
+                                    "started_at": "$$j.started_at",
+                                    "job_queue": "$$j.job_data.job_queue",
+                                    "job_state": "$$j.result_data.job_state",
+                                    "job_priority": "$$j.job_priority",
+                                    "tags": "$$j.job_data.tags",
+                                },
+                            }
+                        },
                     }
                 }
             }
@@ -483,8 +496,9 @@ def get_agent_info(agent: str) -> dict | None:
     """Return the information for a specified agent, with active job attached.
 
     Uses a single aggregation pipeline to join the agent with its current
-    job document (if any), populating ``job_submitted_by`` from the job's
-    ``submitted_by`` field.
+    job document (if any), populating a nested ``job`` object with
+    lightweight job data (``job_id``, ``submitted_by``, ``job_queue``,
+    ``job_state``, ``job_priority``, ``tags``).
     """
     pipeline = [
         {"$match": {"name": agent}},
@@ -554,12 +568,14 @@ def get_agents(queue: str | None = None) -> list[dict]:
     """Return a list of agents with active job info attached.
 
     Uses a single aggregation pipeline to join each agent with its
-    current job document (if any), returning ``job_submitted_by`` as the
-    ``submitted_by`` field from the job document.
+    current job document (if any), populating a nested ``job`` object
+    with lightweight job data (``job_id``, ``submitted_by``,
+    ``job_queue``, ``job_state``, ``job_priority``, ``tags``).
 
     :param queue: If provided, filter agents to those listening on this
         queue.
-    :returns: List of agent dicts, each with a ``job_submitted_by`` field.
+    :returns: List of agent dicts, each with a ``job`` field (or ``None``
+        when the agent has no active job).
     """
     match_stage = (
         {"$match": {"queues": {"$in": [queue]}}} if queue else {"$match": {}}

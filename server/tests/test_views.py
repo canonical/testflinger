@@ -456,7 +456,7 @@ def test_home_accessible_without_auth_when_oidc_enabled(oidc_app):
 
 
 def test_get_agents_active_job():
-    """Test that get_agents enriches agents with job_submitted_by."""
+    """Test that get_agents enriches agents with a nested job object."""
     mongo = mongomock.MongoClient()
     mongo.db.agents.insert_many(
         [
@@ -476,9 +476,9 @@ def test_get_agents_active_job():
         enriched = get_agents()
 
     by_name = {a["name"]: a for a in enriched}
-    assert by_name["agent1"]["job_submitted_by"] == "client-A"
-    assert by_name["agent2"]["job_submitted_by"] == "client-B"
-    assert by_name["agent3"].get("job_submitted_by") is None
+    assert by_name["agent1"]["job"]["submitted_by"] == "client-A"
+    assert by_name["agent2"]["job"]["submitted_by"] == "client-B"
+    assert by_name["agent3"].get("job") is None
 
 
 def test_get_agents_no_jobs():
@@ -490,7 +490,7 @@ def test_get_agents_no_jobs():
         enriched = get_agents()
 
     for agent in enriched:
-        assert agent.get("job_submitted_by") is None
+        assert agent.get("job") is None
 
 
 def test_get_agents_job_not_found():
@@ -501,7 +501,7 @@ def test_get_agents_job_not_found():
     with patch("testflinger.database.mongo", mongo):
         enriched = get_agents()
 
-    assert enriched[0].get("job_submitted_by") is None
+    assert enriched[0].get("job") is None
 
 
 def test_agent_detail_provision_log_with_client_id(testapp):

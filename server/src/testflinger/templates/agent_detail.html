@@ -29,11 +29,11 @@
         <th scope="row">Last updated</th>
         <td>{{ agent.updated_at.strftime("%Y-%m-%d %H:%M:%S") }}</td>
       </tr>
-      {% if agent.job_id %}
+      {% if agent.job and agent.job.job_id %}
         <tr>
           <th scope="row">Job</th>
           <td>
-            <a href="{{ url_for('testflinger.job_detail', job_id=agent.job_id) }}">{{ agent.job_id }}</a>
+            <a href="{{ url_for('testflinger.job_detail', job_id=agent.job.job_id) }}">{{ agent.job.job_id }}</a>
           </td>
         </tr>
       {% endif %}

@@ -115,9 +115,9 @@ def job_post(json_data: dict) -> dict:
         # Make sure that there are at least some agents in the selected queue
         # which can run this job.
         agents_can_run = [
-            agent
-            for agent in database.get_agents_on_queue(job_queue)
-            if agent["name"] not in exclude_agents
+            name
+            for name in database.get_agent_names_on_queue(job_queue)
+            if name not in exclude_agents
         ]
         if not agents_can_run:
             abort(
