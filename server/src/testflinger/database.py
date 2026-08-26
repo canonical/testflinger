@@ -449,7 +449,7 @@ def _active_job_pipeline_stages() -> list[dict]:
 
     The ``$lookup`` uses only basic localField/foreignField form for broad
     driver and mongomock compatibility.  A subsequent ``$addFields`` stage
-    projects ``client_id`` from the matched job doc as ``job_submitted_by``
+    projects ``submitted_by`` from the matched job doc as ``job_submitted_by``
     (or ``None`` when there is no active job).
     """
     return [

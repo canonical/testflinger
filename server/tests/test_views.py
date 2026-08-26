@@ -436,7 +436,11 @@ def test_authorized_view_access(oidc_app, endpoint):
     """Test views are available when OIDC is enabled and user authenticated."""
     app, _ = oidc_app
     mongo = mongomock.MongoClient()
-    with app.test_client() as client, patch("testflinger.views.mongo", mongo):
+    with (
+        app.test_client() as client,
+        patch("testflinger.views.mongo", mongo),
+        patch("testflinger.database.mongo", mongo),
+    ):
         with client.session_transaction() as sess:
             sess["user"] = "testuser"
         response = client.get(endpoint)
