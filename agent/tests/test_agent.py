@@ -25,6 +25,7 @@ from unittest.mock import patch
 
 import prometheus_client
 import pytest
+import requests
 import requests_mock as rmock
 from testflinger_common.enums import AgentState, LogType, TestEvent, TestPhase
 
@@ -1072,3 +1073,139 @@ class TestClient:
 
         # Verify None is returned when check_jobs returns None
         assert result is None
+
+
+class TestStartupState:
+    """Tests for _set_startup_state behaviour on agent initialisation.
+
+    The rule is:
+    - OFFLINE or MAINTENANCE → preserve that state (do not come up online)
+    - Everything else (RESTART, WAITING, UNKNOWN, any stale job-phase state,
+      no state key, empty response, HTTP error / unknown agent) → WAITING
+    """
+
+    AGENT_ID = "test01"
+    SERVER = "127.0.0.1:8000"
+    AGENT_DATA_URL = f"http://{SERVER}/v1/agents/data/{AGENT_ID}"
+
+    @pytest.fixture(autouse=True)
+    def clear_registry(self):
+        collectors = tuple(
+            prometheus_client.REGISTRY._collector_to_names.keys()
+        )
+        for collector in collectors:
+            prometheus_client.REGISTRY.unregister(collector)
+        yield
+
+    @pytest.fixture
+    def base_config(self, tmp_path):
+        return validate(
+            {
+                "agent_id": self.AGENT_ID,
+                "polling_interval": 2,
+                "server_address": self.SERVER,
+                "job_queues": ["test"],
+                "execution_basedir": str(tmp_path / "execution"),
+                "logging_basedir": str(tmp_path / "logs"),
+                "results_basedir": str(tmp_path / "results"),
+            }
+        )
+
+    def _startup_state_posted(self, requests_mock) -> str:
+        """Return the state from the final state-bearing POST on startup."""
+        state_posts = [
+            call.json()["state"]
+            for call in requests_mock.request_history
+            if call.method == "POST"
+            and "/v1/agents/data/" in call.path
+            and "state" in (call.json() or {})
+        ]
+        assert state_posts, (
+            "No state POST found — agent never reported a state"
+        )
+        return state_posts[-1]
+
+    @pytest.fixture(autouse=True)
+    def mock_http(self, requests_mock):
+        """Register catch-alls first so specific URL mocks take priority."""
+        requests_mock.get(rmock.ANY)
+        requests_mock.post(rmock.ANY)
+
+    def _make_agent(self, requests_mock, base_config):
+        """Instantiate the agent; mock infrastructure is already registered."""
+        return _TestflingerAgent(_TestflingerClient(base_config))
+
+    # ------------------------------------------------------------------
+    # States that must be PRESERVED (agent stays non-online)
+    # ------------------------------------------------------------------
+
+    @pytest.mark.parametrize(
+        "preserved_state",
+        [AgentState.OFFLINE, AgentState.MAINTENANCE],
+    )
+    def test_startup_preserves_offline_and_maintenance(
+        self, requests_mock, base_config, preserved_state
+    ):
+        """OFFLINE and MAINTENANCE states set by the server must not be
+        overridden with WAITING when the agent restarts.
+        """
+        requests_mock.get(
+            self.AGENT_DATA_URL,
+            json={"state": preserved_state, "comment": "set by admin"},
+        )
+        self._make_agent(requests_mock, base_config)
+        assert self._startup_state_posted(requests_mock) == preserved_state
+
+    # ------------------------------------------------------------------
+    # States that must result in WAITING (agent comes up online)
+    # ------------------------------------------------------------------
+
+    @pytest.mark.parametrize(
+        "server_state",
+        [
+            AgentState.RESTART,  # explicit restart request → come back online
+            AgentState.WAITING,  # already waiting (e.g. clean shutdown)
+            AgentState.UNKNOWN,  # local-only sentinel, treat as no useful info
+            # stale job-phase states left by a crash
+            "setup",
+            "provision",
+            "test",
+            "allocate",
+            "reserve",
+            "cleanup",
+        ],
+    )
+    def test_startup_comes_up_waiting_for_non_preserved_states(
+        self, requests_mock, base_config, server_state
+    ):
+        """Any state that is not OFFLINE or MAINTENANCE must result in the
+        agent coming up as WAITING.
+        """
+        requests_mock.get(
+            self.AGENT_DATA_URL,
+            json={"state": server_state, "comment": ""},
+        )
+        self._make_agent(requests_mock, base_config)
+        assert self._startup_state_posted(requests_mock) == AgentState.WAITING
+
+    @pytest.mark.parametrize(
+        "mock_kwargs, description",
+        [
+            ({"json": {}}, "empty body"),
+            ({"json": {"comment": "no state key"}}, "no state key"),
+            ({"status_code": HTTPStatus.NOT_FOUND}, "404 unknown agent"),
+            (
+                {"exc": requests.exceptions.ConnectionError("unreachable")},
+                "server unreachable",
+            ),
+        ],
+    )
+    def test_startup_comes_up_waiting_when_server_gives_no_state(
+        self, requests_mock, base_config, mock_kwargs, description
+    ):
+        """When the server cannot supply a meaningful state (new agent, error,
+        empty response), the agent must come up as WAITING.
+        """
+        requests_mock.get(self.AGENT_DATA_URL, **mock_kwargs)
+        self._make_agent(requests_mock, base_config)
+        assert self._startup_state_posted(requests_mock) == AgentState.WAITING
