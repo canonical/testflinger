@@ -124,14 +124,19 @@ def update_virtualenv(new_venv: Path):
 
     # Attempt to create a temporary symlink and replace the existing symlink.
     # Failures are bubbled up to the caller to handle.
-    with tempfile.NamedTemporaryFile(
-        dir=new_venv.parent, prefix="tmp_link_", delete=True
-    ) as tmp:
-        tmp_symlink = Path(tmp.name)
-        # Close the file as we only need the name for the symlink
-        tmp.close()
+    tmp = tempfile.NamedTemporaryFile(
+        dir=new_venv.parent, prefix="tmp_link_", delete=False
+    )
+    tmp_symlink = Path(tmp.name)
+    tmp.close()
+    # Remove the placeholder file so we can create a symlink at the same path
+    tmp_symlink.unlink(missing_ok=True)
+    try:
         tmp_symlink.symlink_to(new_venv)
         tmp_symlink.replace(venv_path)
+    finally:
+        # If the replace fails, avoid leaving tmp_link_* behind
+        tmp_symlink.unlink(missing_ok=True)
 
 
 def cleanup_old_virtualenvs():

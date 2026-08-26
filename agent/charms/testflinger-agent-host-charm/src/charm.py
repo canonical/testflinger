@@ -110,13 +110,13 @@ class TestflingerAgentHostCharm(ops.charm.CharmBase):
         self.unit.status = ops.MaintenanceStatus("Creating virtualenv")
         new_venv = testflinger_source.create_virtualenv(LOCAL_TESTFLINGER_PATH)
         if new_venv is None:
-            logger.error("Failed to create virtualenv. ")
+            logger.error("Failed to create virtualenv.")
             return False
 
         try:
             testflinger_source.update_virtualenv(new_venv)
         except OSError:
-            logger.error("Failed to atomically update virtualenv. ")
+            logger.exception("Failed to atomically update virtualenv.")
             return False
 
         testflinger_source.cleanup_old_virtualenvs()
