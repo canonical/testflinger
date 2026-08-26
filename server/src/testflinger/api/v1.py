@@ -1008,7 +1008,7 @@ def get_agents_on_queue(queue_name):
             message=f"Queue '{queue_name}' does not exist.",
         )
 
-    agents = database.get_agents_on_queue(queue_name)
+    agents = database.get_agents(queue=queue_name)
     if not agents:
         return [], HTTPStatus.NO_CONTENT
     return agents
