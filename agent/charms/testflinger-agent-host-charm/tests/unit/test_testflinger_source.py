@@ -334,9 +334,11 @@ def test_cleanup_per_venv_independent_removal(
     live_venv = tmp_path / "testflinger-venv"
     live_venv.symlink_to(active_venv)
 
-    # venv_mid.mtime = 500 (venv_old's cutoff)
-    # venv_prev.mtime = 1000 (venv_mid's cutoff)
-    # symlink.mtime = 2000 (venv_prev's cutoff)
+    # Set mtimes to control sort order and per-venv cutoffs:
+    #   venv_old.mtime = 100  → cutoff = venv_mid.mtime = 500
+    #   venv_mid.mtime = 500  → cutoff = venv_prev.mtime = 1000
+    #   venv_prev.mtime = 1000 → cutoff = symlink.mtime = 2000
+    os.utime(str(venv_old), times=(100.0, 100.0))
     os.utime(str(venv_mid), times=(500.0, 500.0))
     os.utime(str(venv_prev), times=(1000.0, 1000.0))
     os.utime(str(live_venv), times=(2000.0, 2000.0), follow_symlinks=False)

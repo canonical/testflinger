@@ -148,12 +148,16 @@ def cleanup_old_virtualenvs():
 
     active_symlink = venv_path.resolve()
 
-    # Find all old venvs that match the naming pattern
-    # and are not the active one
+    # Find all old venvs that match the naming pattern and are not the active
+    # one. Sort by modification time so that a legacy dir
+    # always precedes the first timestamped venv
     old_venvs = sorted(
-        venv
-        for venv in venv_path.parent.glob(f"{venv_path.name}-*")
-        if venv.is_dir() and venv.resolve() != active_symlink
+        (
+            venv
+            for venv in venv_path.parent.glob(f"{venv_path.name}-*")
+            if venv.is_dir() and venv.resolve() != active_symlink
+        ),
+        key=lambda mtime: mtime.stat().st_mtime,
     )
     if not old_venvs:
         return
