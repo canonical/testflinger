@@ -34,7 +34,6 @@ from pygments.lexers import BashLexer, YamlLexer
 
 from testflinger import database
 from testflinger.api.schemas import Job
-from testflinger.database import mongo
 from testflinger.logs import MongoLogHandler
 
 views = APIBlueprint("testflinger", __name__, enable_openapi=False)
@@ -186,7 +185,7 @@ def agent_detail(agent_id):
 
     queue_info = []
     for queue_name in agent_info.pop("queues", []):
-        queue_data = mongo.db.queues.find_one({"name": queue_name})
+        queue_data = database.mongo.db.queues.find_one({"name": queue_name})
         if not queue_data:
             # If it's not an advertised queue, create some dummy data
             queue_data = {"description": ""}
@@ -231,7 +230,7 @@ def agent_detail(agent_id):
 @views.route("/jobs")
 def jobs():
     """Jobs view."""
-    jobs_data = mongo.db.jobs.find({}, sort=[("created_at", -1)])
+    jobs_data = database.mongo.db.jobs.find({}, sort=[("created_at", -1)])
     return render_template("jobs.html", jobs=jobs_data)
 
 
@@ -250,7 +249,7 @@ def job_detail(job_id):
         if not any(
             key.endswith(("_output", "_serial")) for key in result_data.keys()
         ):
-            log_handler = MongoLogHandler(mongo)
+            log_handler = MongoLogHandler(database.mongo)
             log_handler.format_logs_as_results(job_id, result_data)
 
     job_data["agent_name"] = job_data.get("result_data", {}).get("agent_id")
@@ -274,13 +273,13 @@ def queues_data():
     """Generate data for the queues view, this makes testing easier."""
     # First, get all the advertised queues with descriptions
     queue_data = list(
-        mongo.db.queues.find(
+        database.mongo.db.queues.find(
             projection={"_id": 0, "name": 1, "description": 1}
         )
     )
 
     # Get all the queues the agents say they are listening to from agent data
-    agent_data = mongo.db.agents.find({}, {"_id": 0, "queues": 1})
+    agent_data = database.mongo.db.agents.find({}, {"_id": 0, "queues": 1})
     agent_queues_set = {
         queue for agent in agent_data for queue in agent.get("queues", [])
     }
@@ -305,13 +304,13 @@ def queues_data():
 @views.route("/queues/<queue_name>")
 def queue_detail(queue_name):
     """Queue detailed view."""
-    queue_data = mongo.db.queues.find_one({"name": queue_name})
+    queue_data = database.mongo.db.queues.find_one({"name": queue_name})
     if not queue_data:
         # If it's not an advertised queue, create some dummy data
         queue_data = {"name": queue_name, "description": "No description"}
 
     # Find all the jobs active jobs in this queue
-    job_data = mongo.db.jobs.find(
+    job_data = database.mongo.db.jobs.find(
         {
             "job_data.job_queue": queue_name,
             "result_data.job_state": {
