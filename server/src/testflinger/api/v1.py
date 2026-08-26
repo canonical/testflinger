@@ -185,10 +185,12 @@ def has_attachments(data: dict) -> bool:
 
 def job_builder(data: dict) -> dict:
     """Build a job from a dictionary of data."""
+    now = datetime.now(timezone.utc)
     job = {
-        "created_at": datetime.now(timezone.utc),
+        "created_at": now,
         "result_data": {
             "job_state": "waiting",
+            "job_state_changed_at": now.isoformat(),
         },
     }
     # If the job_id is provided, keep it as long as the uuid is good.
@@ -957,7 +959,14 @@ def cancel_job(job_id):
                 "$nin": ["cancelled", "complete", "completed"]
             },
         },
-        {"$set": {"result_data.job_state": "cancelled"}},
+        {
+            "$set": {
+                "result_data.job_state": "cancelled",
+                "result_data.job_state_changed_at": datetime.now(
+                    timezone.utc
+                ).isoformat(),
+            }
+        },
     )
     if response.modified_count == 0:
         return "The job is already completed or cancelled", 400

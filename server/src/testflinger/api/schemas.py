@@ -464,6 +464,7 @@ class ResultGet(Schema):
 
     device_info = fields.Dict(required=False)
     job_state = fields.String(required=False)
+    job_state_changed_at = fields.String(required=False)
 
 
 class ResultPost(Schema):

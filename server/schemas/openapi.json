@@ -515,6 +515,9 @@
           "job_state": {
             "type": "string"
           },
+          "job_state_changed_at": {
+            "type": "string"
+          },
           "provision_output": {
             "type": "string"
           },

@@ -228,9 +228,15 @@ def pop_job(queue_list: list[str], agent_name: str) -> dict | None:
             "job_data.exclude_agents": {"$nin": [agent_name]},
         }
 
+        running_at = datetime.now(timezone.utc)
         response = mongo.db.jobs.find_one_and_update(
             query_filter,
-            {"$set": {"result_data.job_state": "running"}},
+            {
+                "$set": {
+                    "result_data.job_state": "running",
+                    "result_data.job_state_changed_at": running_at.isoformat(),
+                }
+            },
             projection={
                 "job_id": True,
                 "created_at": True,
@@ -636,6 +642,11 @@ def get_job_results(job_id: str):
 
 def add_job_results(job_id: str, json_data: dict):
     """Add results to specified job id with "result_data" prepended."""
+    # If the job_state is being updated, record the time of the change
+    if "job_state" in json_data:
+        json_data["job_state_changed_at"] = datetime.now(
+            timezone.utc
+        ).isoformat()
     # First, we need to prepend "result_data" to each key in the result_data
     for key in list(json_data):
         json_data[f"result_data.{key}"] = json_data.pop(key)
