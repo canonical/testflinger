@@ -109,6 +109,9 @@
               }
             ]
           },
+          "job_id": {
+            "type": "string"
+          },
           "location": {
             "type": "string"
           },

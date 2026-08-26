@@ -515,13 +515,6 @@ class TestflingerCli:
             help="Filter agents by comment (regex)",
         )
         parser.add_argument(
-            "--filter-job-id",
-            dest="filter_job_id",
-            type=helpers.regex_arg,
-            default=None,
-            help="Filter agents by current job ID (regex)",
-        )
-        parser.add_argument(
             "--filter-submitted-by",
             dest="filter_submitted_by",
             type=helpers.regex_arg,
@@ -786,7 +779,6 @@ class TestflingerCli:
                         "provision_type", self.args.filter_provision_type
                     )(a),
                     re_filter("comment", self.args.filter_comment)(a),
-                    nested_job_re_filter("job_id", self.args.filter_job_id)(a),
                     nested_job_re_filter(
                         "submitted_by", self.args.filter_submitted_by
                     )(a),

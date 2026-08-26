@@ -77,6 +77,7 @@ class AgentOut(Schema):
     """Agent data output schema."""
 
     name = fields.String(required=True)
+    job_id = fields.String(required=False)
     state = fields.String(required=False)
     queues = fields.List(fields.String(), required=False)
     location = fields.String(required=False)
