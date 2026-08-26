@@ -291,9 +291,7 @@ def job_get_id(job_id):
     """
     if not check_valid_uuid(job_id):
         abort(400, message="Invalid job_id specified")
-    response = database.mongo.db.jobs.find_one(
-        {"job_id": job_id}, projection={"job_data": True, "_id": False}
-    )
+    response = database.get_job_data(job_id)
     if not response:
         return {}, 204
     job_data = response.get("job_data")
@@ -389,7 +387,7 @@ def search_jobs(query_data):
         },
     ]
 
-    jobs = database.mongo.db.jobs.aggregate(pipeline)
+    jobs = database.search_jobs_by_pipeline(pipeline)
 
     return jsonify(list(jobs))
 
@@ -601,9 +599,7 @@ def queues_get():
         "other_queue": "A queue for something else"
     }
     """
-    all_queues = database.mongo.db.queues.find(
-        {}, projection={"_id": False, "name": True, "description": True}
-    )
+    all_queues = database.get_advertised_queues()
     queue_dict = {}
     # Create a dict of queues and descriptions
     for queue in all_queues:
@@ -623,11 +619,7 @@ def queues_post(json_data: dict):
     """
     timestamp = datetime.now(timezone.utc)
     for queue, description in json_data.items():
-        database.mongo.db.queues.update_one(
-            {"name": queue},
-            {"$set": {"description": description, "updated_at": timestamp}},
-            upsert=True,
-        )
+        database.upsert_queue(queue, description, timestamp)
     return "OK"
 
 
@@ -637,9 +629,7 @@ def queues_post(json_data: dict):
 @v1.doc(responses=schemas.images_out)
 def images_get(queue):
     """Get a dict of known images for a given queue."""
-    queue_data = database.mongo.db.queues.find_one(
-        {"name": queue}, {"_id": False, "images": True}
-    )
+    queue_data = database.get_queue_images(queue)
     if not queue_data:
         return jsonify({})
     # It's ok for this to just return an empty result if there are none found
@@ -666,11 +656,7 @@ def images_post(json_data: dict):
     """
     # We need to delete and recreate the images in case some were removed
     for queue, image_data in json_data.items():
-        database.mongo.db.queues.update_one(
-            {"name": queue},
-            {"$set": {"images": image_data}},
-            upsert=True,
-        )
+        database.set_queue_images(queue, image_data)
     return "OK"
 
 
@@ -745,11 +731,7 @@ def agents_post(agent_name, json_data):
     # extract log from data so we can push it instead of setting it
     log = json_data.pop("log", [])
 
-    database.mongo.db.agents.update_one(
-        {"name": agent_name},
-        {"$set": json_data, "$push": {"log": {"$each": log, "$slice": -100}}},
-        upsert=True,
-    )
+    database.upsert_agent(agent_name, json_data, log)
 
     # Set a session cookie to identify the agent for future requests
     response = jsonify({"status": "OK"})
@@ -771,21 +753,9 @@ def agents_provision_logs_post(agent_name, json_data):
     timestamp = datetime.now(timezone.utc)
     agent_record["updated_at"] = json_data["timestamp"] = timestamp
 
-    update_operation = {
-        "$set": json_data,
-        "$push": {
-            "provision_log": {"$each": [json_data], "$slice": -100},
-        },
-    }
-    database.mongo.db.provision_logs.update_one(
-        {"name": agent_name},
-        update_operation,
-        upsert=True,
-    )
-    agent = database.mongo.db.agents.find_one(
-        {"name": agent_name},
-        {"provision_streak_type": 1, "provision_streak_count": 1},
-    )
+    database.add_provision_log(agent_name, json_data)
+
+    agent = database.get_agent_provision_streak(agent_name)
     if not agent:
         return "Agent not found\n", 404
     previous_provision_streak_type = agent.get("provision_streak_type", "")
@@ -798,7 +768,7 @@ def agents_provision_logs_post(agent_name, json_data):
         agent["provision_streak_count"] = previous_provision_streak_count + 1
     else:
         agent["provision_streak_count"] = 1
-    database.mongo.db.agents.update_one({"name": agent_name}, {"$set": agent})
+    database.update_agent_fields(agent_name, agent)
     return "OK"
 
 
@@ -931,11 +901,7 @@ def job_position_get(job_id):
     except (AttributeError, TypeError):
         return f"Invalid json returned for id: {job_id}\n", 400
     # Get all jobs with job_queue=queue and return only the _id
-    jobs = database.mongo.db.jobs.find(
-        {"job_data.job_queue": queue, "result_data.job_state": "waiting"},
-        {"job_id": 1},
-        sort=[("job_priority", -1)],
-    )
+    jobs = database.get_waiting_jobs_in_queue(queue)
     # Create a dict mapping job_id (as a string) to the position in the queue
     jobs_id_position = {job.get("job_id"): pos for pos, job in enumerate(jobs)}
     if job_id in jobs_id_position:
@@ -950,16 +916,8 @@ def cancel_job(job_id):
         UUID as a string for the job
     """
     # Set the job status to cancelled
-    response = database.mongo.db.jobs.update_one(
-        {
-            "job_id": job_id,
-            "result_data.job_state": {
-                "$nin": ["cancelled", "complete", "completed"]
-            },
-        },
-        {"$set": {"result_data.job_state": "cancelled"}},
-    )
-    if response.modified_count == 0:
+    modified_count = database.cancel_job(job_id)
+    if modified_count == 0:
         return "The job is already completed or cancelled", 400
     return "OK"
 

@@ -28,7 +28,6 @@ from flask import (
 )
 
 from testflinger import database
-from testflinger.database import mongo
 from testflinger.logs import MongoLogHandler
 
 views = APIBlueprint("testflinger", __name__, enable_openapi=False)
@@ -56,7 +55,7 @@ def home():
 @views.route("/agents")
 def agents():
     """Agents view."""
-    agent_info = mongo.db.agents.find()
+    agent_info = database.get_all_agents()
     return render_template("agents.html", agents=agent_info)
 
 
@@ -79,7 +78,7 @@ def agent_detail(agent_id):
         tzinfo=timezone.utc
     ) + timedelta(days=1)
 
-    agent_info = mongo.db.agents.find_one({"name": agent_id})
+    agent_info = database.get_agent_document(agent_id)
     if not agent_info:
         response = make_response(
             render_template("agent_not_found.html", agent_id=agent_id)
@@ -99,7 +98,7 @@ def agent_detail(agent_id):
 
     queue_info = []
     for queue_name in agent_info.pop("queues", []):
-        queue_data = mongo.db.queues.find_one({"name": queue_name})
+        queue_data = database.get_queue_document(queue_name)
         if not queue_data:
             # If it's not an advertised queue, create some dummy data
             queue_data = {"description": ""}
@@ -144,14 +143,14 @@ def agent_detail(agent_id):
 @views.route("/jobs")
 def jobs():
     """Jobs view."""
-    jobs_data = mongo.db.jobs.find(sort=[("created_at", -1)])
+    jobs_data = database.get_all_jobs_sorted()
     return render_template("jobs.html", jobs=jobs_data)
 
 
 @views.route("/jobs/<job_id>")
 def job_detail(job_id):
     """Job detail view."""
-    job_data = mongo.db.jobs.find_one({"job_id": job_id})
+    job_data = database.get_job_document(job_id)
     if not job_data:
         response = make_response(
             render_template("job_not_found.html", job_id=job_id),
@@ -163,7 +162,7 @@ def job_detail(job_id):
         if not any(
             key.endswith(("_output", "_serial")) for key in result_data.keys()
         ):
-            log_handler = MongoLogHandler(mongo)
+            log_handler = MongoLogHandler(database.mongo)
             log_handler.format_logs_as_results(job_id, result_data)
     return render_template("job_detail.html", job=job_data)
 
@@ -183,18 +182,10 @@ def queues():
 def queues_data():
     """Generate data for the queues view, this makes testing easier."""
     # First, get all the advertised queues with descriptions
-    queue_data = list(
-        mongo.db.queues.find(
-            projection={"_id": 0, "name": 1, "description": 1}
-        )
-    )
+    queue_data = database.get_advertised_queues_with_description()
 
     # Get all the queues the agents say they are listening to from agent data
-    agent_data = mongo.db.agents.find({}, {"_id": 0, "queues": 1})
-    agent_queues_set = {
-        queue for agent in agent_data for queue in agent.get("queues", [])
-    }
-    #    queue for agent in agent_data for queue in agent["queues"]
+    agent_queues_set = database.get_all_agent_queue_names()
     advertised_queues_set = {queue["name"] for queue in queue_data}
 
     # Only keep the ones that weren't also in the advertised queues
@@ -215,20 +206,13 @@ def queues_data():
 @views.route("/queues/<queue_name>")
 def queue_detail(queue_name):
     """Queue detailed view."""
-    queue_data = mongo.db.queues.find_one({"name": queue_name})
+    queue_data = database.get_queue_document(queue_name)
     if not queue_data:
         # If it's not an advertised queue, create some dummy data
         queue_data = {"name": queue_name, "description": "No description"}
 
     # Find all the jobs active jobs in this queue
-    job_data = mongo.db.jobs.find(
-        {
-            "job_data.job_queue": queue_name,
-            "result_data.job_state": {
-                "$nin": ["complete", "completed", "cancelled"]
-            },
-        }
-    )
+    job_data = database.get_active_jobs_in_queue(queue_name)
 
     # Get the percentiles of wait times for this queue
     wait_times = database.get_queue_wait_times([queue_name])

@@ -82,10 +82,7 @@ def test_queues():
     )
 
     # Get the data from the function we use to generate the view
-    with (
-        patch("testflinger.views.mongo", mongo),
-        patch("testflinger.database.mongo", mongo),
-    ):
+    with patch("testflinger.database.mongo", mongo):
         data = queues_data()
 
     # Make sure we found all the queues, not just advertised ones
@@ -116,10 +113,7 @@ def test_agent_detail_no_provision_log(testapp):
     mongo.db.agents.insert_one(
         {"name": "agent1", "updated_at": datetime.now(tz=timezone.utc)}
     )
-    with (
-        patch("testflinger.views.mongo", mongo),
-        patch("testflinger.database.mongo", mongo),
-    ):
+    with patch("testflinger.database.mongo", mongo):
         with testapp.test_request_context():
             response = agent_detail("agent1")
 
@@ -133,7 +127,7 @@ def test_agent_not_found(testapp):
     an agent is not found.
     """
     mongo = mongomock.MongoClient()
-    with patch("testflinger.views.mongo", mongo):
+    with patch("testflinger.database.mongo", mongo):
         with testapp.test_request_context():
             response = agent_detail("agent1")
 
@@ -158,10 +152,7 @@ def test_agent_detail_with_restricted_to(testapp):
             "updated_at": datetime.now(tz=timezone.utc),
         }
     )
-    with (
-        patch("testflinger.views.mongo", mongo),
-        patch("testflinger.database.mongo", mongo),
-    ):
+    with patch("testflinger.database.mongo", mongo):
         with testapp.test_request_context():
             response = agent_detail("agent1")
 
@@ -197,10 +188,7 @@ def test_agent_detail_with_non_advertised_queue(testapp):
         ]
     )
 
-    with (
-        patch("testflinger.views.mongo", mongo),
-        patch("testflinger.database.mongo", mongo),
-    ):
+    with patch("testflinger.database.mongo", mongo):
         with testapp.test_request_context():
             response = agent_detail("agent1")
 
@@ -218,7 +206,7 @@ def test_job_not_found(testapp):
     a job is not found.
     """
     mongo = mongomock.MongoClient()
-    with patch("testflinger.views.mongo", mongo):
+    with patch("testflinger.database.mongo", mongo):
         with testapp.test_request_context():
             response = job_detail("job1")
 
@@ -266,9 +254,7 @@ def test_job_results_mongo_logs(testapp):
             },
         ]
     )
-    with (
-        patch("testflinger.views.mongo", mongo),
-    ):
+    with patch("testflinger.database.mongo", mongo):
         with testapp.test_request_context():
             response = job_detail(job_id)
 
@@ -296,7 +282,10 @@ def test_authorized_view_access(oidc_app, endpoint):
     """Test views are available when OIDC is enabled and user authenticated."""
     app, _ = oidc_app
     mongo = mongomock.MongoClient()
-    with app.test_client() as client, patch("testflinger.views.mongo", mongo):
+    with (
+        app.test_client() as client,
+        patch("testflinger.database.mongo", mongo),
+    ):
         with client.session_transaction() as sess:
             sess["user"] = "testuser"
         response = client.get(endpoint)
