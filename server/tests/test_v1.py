@@ -23,8 +23,10 @@ from http import HTTPStatus
 
 import pytest
 import requests
+from testflinger_common.enums import ServerRoles
 
 from testflinger.api import v1
+from tests.utilities import get_access_token_header
 
 
 def test_home(mongo_app):
@@ -150,6 +152,7 @@ def test_add_job_noprovision_provision_data(mongo_app, agent_auth_header):
     app.post(
         "/v1/agents/data/agent1",
         json={"state": "waiting", "queues": ["test"], "location": "here"},
+        headers=agent_auth_header,
     )
     recovered_data = app.get(
         "/v1/job?queue=test", headers=agent_auth_header
@@ -327,8 +330,8 @@ def test_add_job_oem_script_provision_data(mongo_app):
     assert HTTPStatus.OK == output.status_code
 
 
-def test_add_job_zapper_iot_preset_provision_data(mongo_app):
-    """Test that a job with zapper_iot_preset provision_data works."""
+def test_add_job_control_host_iot_preset_provision_data(mongo_app):
+    """Test that a job with control_host_iot_preset provision_data works."""
     # Empty URLs fails
     provision_data = {"urls": [], "preset": ""}
     job_data = {"job_queue": "test", "provision_data": provision_data}
@@ -352,8 +355,8 @@ def test_add_job_zapper_iot_preset_provision_data(mongo_app):
     assert HTTPStatus.OK == output.status_code
 
 
-def test_add_job_zapper_iot_preset_provision_data_single_url(mongo_app):
-    """Test that a job with zapper_iot_preset using `url` (str) works."""
+def test_add_job_control_host_iot_preset_provision_data_single_url(mongo_app):
+    """Test that a job with control_host_iot_preset using `url` (str) works."""
     provision_data = {
         "url": "http://example.com/image.img.xz",
         "preset": "fake",
@@ -364,7 +367,9 @@ def test_add_job_zapper_iot_preset_provision_data_single_url(mongo_app):
     assert HTTPStatus.OK == output.status_code
 
 
-def test_add_job_zapper_iot_preset_provision_data_both_url_and_urls(mongo_app):
+def test_add_job_control_host_iot_preset_provision_data_both_url_and_urls(
+    mongo_app,
+):
     """Test that providing both `url` and `urls` fails."""
     provision_data = {
         "url": "http://example.com/image.img.xz",
@@ -377,8 +382,8 @@ def test_add_job_zapper_iot_preset_provision_data_both_url_and_urls(mongo_app):
     assert HTTPStatus.UNPROCESSABLE_ENTITY == output.status_code
 
 
-def test_add_job_zapper_iot_custom_provision_data(mongo_app):
-    """Test that a job with zapper_iot_custom provision_data works."""
+def test_add_job_control_host_iot_custom_provision_data(mongo_app):
+    """Test that a job with control_host_iot_custom provision_data works."""
     # Empty URLs fails
     provision_data = {
         "urls": [],
@@ -401,8 +406,8 @@ def test_add_job_zapper_iot_custom_provision_data(mongo_app):
     assert HTTPStatus.OK == output.status_code
 
 
-def test_add_job_zapper_iot_custom_provision_data_single_url(mongo_app):
-    """Test that a job with zapper_iot_custom using `url` (str) works."""
+def test_add_job_control_host_iot_custom_provision_data_single_url(mongo_app):
+    """Test that a job with control_host_iot_custom using `url` (str) works."""
     provision_data = {
         "url": "http://example.com/image.img.xz",
         "provision_plan": {},
@@ -413,8 +418,8 @@ def test_add_job_zapper_iot_custom_provision_data_single_url(mongo_app):
     assert HTTPStatus.OK == output.status_code
 
 
-def test_add_job_zapper_iot_preset_provision_data_attachment(mongo_app):
-    """Test that a job with zapper_iot_preset using an attachment works."""
+def test_add_job_control_host_iot_preset_provision_data_attachment(mongo_app):
+    """Test control_host_iot_preset with an attachment."""
     provision_data = {
         "attachments": [{"agent": "provision/image.img"}],
         "preset": "fake",
@@ -425,8 +430,8 @@ def test_add_job_zapper_iot_preset_provision_data_attachment(mongo_app):
     assert HTTPStatus.OK == output.status_code
 
 
-def test_add_job_zapper_iot_custom_provision_data_attachment(mongo_app):
-    """Test that a job with zapper_iot_custom using an attachment works."""
+def test_add_job_control_host_iot_custom_provision_data_attachment(mongo_app):
+    """Test control_host_iot_custom with an attachment."""
     provision_data = {
         "attachments": [{"agent": "provision/image.img"}],
         "provision_plan": {},
@@ -437,7 +442,7 @@ def test_add_job_zapper_iot_custom_provision_data_attachment(mongo_app):
     assert HTTPStatus.OK == output.status_code
 
 
-def test_add_job_zapper_iot_custom_provision_data_neither(mongo_app):
+def test_add_job_control_host_iot_custom_provision_data_neither(mongo_app):
     """Test that providing neither url/urls nor attachments fails."""
     provision_data = {"provision_plan": {}}
     job_data = {"job_queue": "test", "provision_data": provision_data}
@@ -446,7 +451,7 @@ def test_add_job_zapper_iot_custom_provision_data_neither(mongo_app):
     assert HTTPStatus.UNPROCESSABLE_ENTITY == output.status_code
 
 
-def test_add_job_zapper_iot_custom_provision_data_url_and_attachment(
+def test_add_job_control_host_iot_custom_provision_data_url_and_attachment(
     mongo_app,
 ):
     """Test that providing both `url` and an attachment fails."""
@@ -461,7 +466,7 @@ def test_add_job_zapper_iot_custom_provision_data_url_and_attachment(
     assert HTTPStatus.UNPROCESSABLE_ENTITY == output.status_code
 
 
-def test_add_job_zapper_iot_custom_provision_data_urls_and_attachment(
+def test_add_job_control_host_iot_custom_provision_data_urls_and_attachment(
     mongo_app,
 ):
     """Test that providing both `urls` and an attachment fails."""
@@ -476,7 +481,7 @@ def test_add_job_zapper_iot_custom_provision_data_urls_and_attachment(
     assert HTTPStatus.UNPROCESSABLE_ENTITY == output.status_code
 
 
-def test_add_job_zapper_iot_custom_provision_data_multiple_attachments(
+def test_add_job_control_host_iot_custom_provision_data_multiple_attachments(
     mongo_app,
 ):
     """Test that providing more than one attachment fails."""
@@ -493,8 +498,8 @@ def test_add_job_zapper_iot_custom_provision_data_multiple_attachments(
     assert HTTPStatus.UNPROCESSABLE_ENTITY == output.status_code
 
 
-def test_add_job_zapper_kvm_autoinstall_provision_data(mongo_app):
-    """Test that a job with zapper_kvm_autoinstall provision_data works."""
+def test_add_job_control_host_kvm_autoinstall_provision_data(mongo_app):
+    """Test control_host_kvm_autoinstall provision_data."""
     # Invalid URL fails
     provision_data = {
         "url": "invalid",
@@ -517,8 +522,8 @@ def test_add_job_zapper_kvm_autoinstall_provision_data(mongo_app):
     assert HTTPStatus.OK == output.status_code
 
 
-def test_add_job_zapper_kvm_oem_2204_provision_data(mongo_app):
-    """Test that a job with zapper_kvm_oem_2204 provision_data works."""
+def test_add_job_control_host_kvm_oem_2204_provision_data(mongo_app):
+    """Test that a job with control_host_kvm_oem_2204 provision_data works."""
     # Invalid URL fails
     provision_data = {
         "alloem_url": "invalid",
@@ -540,8 +545,8 @@ def test_add_job_zapper_kvm_oem_2204_provision_data(mongo_app):
     assert HTTPStatus.OK == output.status_code
 
 
-def test_add_job_zapper_kvm_generic_provision_data(mongo_app):
-    """Test that a job with zapper_kvm_generic provision_data works."""
+def test_add_job_control_host_kvm_generic_provision_data(mongo_app):
+    """Test that a job with control_host_kvm_generic provision_data works."""
     # Invalid URL fails
     provision_data = {
         "url": "invalid",
@@ -578,6 +583,7 @@ def test_add_job_good(mongo_app, agent_auth_header):
     app.post(
         "/v1/agents/data/agent1",
         json={"state": "waiting", "queues": ["test"], "location": "here"},
+        headers=agent_auth_header,
     )
     # Now get the job and confirm it matches
     output = app.get("/v1/job?queue=test", headers=agent_auth_header)
@@ -603,6 +609,7 @@ def test_add_job_good_with_attachments(mongo_app, tmp_path, agent_auth_header):
     app.post(
         "/v1/agents/data/agent1",
         json={"state": "waiting", "queues": ["test"], "location": "here"},
+        headers=agent_auth_header,
     )
 
     # confirm that the job cannot be processed yet (attachments pending)
@@ -628,7 +635,7 @@ def test_add_job_good_with_attachments(mongo_app, tmp_path, agent_auth_header):
     assert 200 == output.status_code
     # check that the submitted attachments can be retrieved and
     # that they match the original data
-    output = app.get(attachments_endpoint)
+    output = app.get(attachments_endpoint, headers=agent_auth_header)
     with open(filename, "rb") as attachments:
         assert output.data == attachments.read()
 
@@ -662,18 +669,20 @@ def test_submit_attachment_without_job(mongo_app, tmp_path):
     assert 422 == output.status_code
 
 
-def test_retrieve_attachments_nonexistent_job(mongo_app):
+def test_retrieve_attachments_nonexistent_job(mongo_app, agent_auth_header):
     """Test for error when requesting non-existent attachments."""
     app, _ = mongo_app
     nonexistent_id = "77777777-7777-7777-7777-777777777777"
 
     # request the attachments archive for the job
     attachments_endpoint = f"/v1/job/{nonexistent_id}/attachments"
-    output = app.get(attachments_endpoint)
+    output = app.get(attachments_endpoint, headers=agent_auth_header)
     assert 204 == output.status_code
 
 
-def test_retrieve_attachments_nonexistent_attachment(mongo_app):
+def test_retrieve_attachments_nonexistent_attachment(
+    mongo_app, agent_auth_header
+):
     """Test for error when requesting non-existent attachments."""
     job_data = {"job_queue": "test", "tags": ["foo", "bar"]}
     # place a job on the queue
@@ -684,7 +693,7 @@ def test_retrieve_attachments_nonexistent_attachment(mongo_app):
 
     # request the attachments archive for the job
     attachments_endpoint = f"/v1/job/{job_id}/attachments"
-    output = app.get(attachments_endpoint)
+    output = app.get(attachments_endpoint, headers=agent_auth_header)
     assert 204 == output.status_code
 
 
@@ -726,6 +735,37 @@ def test_resubmit_job_state(mongo_app):
     assert "waiting" == updated_data.get("job_state")
 
 
+def test_job_post_stores_submitted_by(mongo_app):
+    """Test that submitting a job stores submitted_by at top level.
+
+    When OIDC is not enabled, submitted_by can be None (anonymous), but
+    the key should still be present on the job document.
+    """
+    app, mongo = mongo_app
+    job_data = {"job_queue": "test"}
+    output = app.post("/v1/job", json=job_data)
+    job_id = output.json.get("job_id")
+    job = mongo.jobs.find_one({"job_id": job_id})
+    assert "submitted_by" in job
+    assert job["submitted_by"] is None
+
+
+def test_job_builder_stores_submitted_by(testapp):
+    """Test that job_builder stores g.client_id as submitted_by on the job."""
+    from unittest.mock import patch
+
+    data = {"job_queue": "test"}
+    with (
+        testapp.test_request_context(),
+        patch("testflinger.api.v1.g") as mock_g,
+        patch("testflinger.api.v1.auth.check_permissions"),
+    ):
+        mock_g.client_id = "test-client-123"
+        mock_g.permissions = {}
+        job = v1.job_builder(data)
+    assert job["submitted_by"] == "test-client-123"
+
+
 def test_get_nonexistant_job(mongo_app, agent_auth_header):
     """Test for 204 when getting from a nonexistent queue."""
     app, _ = mongo_app
@@ -733,6 +773,7 @@ def test_get_nonexistant_job(mongo_app, agent_auth_header):
     app.post(
         "/v1/agents/data/agent1",
         json={"state": "waiting", "queues": ["test"], "location": "here"},
+        headers=agent_auth_header,
     )
     output = app.get("/v1/job?queue=BAD_QUEUE_NAME", headers=agent_auth_header)
     assert 204 == output.status_code
@@ -816,6 +857,7 @@ def test_job_position(mongo_app, agent_auth_header):
     app.post(
         "/v1/agents/data/agent1",
         json={"state": "waiting", "queues": ["test"], "location": "here"},
+        headers=agent_auth_header,
     )
 
     # Request a job from the queue to remove one
@@ -839,16 +881,36 @@ def test_action_post(mongo_app):
     assert 422 == output.status_code
 
 
-def test_queues_post(mongo_app):
+def test_queues_post(mongo_app, agent_auth_header):
     """Test posting advertised queues."""
     app, _ = mongo_app
     queue_data = {"qfoo": "this is a test queue"}
-    app.post("/v1/agents/queues", json=queue_data)
+    app.post("/v1/agents/queues", json=queue_data, headers=agent_auth_header)
     output = app.get("/v1/agents/queues")
     assert output.json == queue_data
 
 
-def test_images_post(mongo_app):
+@pytest.mark.parametrize(
+    "queue_data",
+    [
+        "INVALID_TYPE_SHOULD_BE_OBJECT",
+        {"qfoo": 123},
+        {"qfoo": None},
+        {"myqueue": {"$ne": None}},
+    ],
+)
+def test_queues_post_invalid_data(mongo_app, agent_auth_header, queue_data):
+    """Test posting advertised queues with invalid data."""
+    app, _ = mongo_app
+    output = app.post(
+        "/v1/agents/queues", json=queue_data, headers=agent_auth_header
+    )
+
+    # Request aborted by schema validation, returns 422 Unprocessable Entity
+    assert output.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+
+
+def test_images_post(mongo_app, agent_auth_header):
     """Test posting advertised images for a queue."""
     app, _ = mongo_app
     image_data = {
@@ -857,9 +919,30 @@ def test_images_post(mongo_app):
             "image2": "url: http://path/to/image2",
         }
     }
-    app.post("/v1/agents/images", json=image_data)
+    app.post("/v1/agents/images", json=image_data, headers=agent_auth_header)
     output = app.get("/v1/agents/images/myqueue")
     assert json.loads(output.data.decode()) == image_data.get("myqueue")
+
+
+@pytest.mark.parametrize(
+    "image_data",
+    [
+        "INVALID_TYPE_SHOULD_BE_OBJECT",
+        {"myqueue": "not-a-dict"},
+        {"myqueue": 123},
+        {"myqueue": {"image1": None}},
+        {"myqueue": {"image1": {"$ne": None}}},
+    ],
+)
+def test_images_post_invalid_data(mongo_app, agent_auth_header, image_data):
+    """Test posting advertised images with invalid data."""
+    app, _ = mongo_app
+    output = app.post(
+        "/v1/agents/images", json=image_data, headers=agent_auth_header
+    )
+
+    # Request aborted by schema validation, returns 422 Unprocessable Entity
+    assert output.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
 
 
 def test_get_invalid(mongo_app):
@@ -869,7 +952,7 @@ def test_get_invalid(mongo_app):
     assert 404 == output.status_code
 
 
-def test_cancel_job_completed(mongo_app):
+def test_cancel_job_completed(mongo_app, agent_auth_header):
     """Test that a job can't be cancelled if completed or cancelled already."""
     app, _ = mongo_app
     job_data = {"job_queue": "test"}
@@ -881,7 +964,7 @@ def test_cancel_job_completed(mongo_app):
     # trying to cancel it in that state
     for state in ["cancelled", "complete", "completed"]:
         data = {"job_state": state}
-        output = app.post(result_url, json=data)
+        output = app.post(result_url, json=data, headers=agent_auth_header)
         output = app.post(
             f"/v1/job/{job_id}/action", json={"action": "cancel"}
         )
@@ -908,7 +991,7 @@ def test_cancel_job_good(mongo_app):
     assert job["result_data"]["job_state"] == "cancelled"
 
 
-def test_agents_post(mongo_app):
+def test_agents_post(mongo_app, agent_auth_header):
     """Test posting agent data and updating it."""
     app, mongo = mongo_app
     agent_name = "agent1"
@@ -919,7 +1002,11 @@ def test_agents_post(mongo_app):
         "location": "here",
         "log": logdata,
     }
-    output = app.post(f"/v1/agents/data/{agent_name}", json=agent_data)
+    output = app.post(
+        f"/v1/agents/data/{agent_name}",
+        json=agent_data,
+        headers=agent_auth_header,
+    )
 
     assert 200 == output.status_code
     assert "OK" == output.json.get("status")
@@ -936,25 +1023,33 @@ def test_agents_post(mongo_app):
     assert agent_data.items() <= agent_record.items()
 
     # Update the agent data again
-    output = app.post(f"/v1/agents/data/{agent_name}", json=agent_data)
+    output = app.post(
+        f"/v1/agents/data/{agent_name}",
+        json=agent_data,
+        headers=agent_auth_header,
+    )
 
     # Test that the log data was appended and truncated
     agent_record = mongo.agents.find_one({"name": agent_name})
     assert agent_record["log"] == (logdata + logdata)[-100:]
 
 
-def test_agents_post_bad(mongo_app):
+def test_agents_post_bad(mongo_app, agent_auth_header):
     """Test posting agent data with bad data."""
     app, _ = mongo_app
     agent_name = "agent1"
     agent_data = "BAD_DATA_SHOULD_BE_JSON"
-    output = app.post(f"/v1/agents/data/{agent_name}", json=agent_data)
+    output = app.post(
+        f"/v1/agents/data/{agent_name}",
+        json=agent_data,
+        headers=agent_auth_header,
+    )
 
     assert 422 == output.status_code
     assert "Validation error" in output.text
 
 
-def test_agents_provision_logs_post(mongo_app):
+def test_agents_provision_logs_post(mongo_app, agent_auth_header):
     """Test posting provision logs for an agent."""
     app, mongo = mongo_app
     agent_name = "agent1"
@@ -966,12 +1061,18 @@ def test_agents_provision_logs_post(mongo_app):
 
     # Ensure that agent data for this agent exists
     agent_data = {"state": "waiting"}
-    result = app.post(f"/v1/agents/data/{agent_name}", json=agent_data)
+    result = app.post(
+        f"/v1/agents/data/{agent_name}",
+        json=agent_data,
+        headers=agent_auth_header,
+    )
     assert 200 == result.status_code
 
     # Test that the post is successful
     result = app.post(
-        f"/v1/agents/provision_logs/{agent_name}", json=provision_log
+        f"/v1/agents/provision_logs/{agent_name}",
+        json=provision_log,
+        headers=agent_auth_header,
     )
     assert 200 == result.status_code
     assert "OK" == result.text
@@ -990,7 +1091,11 @@ def test_agents_provision_logs_post(mongo_app):
 
     # Now we should have two provision log entries
     provision_log["exit_code"] = 0
-    app.post(f"/v1/agents/provision_logs/{agent_name}", json=provision_log)
+    app.post(
+        f"/v1/agents/provision_logs/{agent_name}",
+        json=provision_log,
+        headers=agent_auth_header,
+    )
     provision_log_records = mongo.provision_logs.find_one({"name": agent_name})
     assert len(provision_log_records["provision_log"]) == 2
 
@@ -1000,20 +1105,63 @@ def test_agents_provision_logs_post(mongo_app):
     assert agent_data["provision_streak_count"] == 1
 
 
-def test_agents_status_put(mongo_app, requests_mock, monkeypatch):
+def test_provision_log_submitted_by_copied_from_job(
+    mongo_app, agent_auth_header, role_clients_factory
+):
+    """Test that submitted_by is copied from the job onto the provision log.
+
+    When an agent posts a provision log, the server looks up the job to find
+    who submitted it and stores that on the provision log entry.
+    """
+    app, mongo = mongo_app
+    contributor = role_clients_factory[ServerRoles.CONTRIBUTOR]
+    agent_name = "agent1"
+
+    # Register the agent
+    app.post(
+        f"/v1/agents/data/{agent_name}",
+        json={"state": "waiting", "queues": ["test"], "location": "here"},
+        headers=agent_auth_header,
+    )
+
+    # Submit a job as a known client
+    result = app.post(
+        "/v1/job",
+        json={"job_queue": "test"},
+        headers=contributor["bearer_header"],
+    )
+    assert result.status_code == 200
+    job_id = result.json["job_id"]
+
+    # Confirm submitted_by was stored on the job
+    job = mongo.jobs.find_one({"job_id": job_id})
+    assert job["submitted_by"] == contributor["id"]
+
+    # Agent posts a provision log for that job
+    result = app.post(
+        f"/v1/agents/provision_logs/{agent_name}",
+        json={"job_id": job_id, "exit_code": 0, "detail": "provision_success"},
+        headers=agent_auth_header,
+    )
+    assert result.status_code == 200
+
+    # submitted_by should be copied from the job onto the provision log entry
+    provision_log_records = mongo.provision_logs.find_one({"name": agent_name})
+    entry = provision_log_records["provision_log"][0]
+    assert entry["submitted_by"] == contributor["id"]
+
+
+def test_agents_status_put(mongo_app, agent_auth_header, webhook_fixture):
     """Test api to receive agent status requests."""
     app, _ = mongo_app
     job_data = {"job_queue": "test"}
     job_output = app.post("/v1/job", json=job_data)
     job_id = job_output.json.get("job_id")
 
-    webhook = "http://mywebhook.com/v1/test-executions/1234/status_update"
-    monkeypatch.setenv("WEBHOOK_URL", "http://mywebhook.com/")
-    requests_mock.put(webhook, status_code=HTTPStatus.OK)
     status_update_data = {
         "agent_id": "agent1",
         "job_queue": "myjobqueue",
-        "job_status_webhook": webhook,
+        "job_status_webhook": webhook_fixture,
         "events": [
             {
                 "event_name": "my_event",
@@ -1022,11 +1170,17 @@ def test_agents_status_put(mongo_app, requests_mock, monkeypatch):
             }
         ],
     }
-    output = app.post(f"/v1/job/{job_id}/events", json=status_update_data)
+    output = app.post(
+        f"/v1/job/{job_id}/events",
+        json=status_update_data,
+        headers=agent_auth_header,
+    )
     assert output.status_code == HTTPStatus.OK
 
 
-def test_agents_status_put_no_webhook_configured(mongo_app, monkeypatch):
+def test_agents_status_put_no_webhook_configured(
+    mongo_app, monkeypatch, agent_auth_header
+):
     """Test events endpoint return server error if webhook not configured."""
     app, _ = mongo_app
     job_data = {"job_queue": "test"}
@@ -1042,7 +1196,11 @@ def test_agents_status_put_no_webhook_configured(mongo_app, monkeypatch):
         "job_status_webhook": "http://mywebhook.com/v1/test-executions/1234/status_update",
         "events": [],
     }
-    output = app.post(f"/v1/job/{job_id}/events", json=status_update_data)
+    output = app.post(
+        f"/v1/job/{job_id}/events",
+        json=status_update_data,
+        headers=agent_auth_header,
+    )
 
     # Request should fail as webhook is not configured server-side
     assert output.status_code == HTTPStatus.INTERNAL_SERVER_ERROR
@@ -1068,7 +1226,7 @@ def test_agents_status_put_unauthorized_webhook(mongo_app, monkeypatch):
 
 
 def test_agents_status_put_with_auth_header(
-    mongo_app, requests_mock, monkeypatch
+    mongo_app, requests_mock, monkeypatch, agent_auth_header
 ):
     """Test that WEBHOOK_AUTH is forwarded as a Bearer token."""
     app, _ = mongo_app
@@ -1086,14 +1244,20 @@ def test_agents_status_put_with_auth_header(
         "job_status_webhook": webhook,
         "events": [],
     }
-    output = app.post(f"/v1/job/{job_id}/events", json=status_update_data)
+    output = app.post(
+        f"/v1/job/{job_id}/events",
+        json=status_update_data,
+        headers=agent_auth_header,
+    )
     assert output.status_code == HTTPStatus.OK
     assert requests_mock.last_request.headers["Authorization"] == (
         "Bearer fake_token"
     )
 
 
-def test_agents_status_put_invalid_job_id(mongo_app, monkeypatch):
+def test_agents_status_put_invalid_job_id(
+    mongo_app, monkeypatch, agent_auth_header
+):
     """Test events endpoint rejects invalid job_id format."""
     app, _ = mongo_app
     monkeypatch.setenv("WEBHOOK_URL", "http://mywebhook.com/")
@@ -1105,11 +1269,17 @@ def test_agents_status_put_invalid_job_id(mongo_app, monkeypatch):
         "job_status_webhook": "http://mywebhook.com/v1/test-executions/1234/status_update",
         "events": [],
     }
-    output = app.post("/v1/job/invalid/events", json=status_update_data)
+    output = app.post(
+        "/v1/job/invalid/events",
+        json=status_update_data,
+        headers=agent_auth_header,
+    )
     assert output.status_code == HTTPStatus.BAD_REQUEST
 
 
-def test_agents_status_put_nonexistent_job(mongo_app, monkeypatch):
+def test_agents_status_put_nonexistent_job(
+    mongo_app, monkeypatch, agent_auth_header
+):
     """Test events endpoint rejects requests for nonexistent jobs."""
     app, _ = mongo_app
     monkeypatch.setenv("WEBHOOK_URL", "http://mywebhook.com/")
@@ -1123,13 +1293,15 @@ def test_agents_status_put_nonexistent_job(mongo_app, monkeypatch):
         "events": [],
     }
     output = app.post(
-        f"/v1/job/{nonexistent_job_id}/events", json=status_update_data
+        f"/v1/job/{nonexistent_job_id}/events",
+        json=status_update_data,
+        headers=agent_auth_header,
     )
     assert output.status_code == HTTPStatus.NOT_FOUND
 
 
 def test_agents_status_put_webhook_timeout(
-    mongo_app, requests_mock, monkeypatch
+    mongo_app, requests_mock, monkeypatch, agent_auth_header
 ):
     """Test that webhook timeout is handled with GATEWAY_TIMEOUT."""
     app, _ = mongo_app
@@ -1147,12 +1319,16 @@ def test_agents_status_put_webhook_timeout(
         "job_status_webhook": webhook,
         "events": [],
     }
-    output = app.post(f"/v1/job/{job_id}/events", json=status_update_data)
+    output = app.post(
+        f"/v1/job/{job_id}/events",
+        json=status_update_data,
+        headers=agent_auth_header,
+    )
     assert output.status_code == HTTPStatus.GATEWAY_TIMEOUT
 
 
 def test_agents_status_put_webhook_unreachable(
-    mongo_app, requests_mock, monkeypatch
+    mongo_app, requests_mock, monkeypatch, agent_auth_header
 ):
     """Test that webhook connection error is handled with BAD_GATEWAY."""
     app, _ = mongo_app
@@ -1170,7 +1346,11 @@ def test_agents_status_put_webhook_unreachable(
         "job_status_webhook": webhook,
         "events": [],
     }
-    output = app.post(f"/v1/job/{job_id}/events", json=status_update_data)
+    output = app.post(
+        f"/v1/job/{job_id}/events",
+        json=status_update_data,
+        headers=agent_auth_header,
+    )
     assert output.status_code == HTTPStatus.BAD_GATEWAY
 
 
@@ -1178,7 +1358,7 @@ def test_agents_status_put_webhook_unreachable(
     "webhook_status", [HTTPStatus.UNAUTHORIZED, HTTPStatus.FORBIDDEN]
 )
 def test_agents_status_put_webhook_auth_failure(
-    mongo_app, requests_mock, monkeypatch, webhook_status
+    mongo_app, requests_mock, monkeypatch, webhook_status, agent_auth_header
 ):
     """Test that auth errors from the webhook server results in 500 error."""
     app, _ = mongo_app
@@ -1197,7 +1377,11 @@ def test_agents_status_put_webhook_auth_failure(
         "job_status_webhook": webhook,
         "events": [],
     }
-    output = app.post(f"/v1/job/{job_id}/events", json=status_update_data)
+    output = app.post(
+        f"/v1/job/{job_id}/events",
+        json=status_update_data,
+        headers=agent_auth_header,
+    )
 
     # Testflinger server should return 500 error if the webhook server
     # responds with an auth error, as this indicates a misconfiguration
@@ -1206,7 +1390,7 @@ def test_agents_status_put_webhook_auth_failure(
     assert "Webhook authentication failed" in output.get_data(as_text=True)
 
 
-def test_get_agents_data(mongo_app):
+def test_get_agents_data(mongo_app, agent_auth_header):
     """Test api to retrieve agent data."""
     app, _ = mongo_app
     agent_name = "agent1"
@@ -1215,7 +1399,11 @@ def test_get_agents_data(mongo_app):
         "queues": ["q1", "q2"],
         "location": "here",
     }
-    output = app.post(f"/v1/agents/data/{agent_name}", json=agent_data)
+    output = app.post(
+        f"/v1/agents/data/{agent_name}",
+        json=agent_data,
+        headers=agent_auth_header,
+    )
     assert 200 == output.status_code
 
     # Get the agent data
@@ -1243,11 +1431,19 @@ def test_get_agents_data_single(mongo_app):
     }
 
     # Set the data for agent1
-    output = app.post(f"/v1/agents/data/{agent_name1}", json=agent_data1)
+    output = app.post(
+        f"/v1/agents/data/{agent_name1}",
+        json=agent_data1,
+        headers=get_access_token_header(agent_name1, ServerRoles.AGENT),
+    )
     assert output.status_code == HTTPStatus.OK
 
     # Set the data for agent2
-    output = app.post(f"/v1/agents/data/{agent_name2}", json=agent_data2)
+    output = app.post(
+        f"/v1/agents/data/{agent_name2}",
+        json=agent_data2,
+        headers=get_access_token_header(agent_name2, ServerRoles.AGENT),
+    )
     assert output.status_code == HTTPStatus.OK
 
     # Get the data from agent2
@@ -1299,7 +1495,7 @@ def test_search_jobs_invalid_match(mongo_app):
     assert "Must be one of" in output.text
 
 
-def test_search_jobs_by_state(mongo_app):
+def test_search_jobs_by_state(mongo_app, agent_auth_header):
     """Test search jobs by state."""
     app, _ = mongo_app
 
@@ -1316,14 +1512,14 @@ def test_search_jobs_by_state(mongo_app):
     job_id = job_response.json.get("job_id")
     result_url = f"/v1/result/{job_id}"
     data = {"job_state": "cancelled"}
-    app.post(result_url, json=data)
+    app.post(result_url, json=data, headers=agent_auth_header)
 
     # One job that will be completed
     job_response = app.post("/v1/job", json=job)
     job_id = job_response.json.get("job_id")
     result_url = f"/v1/result/{job_id}"
     data = {"job_state": "completed"}
-    app.post(result_url, json=data)
+    app.post(result_url, json=data, headers=agent_auth_header)
 
     # By default, all jobs are included if we don't specify the state
     output = app.get("/v1/job/search?tags=foo")
@@ -1395,12 +1591,16 @@ def test_get_queue_wait_times(mongo_app):
     assert output.json["queue2"]["50"] == 30.0
 
 
-def test_get_agents_on_queue(mongo_app):
+def test_get_agents_on_queue(mongo_app, agent_auth_header):
     """Test api to get agents on a queue."""
     app, _ = mongo_app
     agent_name = "agent1"
     agent_data = {"state": "provision", "queues": ["q1", "q2"]}
-    output = app.post(f"/v1/agents/data/{agent_name}", json=agent_data)
+    output = app.post(
+        f"/v1/agents/data/{agent_name}",
+        json=agent_data,
+        headers=agent_auth_header,
+    )
     assert output.status_code == HTTPStatus.OK
 
     # Get the agents on the queue
@@ -1415,7 +1615,7 @@ def test_get_agents_on_queue(mongo_app):
     assert "Queue 'q3' does not exist." in output.json["message"]
 
 
-def test_agents_data_restricted_to(mongo_app):
+def test_agents_data_restricted_to(mongo_app, agent_auth_header):
     """Test restricted_to field in agents data."""
     app, mongo = mongo_app
     mongo.restricted_queues.insert_one({"queue_name": "q1"})
@@ -1434,7 +1634,11 @@ def test_agents_data_restricted_to(mongo_app):
         "location": "here",
     }
 
-    output = app.post(f"/v1/agents/data/{agent_name}", json=agent_data)
+    output = app.post(
+        f"/v1/agents/data/{agent_name}",
+        json=agent_data,
+        headers=agent_auth_header,
+    )
     assert output.status_code == HTTPStatus.OK
 
     output = app.get("/v1/agents/data")
@@ -1484,6 +1688,7 @@ def test_reserve_data_with_human_readable_timeout(
     app.post(
         "/v1/agents/data/agent1",
         json={"state": "waiting", "queues": ["test"], "location": "here"},
+        headers=agent_auth_header,
     )
     submitted_job = app.get(
         "/v1/job?queue=test", headers=agent_auth_header
@@ -1627,6 +1832,7 @@ def test_pop_job_respects_exclude_agents(mongo_app, agent_auth_header):
     app.post(
         "/v1/agents/data/agent1",
         json={"state": "waiting", "queues": ["test"], "location": "here"},
+        headers=agent_auth_header,
     )
     output = app.get("/v1/job?queue=test", headers=agent_auth_header)
     assert output.status_code == HTTPStatus.NO_CONTENT
@@ -1635,10 +1841,67 @@ def test_pop_job_respects_exclude_agents(mongo_app, agent_auth_header):
     app.post(
         "/v1/agents/data/agent2",
         json={"state": "waiting", "queues": ["test"], "location": "here"},
+        headers=agent_auth_header,
     )
     output = app.get("/v1/job?queue=test", headers=agent_auth_header)
     assert output.status_code == HTTPStatus.OK
     assert output.json["job_id"] == job_id
+
+
+def test_pop_job_records_agent_id_in_result_data(mongo_app, agent_auth_header):
+    """Test that agent_id is stored in result_data when a job is picked up."""
+    app, mongo = mongo_app
+
+    # Setup agent in database
+    agent_name = "agent1"
+    app.post(
+        f"/v1/agents/data/{agent_name}",
+        json={"state": "waiting", "queues": ["test"], "location": "here"},
+        headers=agent_auth_header,
+    )
+
+    # Submit a job
+    job_data = {"job_queue": "test"}
+    resp = app.post("/v1/job", json=job_data)
+    assert resp.status_code == HTTPStatus.OK
+    job_id = resp.json["job_id"]
+
+    # Agent picks up the job
+    output = app.get("/v1/job?queue=test", headers=agent_auth_header)
+    assert output.status_code == HTTPStatus.OK
+    assert output.json["job_id"] == job_id
+
+    # Verify agent_id is recorded in the job's result_data
+    job_record = mongo.jobs.find_one({"job_id": job_id})
+    assert job_record["result_data"]["agent_id"] == agent_name
+    assert job_record["result_data"]["job_state"] == "running"
+
+
+def test_job_dispatch_sets_job_id_on_agent(mongo_app, agent_auth_header):
+    """Test that dispatching a job sets job_id on the agent record."""
+    app, mongo = mongo_app
+
+    agent_name = "agent1"
+    app.post(
+        f"/v1/agents/data/{agent_name}",
+        json={"state": "waiting", "queues": ["test"], "location": "here"},
+        headers=agent_auth_header,
+    )
+
+    # Confirm no job_id on agent before dispatch
+    agent_record = mongo.agents.find_one({"name": agent_name})
+    assert not agent_record.get("job_id")
+
+    # Submit and dispatch a job
+    job_data = {"job_queue": "test"}
+    resp = app.post("/v1/job", json=job_data)
+    job_id = resp.json["job_id"]
+
+    app.get("/v1/job?queue=test", headers=agent_auth_header)
+
+    # Verify the server set job_id on the agent record at dispatch time
+    agent_record = mongo.agents.find_one({"name": agent_name})
+    assert agent_record["job_id"] == job_id
 
 
 def test_get_job_without_agent_id_fails(mongo_app, agent_auth_header):
@@ -1658,7 +1921,7 @@ def test_get_job_without_agent_id_fails(mongo_app, agent_auth_header):
         assert output.status_code == HTTPStatus.UNAUTHORIZED
 
 
-def test_job_get_without_agent_cookie_fails(mongo_app):
+def test_job_get_without_agent_cookie_fails(mongo_app, agent_auth_header):
     """Test that getting a job without agent authentication is rejected."""
     app, _ = mongo_app
 
@@ -1670,11 +1933,12 @@ def test_job_get_without_agent_cookie_fails(mongo_app):
     app.post(
         "/v1/agents/data/agent1",
         json={"state": "waiting", "queues": ["test"], "location": "here"},
+        headers=agent_auth_header,
     )
 
     # Try to get job without JWT auth - should be rejected
     output = app.get("/v1/job?queue=test")
-    assert output.status_code == HTTPStatus.UNAUTHORIZED
+    assert output.status_code == HTTPStatus.FORBIDDEN  # AGENT role expected
 
 
 def test_job_get_no_auth_headers(mongo_app):
@@ -1686,4 +1950,92 @@ def test_job_get_no_auth_headers(mongo_app):
     app.post("/v1/job", json=job_data)
 
     output = app.get("/v1/job?queue=test")
-    assert output.status_code == HTTPStatus.UNAUTHORIZED
+    assert output.status_code == HTTPStatus.FORBIDDEN  # AGENT role expected
+
+
+def test_agent_job_id_cleared_on_job_completion(mongo_app, agent_auth_header):
+    """Test that posting a terminal job state clears job_id from the agent
+    record.
+    """
+    app, mongo = mongo_app
+    agent_name = "agent1"
+
+    # Register agent, submit a job, and have the agent pick it up
+    app.post(
+        f"/v1/agents/data/{agent_name}",
+        json={"state": "waiting", "queues": ["test"], "location": "here"},
+        headers=agent_auth_header,
+    )
+    resp = app.post("/v1/job", json={"job_queue": "test"})
+    job_id = resp.json["job_id"]
+    app.get("/v1/job?queue=test", headers=agent_auth_header)
+
+    agent_record = mongo.agents.find_one({"name": agent_name})
+    assert agent_record["job_id"] == job_id
+
+    # Agent posts a terminal result
+    result = app.post(
+        f"/v1/result/{job_id}",
+        json={"job_state": "complete"},
+        headers=agent_auth_header,
+    )
+    assert result.status_code == HTTPStatus.OK
+
+    # job_id must be cleared from the agent record immediately
+    agent_record = mongo.agents.find_one({"name": agent_name})
+    assert "job_id" not in agent_record
+
+
+def test_agent_job_id_cleared_on_job_cancelled(mongo_app, agent_auth_header):
+    """Test that posting a cancelled state also clears job_id from the agent
+    record.
+    """
+    app, mongo = mongo_app
+    agent_name = "agent1"
+
+    app.post(
+        f"/v1/agents/data/{agent_name}",
+        json={"state": "waiting", "queues": ["test"], "location": "here"},
+        headers=agent_auth_header,
+    )
+    resp = app.post("/v1/job", json={"job_queue": "test"})
+    job_id = resp.json["job_id"]
+    app.get("/v1/job?queue=test", headers=agent_auth_header)
+
+    app.post(
+        f"/v1/result/{job_id}",
+        json={"job_state": "cancelled"},
+        headers=agent_auth_header,
+    )
+
+    agent_record = mongo.agents.find_one({"name": agent_name})
+    assert "job_id" not in agent_record
+
+
+def test_agent_job_id_not_cleared_for_nonterminal_state(
+    mongo_app, agent_auth_header
+):
+    """Test that posting a non-terminal state (e.g. running) does not clear
+    job_id.
+    """
+    app, mongo = mongo_app
+    agent_name = "agent1"
+
+    app.post(
+        f"/v1/agents/data/{agent_name}",
+        json={"state": "waiting", "queues": ["test"], "location": "here"},
+        headers=agent_auth_header,
+    )
+    resp = app.post("/v1/job", json={"job_queue": "test"})
+    job_id = resp.json["job_id"]
+    app.get("/v1/job?queue=test", headers=agent_auth_header)
+
+    # Post an intermediate result (e.g. a phase update)
+    app.post(
+        f"/v1/result/{job_id}",
+        json={"job_state": "running"},
+        headers=agent_auth_header,
+    )
+
+    agent_record = mongo.agents.find_one({"name": agent_name})
+    assert agent_record.get("job_id") == job_id

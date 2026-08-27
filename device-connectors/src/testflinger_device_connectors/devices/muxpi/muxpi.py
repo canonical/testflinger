@@ -176,6 +176,28 @@ class MuxPi:
         # One final check to ensure the control host is alive, or fail
         self._run_control("true")
 
+    def _control_switch_uses_mux_cli(self):
+        """Return whether control_switch_local_cmd targets mux devices."""
+        switch_cmd = self.config.get("control_switch_local_cmd", "")
+        return any(
+            arg in ("sdwire", "typecmux") for arg in shlex.split(switch_cmd)
+        )
+
+    def _control_switch_cli_cmd(self):
+        """Return the mux CLI command from control_switch_local_cmd."""
+        switch_cmd = self.config.get("control_switch_local_cmd", "")
+        switch_cmd_args = shlex.split(switch_cmd)
+        for index, arg in enumerate(switch_cmd_args):
+            if arg in ("sdwire", "typecmux") and index > 0:
+                return " ".join(
+                    shlex.quote(cmd_arg) for cmd_arg in switch_cmd_args[:index]
+                )
+        raise ProvisioningError(
+            'The "control_switch_local_cmd" config must include a mux CLI '
+            'command followed by "sdwire" or "typecmux" when "media" is '
+            'specified in "provision_data"'
+        )
+
     @contextmanager
     def _storage_plug_to_self(self):
         """Temporarily connect storage to provision an image.
@@ -200,25 +222,28 @@ class MuxPi:
             # If media option is provided, then DUT is probably capable of
             # booting from different media, we should switch both of them
             # to TS side regardless of which one was previously used
+
+            switch_cli = self._control_switch_cli_cmd()
+
             # FIXME: Specify exception instead of `Exception`
             with contextlib.suppress(Exception):
-                cmd = "zapper sdwire plug_to_self"
+                cmd = f"{switch_cli} sdwire plug_to_self"
                 sd_node = self._run_control(cmd)
             # FIXME: Specify exception instead of `Exception`
             with contextlib.suppress(Exception):
-                cmd = "zapper typecmux plug_to_self"
+                cmd = f"{switch_cli} typecmux plug_to_self"
                 usb_node = self._run_control(cmd)
 
             if media == "sd":
                 try:
                     yield sd_node.decode()
                 finally:
-                    self._run_control("zapper sdwire set DUT")
+                    self._run_control(f"{switch_cli} sdwire set DUT")
             elif media == "usb":
                 try:
                     yield usb_node.decode()
                 finally:
-                    self._run_control("zapper typecmux set DUT")
+                    self._run_control(f"{switch_cli} typecmux set DUT")
             else:
                 raise ProvisioningError(
                     'The "media" value in the "provision_data" section of '
@@ -227,8 +252,9 @@ class MuxPi:
                 )
 
     def provision(self):
-        # If this is not a zapper, reboot before provisioning
-        if "zapper" not in self.config.get("control_switch_local_cmd", ""):
+        # If the switch command does not target mux devices, reboot before
+        # provisioning to ensure the SDwire is in a good state.
+        if not self._control_switch_uses_mux_cli():
             self.reboot_sdwire()
             time.sleep(5)
 

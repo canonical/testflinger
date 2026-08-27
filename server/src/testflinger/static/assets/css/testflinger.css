@@ -103,3 +103,27 @@ main {
 .p-navigation__nav {
     overflow: visible !important;
 }
+
+/* Heading row with a trailing action button (e.g. copy job YAML) */
+.section-heading-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+/* Tab row variant: keep the action button on the tab baseline and let the
+   tab list's bottom border span the whole row. */
+.p-tabs__list-with-action {
+    align-items: flex-end;
+}
+
+.p-tabs__list-with-action .p-tabs__list {
+    flex: 1 1 auto;
+    margin-bottom: 0;
+}
+
+.p-tabs__list-with-action > .p-button--base {
+    flex: 0 0 auto;
+    margin-bottom: 0.5rem;
+    white-space: nowrap;
+}

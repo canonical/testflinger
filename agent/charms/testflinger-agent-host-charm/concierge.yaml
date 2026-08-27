@@ -1,0 +1,20 @@
+juju:
+  channel: 3/stable
+providers:
+  lxd:
+    enable: true
+    bootstrap: true
+host:
+  packages:
+    - gnome-keyring
+    - python3-pip
+    - python3-venv
+  snaps:
+    astral-uv:
+    charmcraft:
+    jq:
+    yq:
+    jhack:
+      channel: latest/edge
+      connections:
+        - jhack:dot-local-share-juju

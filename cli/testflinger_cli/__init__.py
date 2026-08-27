@@ -128,6 +128,7 @@ FIELDS_CHOICES = (
     "provision_type",
     "comment",
     "job_id",
+    "submitted_by",
     "queues",
 )
 
@@ -187,9 +188,9 @@ class TestflingerCli:
                 'Server must start with "http://" or "https://" '
                 f'- currently set to: "{server}"'
             )
-        self.client = client.Client(server, error_threshold=error_threshold)
-        self.auth = TestflingerCliAuth(
-            self.client, self.client_id, self.secret_key
+        self.auth = TestflingerCliAuth(server, self.client_id, self.secret_key)
+        self.client = client.Client(
+            server, self.auth, error_threshold=error_threshold
         )
 
     def run(self):
@@ -563,6 +564,13 @@ class TestflingerCli:
             default=None,
             help="Filter agents by comment (regex)",
         )
+        parser.add_argument(
+            "--filter-submitted-by",
+            dest="filter_submitted_by",
+            type=helpers.regex_arg,
+            default=None,
+            help="Filter agents by the submitter of their current job (regex)",
+        )
 
     def _add_queue_status_args(self, subparsers):
         """Command line arguments for queue status."""
@@ -804,6 +812,14 @@ class TestflingerCli:
                 return lambda a: regex.search(str(a.get(field, "")))
             return lambda a: True
 
+        def nested_job_re_filter(field: str, regex: object) -> callable:
+            """Filter on a field nested inside agent['job']."""
+            if regex:
+                return lambda a: regex.search(
+                    str((a.get("job") or {}).get(field, ""))
+                )
+            return lambda a: True
+
         # Filter agents by allowed states
         return [
             a
@@ -818,6 +834,9 @@ class TestflingerCli:
                         "provision_type", self.args.filter_provision_type
                     )(a),
                     re_filter("comment", self.args.filter_comment)(a),
+                    nested_job_re_filter(
+                        "submitted_by", self.args.filter_submitted_by
+                    )(a),
                 )
             )
         ]
@@ -882,6 +901,16 @@ class TestflingerCli:
         # Map 'status' to 'state' in agent dicts for backward compatibility
         field_map = {"status": "state"}
 
+        def get_field(agent: dict, field: str) -> str:
+            """Resolve a field value from an agent dict, including nested."""
+            if field in ("job_id", "submitted_by"):
+                return (agent.get("job") or {}).get(field, "-")
+            key = field_map.get(field, field)
+            val = agent.get(key, "-")
+            if isinstance(val, list):
+                val = ", ".join(str(v) for v in val)
+            return str(val)
+
         # Header names and valid fields
         header_map = {
             "name": "Name",
@@ -890,22 +919,19 @@ class TestflingerCli:
             "provision_type": "Provision Type",
             "comment": "Comment",
             "job_id": "Job ID",
+            "submitted_by": "Submitted By",
             "queues": "Queues",
         }
         headers = [header_map[f] for f in self.args.fields]
 
         # Calculate column widths
-        col_widths = []
-        for field, header in zip(self.args.fields, headers, strict=False):
-            key = field_map.get(field, field)
-            width = max(
+        col_widths = [
+            max(
                 len(header),
-                max(
-                    (len(str(agent.get(key, "-"))) for agent in agents),
-                    default=0,
-                ),
+                max((len(get_field(a, f)) for a in agents), default=0),
             )
-            col_widths.append(width)
+            for f, header in zip(self.args.fields, headers, strict=False)
+        ]
 
         # Print header
         print(
@@ -916,14 +942,10 @@ class TestflingerCli:
         )
         # Print rows
         for agent in agents:
-            row = []
-            for f, w in zip(self.args.fields, col_widths, strict=True):
-                key = field_map.get(f, f)
-                val = agent.get(key, "-")
-                # Convert list values to comma-separated string
-                if isinstance(val, list):
-                    val = ", ".join(str(v) for v in val)
-                row.append(f"{val:<{w}}")
+            row = [
+                f"{get_field(agent, f):<{w}}"
+                for f, w in zip(self.args.fields, col_widths, strict=True)
+            ]
             print("  ".join(row))
 
     def _print_agent_names(self, agents: list[dict]) -> None:
@@ -1346,55 +1368,38 @@ class TestflingerCli:
 
     def submit_job_data(self, data: dict):
         """Submit data that was generated or read from a file as a test job."""
-        retry_count = 0
-        while True:
-            try:
-                auth_headers = self.auth.build_headers()
-                job_id = self.client.submit_job(data, headers=auth_headers)
-                break
-            except CredentialsError as auth_exc:
-                sys.exit(auth_exc)
-            except client.HTTPError as exc:
-                if exc.status == HTTPStatus.BAD_REQUEST:
-                    sys.exit(
-                        "The job you submitted contained bad data or "
-                        "bad formatting, or did not specify a "
-                        "job_queue."
-                    )
-                if exc.status == HTTPStatus.FORBIDDEN:
-                    sys.exit(
-                        "Received 403 error from server with reason: "
-                        f"{exc.msg}\n"
-                        "The specified client credentials do not have "
-                        "sufficient permissions for the resource(s) "
-                        "you are trying to access."
-                    )
-                if exc.status == HTTPStatus.UNAUTHORIZED:
-                    if "expired" in exc.msg:
-                        if retry_count < 2:
-                            retry_count += 1
-                            self.auth.refresh_authentication()
-                        else:
-                            sys.exit(
-                                "Received 401 error from server due to "
-                                "expired authorization token."
-                            )
-                    else:
-                        sys.exit(
-                            "Received 401 error from server with reason: "
-                            f"{exc.msg}\n"
-                            "You are attempting to use a feature "
-                            "that requires client authorisation "
-                            "without using client credentials. \n"
-                            "See https://testflinger.readthedocs.io/en/latest"
-                            "/how-to/authentication/ for more details"
-                        )
-                else:
-                    # This shouldn't happen, so let's get more information
-                    sys.exit(
-                        "Unexpected error status from testflinger "
-                        f"server: [{exc.status}] {exc.msg}"
-                    )
+        try:
+            job_id = self.client.submit_job(data)
+        except CredentialsError as auth_exc:
+            sys.exit(auth_exc)
+        except client.HTTPError as exc:
+            if exc.status == HTTPStatus.BAD_REQUEST:
+                sys.exit(
+                    "The job you submitted contained bad data or "
+                    "bad formatting, or did not specify a "
+                    "job_queue."
+                )
+            if exc.status == HTTPStatus.FORBIDDEN:
+                sys.exit(
+                    "Received 403 error from server with reason: "
+                    f"{exc.msg}\n"
+                    "The specified client credentials do not have "
+                    "sufficient permissions for the resource(s) "
+                    "you are trying to access."
+                )
+            if exc.status == HTTPStatus.UNAUTHORIZED:
+                sys.exit(
+                    "Received 401 error from server with reason: "
+                    f"{exc.msg}\n"
+                    "You are attempting to use a feature "
+                    "that requires client authorisation "
+                    "without using client credentials."
+                )
+            # This shouldn't happen, so let's get more information
+            sys.exit(
+                "Unexpected error status from testflinger "
+                f"server: [{exc.status}] {exc.msg}"
+            )
         return job_id
 
     def submit_job_attachments(self, job_id: str, path: Path):
@@ -1932,12 +1937,13 @@ class TestflingerCli:
 
     def secret_write(self):
         """Write a secret value for the authenticated client."""
+        # Explicit authentication to populate client_id for secret write
         try:
-            auth_headers = self.auth.build_headers()
+            self.auth.authenticate()
         except CredentialsError as exc:
             sys.exit(exc)
 
-        if auth_headers is None or self.auth.client_id is None:
+        if not self.auth.client_id:
             sys.exit("Error writing secret: Authentication is required")
 
         if self.args.single_use:
@@ -1957,9 +1963,7 @@ class TestflingerCli:
             }
         endpoint = f"/v1/secrets/{self.auth.client_id}/{self.args.path}"
         try:
-            response = self.client.put(
-                endpoint, secret_data, headers=auth_headers
-            )
+            response = self.client.put(endpoint, secret_data)
         except client.HTTPError as exc:
             sys.exit(f"Error writing secret: [{exc.status}] {exc.msg}")
         print(f"Secret '{self.args.path}' written successfully")
@@ -1980,17 +1984,18 @@ class TestflingerCli:
 
     def secret_delete(self):
         """Delete a secret for the authenticated client."""
+        # Explicit authentication to populate client_id for secret delete
         try:
-            auth_headers = self.auth.build_headers()
+            self.auth.authenticate()
         except CredentialsError as exc:
             sys.exit(exc)
 
-        if auth_headers is None or self.auth.client_id is None:
+        if not self.auth.client_id:
             sys.exit("Error deleting secret: Authentication is required")
 
         endpoint = f"/v1/secrets/{self.auth.client_id}/{self.args.path}"
         try:
-            self.client.delete(endpoint, headers=auth_headers)
+            self.client.delete(endpoint)
         except client.HTTPError as exc:
             sys.exit(f"Error deleting secret: [{exc.status}] {exc.msg}")
         print(f"Secret '{self.args.path}' deleted successfully")

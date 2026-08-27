@@ -75,13 +75,16 @@ function sortTable(header, table, newOrder) {
       return a.getAttribute('data-index') - b.getAttribute('data-index');
     });
   } else {
-    sortOrderFunc = defaultSortOrder;
+    let sortOrderFunc = defaultSortOrder;
     if (header.hasAttribute("use-outcome-sort")) {
       sortOrderFunc = outcomeSortOrder;
     }
+    if (header.hasAttribute("use-numeric-sort")) {
+      sortOrderFunc = numericSortOrder;
+    }
     // Sort based on a cell contents
     newRows.sort(function (rowA, rowB) {
-      return sortOrderFunc(rowA.cells[col], rowB.cells[col], direction);
+      return sortOrderFunc(rowA.cells[col], rowB.cells[col], direction, header);
     });
   }
   // Append each row into the table, replacing the current elements.
@@ -136,7 +139,25 @@ function defaultSortOrder(cellA, cellB, direction) {
   // Trim the cell contents.
   var contentA = cellA.textContent.trim();
   var contentB = cellB.textContent.trim();
-  return contentA < contentB ? direction : -direction;
+  return contentA === contentB ? 0 : contentA < contentB ? direction : -direction;
+}
+
+/**
+ * Numeric sort order for table columns that contain numeric values.
+ * Falls back to alphabetical comparison for non-numeric content.
+ * @param {HTMLTableCellElement} cellA
+ * @param {HTMLTableCellElement} cellB
+ * @param {Number} direction
+ */
+function numericSortOrder(cellA, cellB, direction) {
+  var contentA = cellA.textContent.trim();
+  var contentB = cellB.textContent.trim();
+  var numA = parseFloat(contentA);
+  var numB = parseFloat(contentB);
+  if (!isNaN(numA) && !isNaN(numB)) {
+    return direction * (numB - numA);
+  }
+  return contentA === contentB ? 0 : contentA < contentB ? direction : -direction;
 }
 
 /**

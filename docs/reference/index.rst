@@ -37,6 +37,7 @@ Configuration reference for Testflinger server instances and agent deployments, 
 
     testflinger-server-conf
     testflinger-agent-conf
+    juju-oidc-config
 
 Command line interface
 ----------------------
@@ -57,3 +58,4 @@ REST API documentation for the Testflinger server, including authentication, job
     :maxdepth: 1
 
     openapi
+    api-roles

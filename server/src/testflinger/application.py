@@ -40,7 +40,7 @@ try:
 except ImportError:
     pass
 
-VANILLA_FRAMEWORK_VERSION = "4.51.0"  # renovate: vanilla-framework-latest
+VANILLA_FRAMEWORK_VERSION = "4.56.0"  # renovate: vanilla-framework-latest
 
 
 def create_flask_app(config=None, secrets_store=None):
@@ -63,6 +63,9 @@ def create_flask_app(config=None, secrets_store=None):
 
     tf_app.config["PROPAGATE_EXCEPTIONS"] = True
 
+    if os.environ.get("TEMPLATES_AUTO_RELOAD", "false").lower() == "true":
+        tf_app.config["TEMPLATES_AUTO_RELOAD"] = True
+
     # Return datetime objects as RFC3339/ISO8601 strings
     tf_app.json = ISODatetimeProvider(tf_app)
 
@@ -82,6 +85,10 @@ def create_flask_app(config=None, secrets_store=None):
 
     metrics.group_by = "endpoint"
     metrics.init_app(tf_app)
+
+    metrics_port = int(os.environ.get("METRICS_PORT", "9090"))
+    if not tf_app.config.get("TESTING"):
+        metrics.start_http_server(metrics_port)
 
     @tf_app.errorhandler(NotFound)
     def handle_404(exc):

@@ -444,16 +444,15 @@ class TestClient:
             # Make sure we fail the first time when transmitting the results
             mock_transmit_job_outcome.side_effect = [TFServerError(404), ""]
             agent.process_jobs()
-            first_dir = os.path.join(
-                self.config.get("execution_basedir"),
-                mock_job_data.get("job_id"),
-            )
+            first_dir = Path(
+                self.config.get("execution_basedir")
+            ) / mock_job_data.get("job_id")
             mock_transmit_job_outcome.assert_called_with(first_dir)
             # Try processing jobs again, now it should be in results_basedir
             agent.process_jobs()
-            retry_dir = os.path.join(
-                self.config.get("results_basedir"), mock_job_data.get("job_id")
-            )
+            retry_dir = Path(
+                self.config.get("results_basedir")
+            ) / mock_job_data.get("job_id")
             mock_transmit_job_outcome.assert_called_with(retry_dir)
 
     def test_recovery_failed(self, agent, requests_mock):
@@ -580,7 +579,7 @@ class TestClient:
         requests_mock.post(status_url, status_code=HTTPStatus.OK)
 
         requests_mock.get(
-            f"http://127.0.0.1:8000/v1/result/{job_id}",
+            f"http://127.0.0.1:8000/v1/result/{job_id}/status",
             json={"job_state": "cancelled"},
         )
         with patch("shutil.rmtree"):

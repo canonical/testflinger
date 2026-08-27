@@ -54,3 +54,53 @@ secrets so that they can be accessed by agents at job runtime.
   The ``testflinger_secrets_master_key`` is used to encrypt the CSFLE data keys
   stored in MongoDB. Generate a secure random base64-encoded string by running
   the following command: ``openssl rand -base64 96 | tr -d '\n'``
+
+.. _howto-enable-oidc:
+
+Enable OIDC
+-----------
+
+.. note::
+
+  Before you start, ensure that you have registered Testflinger as an application
+  with your OIDC provider, and obtained the client ID, client secret, and issuer 
+  URL from the provider.
+
+To enable OpenID Connect (OIDC) authentication for Testflinger, you will need to
+configure the Testflinger server with the required parameters for your OIDC provider.
+
+.. code-block:: shell
+
+  $ juju config testflinger-k8s \
+      oidc_client_id="<client-id>" \
+      oidc_client_secret="<client-secret>" \
+      oidc_provider_issuer="<issuer-url>"
+
+Additionally, you will need to set up Flask's ``SECRET_KEY`` to handle web session
+management by signing session cookies. To configure it, run the following command:
+
+.. code-block:: shell
+
+  $ juju config testflinger-k8s \
+      web_secret_key="<secret-key>"
+
+You can verify the configuration was set correctly by inspecting each of the values 
+you previously defined. For example, to verify that the ``oidc_client_id`` was properly
+set, you can run the following command:
+
+.. code-block:: shell
+
+  $ juju config testflinger-k8s oidc_client_id
+
+Additionally, once all required parameters are defined, you can check the overall
+status of the Testflinger application. If any required parameter is missing or
+invalid, the application status will remain ``blocked`` with an error message
+until all required parameters are properly set.
+
+.. code-block:: shell
+
+  $ juju status testflinger-k8s
+
+For additional information on these configuration options, please see :doc:`../../reference/juju-oidc-config`.
+
+For more information on OIDC requirements, please refer to :doc:`../../explanation/oidc-auth`.

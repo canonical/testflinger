@@ -60,6 +60,24 @@ reservations_metric = Counter(
 v1 = APIBlueprint("v1", __name__)
 
 
+@v1.after_request
+def log_refresh_validation_error(response):
+    """Log OWASP authn failures for schema validation errors on auth routes."""
+    if (
+        response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+        and request.path.endswith("/oauth2/refresh")
+    ):
+        current_app.owasp_logger.authn_login_fail(
+            userid="unknown",
+            description=(
+                "Refresh token request rejected by schema validation: "
+                f"{response.get_json()}"
+            ),
+            **OWASPLogger.get_request_metadata(request),
+        )
+    return response
+
+
 @v1.get("/")
 def home():
     """Identify ourselves."""
@@ -77,19 +95,29 @@ def get_version():
 
 @v1.post("/job")
 @authenticate
+@require_role(ServerRoles.ADMIN, ServerRoles.MANAGER, ServerRoles.CONTRIBUTOR)
 @v1.input(schemas.Job, location="json")
 @v1.output(schemas.JobId)
 def job_post(json_data: dict) -> dict:
-    """Add a job to the queue."""
+    """Add a job to the queue.
+
+    The ``job_queue`` field in the submitted JSON determines which queue the
+    job is placed on. All other fields are passed through to the agent
+    unchanged.
+
+    Returns HTTP 422 if the job references secrets that are inaccessible at
+    submission time (e.g. the secrets store is unreachable or the secret path
+    does not exist for the submitting client).
+    """
     job_queue = json_data["job_queue"]
     exclude_agents = json_data["exclude_agents"]
     if exclude_agents:
         # Make sure that there are at least some agents in the selected queue
         # which can run this job.
         agents_can_run = [
-            agent
-            for agent in database.get_agents_on_queue(job_queue)
-            if agent["name"] not in exclude_agents
+            name
+            for name in database.get_agent_names_on_queue(job_queue)
+            if name not in exclude_agents
         ]
         if not agents_can_run:
             abort(
@@ -172,6 +200,11 @@ def job_builder(data: dict) -> dict:
             "job_state": "waiting",
         },
     }
+
+    # Always store the submitted_by field at the top level of the job
+    # document so it can be displayed in the web views and API.
+    job["submitted_by"] = g.client_id
+
     # If the job_id is provided, keep it as long as the uuid is good.
     # This is for job resubmission
     job_id = data.pop("job_id", None)
@@ -205,7 +238,18 @@ def job_builder(data: dict) -> dict:
 @v1.output(schemas.Job)
 @v1.doc(responses=schemas.job_empty)
 def job_get():
-    """Request a job to run from supported queues."""
+    """Request a job to run from supported queues.
+
+    The agent must identify itself via the ``agent_name`` cookie. One or more
+    ``queue`` query parameters must be supplied; the server returns the first
+    available job across those queues.
+
+    Any secrets referenced in the job are resolved against the secrets store
+    at this point. Secrets that are inaccessible (store unreachable, path not
+    found, or insufficient permissions) are silently resolved to an empty
+    string rather than causing the request to fail.  Agents must therefore
+    handle the possibility of empty secret values.
+    """
     queue_list = request.args.getlist("queue")
     if not queue_list:
         abort(
@@ -219,6 +263,7 @@ def job_get():
         return jsonify({}), HTTPStatus.NO_CONTENT
     if (secrets := retrieve_secrets(job)) is not None:
         job["test_data"]["secrets"] = secrets
+    database.set_agent_job(agent_name, job["job_id"])
     job["started_at"] = datetime.now(timezone.utc)
     return jsonify(job)
 
@@ -258,7 +303,9 @@ def retrieve_secrets(data: dict) -> dict | None:
 
 
 @v1.get("/job/<job_id>")
-@v1.output(schemas.Job)
+@authenticate
+@require_role(ServerRoles.ADMIN, ServerRoles.MANAGER, ServerRoles.CONTRIBUTOR)
+@v1.output(schemas.JobOut)
 def job_get_id(job_id):
     """Request the json job definition for a specified job, even if it has
        already run.
@@ -271,16 +318,20 @@ def job_get_id(job_id):
     if not check_valid_uuid(job_id):
         abort(400, message="Invalid job_id specified")
     response = database.mongo.db.jobs.find_one(
-        {"job_id": job_id}, projection={"job_data": True, "_id": False}
+        {"job_id": job_id},
+        projection={"job_data": True, "submitted_by": True, "_id": False},
     )
     if not response:
         return {}, 204
     job_data = response.get("job_data")
     job_data["job_id"] = job_id
+    job_data["submitted_by"] = response.get("submitted_by")
     return job_data
 
 
 @v1.get("/job/<job_id>/attachments")
+@authenticate
+@require_role(ServerRoles.AGENT)
 def attachment_get(job_id):
     """Return the attachments bundle for a specified job_id.
 
@@ -299,6 +350,8 @@ def attachment_get(job_id):
 
 
 @v1.post("/job/<job_id>/attachments")
+@authenticate
+@require_role(ServerRoles.ADMIN, ServerRoles.MANAGER, ServerRoles.CONTRIBUTOR)
 def attachments_post(job_id):
     """Post attachment bundle for a specified job_id.
 
@@ -329,6 +382,8 @@ def attachments_post(job_id):
 
 
 @v1.get("/job/search")
+@authenticate
+@require_role(ServerRoles.ADMIN, ServerRoles.MANAGER, ServerRoles.CONTRIBUTOR)
 @v1.input(schemas.JobSearchRequest, location="query")
 @v1.output(schemas.JobSearchResponse)
 def search_jobs(query_data):
@@ -368,6 +423,8 @@ def search_jobs(query_data):
 
 
 @v1.post("/result/<job_id>/artifact")
+@authenticate
+@require_role(ServerRoles.AGENT)
 def artifacts_post(job_id):
     """Post artifact bundle for a specified job_id.
 
@@ -384,6 +441,8 @@ def artifacts_post(job_id):
 
 
 @v1.get("/result/<job_id>/artifact")
+@authenticate
+@require_role(ServerRoles.ADMIN, ServerRoles.MANAGER, ServerRoles.CONTRIBUTOR)
 def artifacts_get(job_id):
     """Return artifact bundle for a specified job_id.
 
@@ -392,6 +451,8 @@ def artifacts_get(job_id):
     :return:
         send_file stream of artifact tarball to download
     """
+    # TODO: consider restrictions to artifacts to original job owner (or group?
+    # TODO: consider adding artifact download to the web portal; job page
     if not check_valid_uuid(job_id):
         return "Invalid job id\n", 400
     try:
@@ -417,9 +478,24 @@ class LogTypeConverter(BaseConverter):
 
 
 @v1.get("/result/<job_id>/log/<log_type:log_type>")
+@authenticate
+@require_role(ServerRoles.ADMIN, ServerRoles.MANAGER, ServerRoles.CONTRIBUTOR)
 @v1.output(schemas.LogGet)
 def log_get(job_id: str, log_type: LogType):
     """Get logs for a specified job_id.
+
+    Logs are persistent and may be retrieved multiple times.  Results are
+    organised by phase.  Each phase entry contains:
+
+    - ``last_fragment_number``: highest fragment number stored for that phase
+    - ``log_data``: combined log text from all matching fragments
+
+    Optional query parameters for filtering:
+
+    - ``phase``: restrict results to a single test phase
+    - ``start_fragment``: return only fragments from this number onwards
+    - ``start_timestamp``: return only fragments created after this
+      ISO 8601 timestamp
 
     :param job_id: UUID as a string for the job
     :param log_type: LogType enum value for the type of log requested
@@ -460,9 +536,20 @@ def log_get(job_id: str, log_type: LogType):
 
 
 @v1.post("/result/<job_id>/log/<log_type:log_type>")
+@authenticate
+@require_role(ServerRoles.AGENT)
 @v1.input(schemas.LogPost, location="json")
 def log_post(job_id: str, log_type: LogType, json_data: dict) -> str:
     """Post logs for a specified job ID.
+
+    Agents stream log data in sequential fragments.  Each request must
+    include:
+
+    - ``fragment_number``: sequential integer starting from 0
+    - ``timestamp``: ISO 8601 timestamp when the fragment was created
+    - ``phase``: test phase name (setup, provision, firmware_update, test,
+      allocate, reserve, cleanup)
+    - ``log_data``: the log content for this fragment
 
     :param job_id: UUID as a string for the job
     :param log_type: LogType enum value for the type of log being posted
@@ -485,7 +572,9 @@ def log_post(job_id: str, log_type: LogType, json_data: dict) -> str:
 
 
 @v1.post("/result/<job_id>")
-@v1.input(schemas.ResultSchema, location="json")
+@authenticate
+@require_role(ServerRoles.AGENT)
+@v1.input(schemas.ResultPost, location="json")
 def result_post(job_id: str, json_data: dict) -> str:
     """Post a result for a specified job_id.
 
@@ -505,10 +594,17 @@ def result_post(job_id: str, json_data: dict) -> str:
     return "OK"
 
 
-@v1.get("/result/<job_id>")
-@v1.output(schemas.ResultGet)
-def result_get(job_id: str):
-    """Return results for a specified job_id.
+@v1.get("/result/<job_id>/status")
+@authenticate
+@require_role(*ServerRoles)
+@v1.output(schemas.ResultStatus)
+@v1.doc(responses=schemas.result_empty)
+def result_status_get(job_id: str):
+    """Return job state and phase exit codes for a specified job_id.
+
+    This is a lightweight alternative to GET /result/<job_id> that omits
+    log data (output and serial).  Use this when only the job state or
+    phase statuses are needed.
 
     :param job_id: UUID as a string for the job
     :raises HTTPError: If the job_id is not a valid UUID
@@ -521,10 +617,44 @@ def result_get(job_id: str):
     if not response or not (result_data := response.get("result_data")):
         return "", HTTPStatus.NO_CONTENT
 
-    if any(key.endswith(("_output", "_serial")) for key in result_data.keys()):
-        # Legacy result format detected; return as-is
-        # TODO: Remove this path after deprecating legacy endpoints
-        return result_data
+    phase_status = result_data.get("status", {})
+    status_response = {
+        f"{phase}_status": status
+        for phase in TestPhase
+        if (status := phase_status.get(phase)) is not None
+    }
+    if job_state := result_data.get("job_state"):
+        status_response["job_state"] = job_state
+    return status_response
+
+
+@v1.get("/result/<job_id>")
+@authenticate
+@require_role(*ServerRoles)
+@v1.output(schemas.ResultGet)
+@v1.doc(responses=schemas.result_empty)
+def result_get(job_id: str):
+    """Return results for a specified job_id.
+
+    Results are reconstructed from the log storage system to maintain
+    backward compatibility.  Phase exit codes are combined with captured
+    log data and returned as a flat structure:
+
+    - ``{phase}_status``: exit code for each phase
+    - ``{phase}_output``: stdout log for that phase (if available)
+    - ``{phase}_serial``: serial console log for that phase (if available)
+    - Additional metadata fields such as ``device_info`` and ``job_state``
+
+    :param job_id: UUID as a string for the job
+    :raises HTTPError: If the job_id is not a valid UUID
+    """
+    if not check_valid_uuid(job_id):
+        abort(HTTPStatus.BAD_REQUEST, message="Invalid job_id specified")
+
+    response = database.get_job_results(job_id)
+
+    if not response or not (result_data := response.get("result_data")):
+        return "", HTTPStatus.NO_CONTENT
 
     # Reconstruct result format with logs and phase statuses
     log_handler = MongoLogHandler(database.mongo)
@@ -532,6 +662,8 @@ def result_get(job_id: str):
 
 
 @v1.post("/job/<job_id>/action")
+@authenticate
+@require_role(ServerRoles.ADMIN, ServerRoles.MANAGER, ServerRoles.CONTRIBUTOR)
 @v1.input(schemas.ActionIn, location="json")
 def action_post(job_id, json_data):
     """Take action on the job status for a specified job ID.
@@ -539,17 +671,30 @@ def action_post(job_id, json_data):
     :param job_id:
         UUID as a string for the job
     """
+    # TODO: limit to job owner (or greater) if auth enabled so job owner known
     if not check_valid_uuid(job_id):
         return "Invalid job id\n", 400
     action = json_data["action"]
     supported_actions = {
-        "cancel": cancel_job,
+        "cancel": _cancel_job,
     }
     # Validation of actions happens in schemas.py:ActionIn
     return supported_actions[action](job_id)
 
 
+def _cancel_job(job_id):
+    modifications = database.cancel_job(job_id, client_id=g.client_id)
+    if not modifications:
+        return (
+            "The job is already completed or cancelled",
+            HTTPStatus.BAD_REQUEST,
+        )
+    return "OK"
+
+
 @v1.get("/agents/queues")
+@authenticate
+@require_role(ServerRoles.ADMIN, ServerRoles.MANAGER, ServerRoles.CONTRIBUTOR)
 @v1.doc(responses=schemas.queues_out)
 def queues_get():
     """Get all advertised queues from this server.
@@ -571,15 +716,17 @@ def queues_get():
 
 
 @v1.post("/agents/queues")
-def queues_post():
+@authenticate
+@require_role(ServerRoles.ADMIN, ServerRoles.MANAGER, ServerRoles.AGENT)
+@v1.input(schemas.QueuesIn, location="json")
+def queues_post(json_data: dict):
     """Tell testflinger the queue names that are being serviced.
 
     Some agents may want to advertise some of the queues they listen on so that
     the user can check which queues are valid to use.
     """
-    queue_dict = request.get_json()
     timestamp = datetime.now(timezone.utc)
-    for queue, description in queue_dict.items():
+    for queue, description in json_data.items():
         database.mongo.db.queues.update_one(
             {"name": queue},
             {"$set": {"description": description, "updated_at": timestamp}},
@@ -589,6 +736,8 @@ def queues_post():
 
 
 @v1.get("/agents/images/<queue>")
+@authenticate
+@require_role(ServerRoles.ADMIN, ServerRoles.MANAGER, ServerRoles.CONTRIBUTOR)
 @v1.doc(responses=schemas.images_out)
 def images_get(queue):
     """Get a dict of known images for a given queue."""
@@ -602,7 +751,10 @@ def images_get(queue):
 
 
 @v1.post("/agents/images")
-def images_post():
+@authenticate
+@require_role(ServerRoles.ADMIN, ServerRoles.MANAGER, ServerRoles.AGENT)
+@v1.input(schemas.ImagesIn, location="json")
+def images_post(json_data: dict):
     """Tell testflinger about known images for a specified queue
     images will be stored in a dict of key/value pairs as part of the queues
     collection. That dict will contain image_name:provision_data mappings, ex:
@@ -616,9 +768,8 @@ def images_post():
         }
     }.
     """
-    image_dict = request.get_json()
     # We need to delete and recreate the images in case some were removed
-    for queue, image_data in image_dict.items():
+    for queue, image_data in json_data.items():
         database.mongo.db.queues.update_one(
             {"name": queue},
             {"$set": {"images": image_data}},
@@ -628,6 +779,8 @@ def images_post():
 
 
 @v1.get("/agents/data")
+@authenticate
+@require_role(ServerRoles.ADMIN, ServerRoles.MANAGER, ServerRoles.CONTRIBUTOR)
 @v1.output(schemas.AgentOut(many=True))
 def agents_get_all():
     """Get all agent data."""
@@ -647,6 +800,8 @@ def agents_get_all():
 
 
 @v1.get("/agents/data/<agent_name>")
+@authenticate
+@require_role(*ServerRoles)
 @v1.output(schemas.AgentOut)
 def agents_get_one(agent_name):
     """Get the information from a specified agent.
@@ -674,6 +829,8 @@ def agents_get_one(agent_name):
 
 
 @v1.post("/agents/data/<agent_name>")
+@authenticate
+@require_role(ServerRoles.ADMIN, ServerRoles.MANAGER, ServerRoles.AGENT)
 @v1.input(schemas.AgentIn, location="json")
 def agents_post(agent_name, json_data):
     """Post information about the agent to the server.
@@ -707,47 +864,20 @@ def agents_post(agent_name, json_data):
 
 
 @v1.post("/agents/provision_logs/<agent_name>")
+@authenticate
+@require_role(ServerRoles.AGENT)
 @v1.input(schemas.ProvisionLogsIn, location="json")
 def agents_provision_logs_post(agent_name, json_data):
     """Post provision logs for the agent to the server."""
-    agent_record = {}
-
-    # timestamp this agent record and provision log entry
-    timestamp = datetime.now(timezone.utc)
-    agent_record["updated_at"] = json_data["timestamp"] = timestamp
-
-    update_operation = {
-        "$set": json_data,
-        "$push": {
-            "provision_log": {"$each": [json_data], "$slice": -100},
-        },
-    }
-    database.mongo.db.provision_logs.update_one(
-        {"name": agent_name},
-        update_operation,
-        upsert=True,
-    )
-    agent = database.mongo.db.agents.find_one(
-        {"name": agent_name},
-        {"provision_streak_type": 1, "provision_streak_count": 1},
-    )
-    if not agent:
-        return "Agent not found\n", 404
-    previous_provision_streak_type = agent.get("provision_streak_type", "")
-    previous_provision_streak_count = agent.get("provision_streak_count", 0)
-
-    agent["provision_streak_type"] = (
-        "fail" if json_data["exit_code"] != 0 else "pass"
-    )
-    if agent["provision_streak_type"] == previous_provision_streak_type:
-        agent["provision_streak_count"] = previous_provision_streak_count + 1
-    else:
-        agent["provision_streak_count"] = 1
-    database.mongo.db.agents.update_one({"name": agent_name}, {"$set": agent})
+    found = database.update_agent_provision_log(agent_name, json_data)
+    if not found:
+        abort(HTTPStatus.NOT_FOUND, message="Agent not found")
     return "OK"
 
 
 @v1.post("/job/<job_id>/events")
+@authenticate
+@require_role(ServerRoles.AGENT)
 @v1.input(schemas.StatusUpdate, location="json")
 def agents_status_post(job_id, json_data):
     """Post status updates from the agent to the server to be forwarded
@@ -860,6 +990,8 @@ def check_valid_uuid(job_id):
 
 
 @v1.get("/job/<job_id>/position")
+@authenticate
+@require_role(ServerRoles.ADMIN, ServerRoles.MANAGER, ServerRoles.CONTRIBUTOR)
 def job_position_get(job_id):
     """Return the position of the specified jobid in the queue."""
     job_data, status = job_get_id(job_id)
@@ -884,28 +1016,9 @@ def job_position_get(job_id):
     return "Job not found or already started\n", 410
 
 
-def cancel_job(job_id):
-    """Cancel a specified job ID.
-
-    :param job_id:
-        UUID as a string for the job
-    """
-    # Set the job status to cancelled
-    response = database.mongo.db.jobs.update_one(
-        {
-            "job_id": job_id,
-            "result_data.job_state": {
-                "$nin": ["cancelled", "complete", "completed"]
-            },
-        },
-        {"$set": {"result_data.job_state": "cancelled"}},
-    )
-    if response.modified_count == 0:
-        return "The job is already completed or cancelled", 400
-    return "OK"
-
-
 @v1.get("/queues/wait_times")
+@authenticate
+@require_role(ServerRoles.ADMIN, ServerRoles.MANAGER, ServerRoles.CONTRIBUTOR)
 def queue_wait_time_percentiles_get():
     """Get wait time metrics - optionally take a list of queues."""
     queues = request.args.getlist("queue")
@@ -919,6 +1032,8 @@ def queue_wait_time_percentiles_get():
 
 
 @v1.get("/queues/<queue_name>/agents")
+@authenticate
+@require_role(ServerRoles.ADMIN, ServerRoles.MANAGER, ServerRoles.CONTRIBUTOR)
 @v1.output(schemas.AgentOut(many=True))
 def get_agents_on_queue(queue_name):
     """Get the list of all data for agents listening to a specified queue."""
@@ -928,13 +1043,15 @@ def get_agents_on_queue(queue_name):
             message=f"Queue '{queue_name}' does not exist.",
         )
 
-    agents = database.get_agents_on_queue(queue_name)
+    agents = database.get_agents(queue=queue_name)
     if not agents:
         return [], HTTPStatus.NO_CONTENT
     return agents
 
 
 @v1.get("/queues/<queue_name>/jobs")
+@authenticate
+@require_role(ServerRoles.ADMIN, ServerRoles.MANAGER, ServerRoles.CONTRIBUTOR)
 def get_jobs_by_queue(queue_name):
     """Get the jobs in a specified queue along with its state.
 
@@ -1041,17 +1158,10 @@ def retrieve_token():
 
 
 @v1.post("/oauth2/refresh")
-def refresh_access_token():
+@v1.input(schemas.RefreshTokenIn, location="json")
+def refresh_access_token(json_data: dict):
     """Refresh access token using a valid refresh token."""
-    data = request.get_json() or {}
-    refresh_token = data.get("refresh_token")
-    if not refresh_token:
-        current_app.owasp_logger.authn_login_fail(
-            userid="unknown",
-            description=("Access token requested without refresh token."),
-            **OWASPLogger.get_request_metadata(request),
-        )
-        abort(HTTPStatus.BAD_REQUEST, "Error: Missing refresh token.")
+    refresh_token = json_data["refresh_token"]
 
     token_entry = auth.validate_refresh_token(refresh_token)
     client_id = token_entry["client_id"]
@@ -1081,19 +1191,17 @@ def refresh_access_token():
     return {
         "access_token": access_token,
         "token_type": "Bearer",
-        "expires_in": 30,
+        "expires_in": auth.DEFAULT_ACCESS_TOKEN_EXPIRATION,
     }
 
 
 @v1.post("/oauth2/revoke")
 @authenticate
 @require_role(ServerRoles.ADMIN)
-def revoke_refresh_token():
+@v1.input(schemas.RefreshTokenIn, location="json")
+def revoke_refresh_token(json_data: dict):
     """Revoke a refresh token. Only admins can perform this action."""
-    data = request.get_json() or {}
-    token = data.get("refresh_token")
-    if not token:
-        abort(HTTPStatus.BAD_REQUEST, "Error: Missing refresh token.")
+    token = json_data["refresh_token"]
 
     token_entry = database.get_refresh_token_by_token(token)
     if not token_entry:
@@ -1258,6 +1366,12 @@ def set_client_permissions(client_id: str, json_data: dict) -> str:
 
     client_secret = json_data.pop("client_secret", None)
     permissions = database.get_client_permissions(client_id) or {}
+    if ("email" in json_data or client_secret) and permissions.get("sub"):
+        # Do not allow adding an email or client secret to an OIDC client id
+        abort(
+            HTTPStatus.UNPROCESSABLE_ENTITY,
+            "Error: Cannot add email or client secret to OIDC client id",
+        )
     client_exist = bool(permissions)
     # Default role for backward compatibility
     current_role = permissions.get("role", ServerRoles.CONTRIBUTOR)
@@ -1412,12 +1526,19 @@ def delete_client_permissions(client_id: str) -> str:
 
 @v1.put("/secrets/<client_id>/<path:path>")
 @authenticate
+@require_role(ServerRoles.CONTRIBUTOR, ServerRoles.MANAGER, ServerRoles.ADMIN)
 @v1.input(schemas.SecretIn, location="json")
 @v1.output(schemas.SecretOut)
 def secrets_put(client_id, path, json_data):
     """Store a secret value for the specified client_id and path."""
     if current_app.secrets_store is None:
         abort(HTTPStatus.BAD_REQUEST, message="No secrets store")
+    if not g.client_id:
+        abort(
+            HTTPStatus.UNAUTHORIZED,
+            message="A login (known client_id) is required to securely store"
+            "information.",
+        )
     if client_id != g.client_id:
         abort(
             HTTPStatus.FORBIDDEN,
@@ -1449,10 +1570,17 @@ def secrets_put(client_id, path, json_data):
 
 @v1.delete("/secrets/<client_id>/<path:path>")
 @authenticate
+@require_role(ServerRoles.CONTRIBUTOR, ServerRoles.MANAGER, ServerRoles.ADMIN)
 def secrets_delete(client_id, path):
     """Remove a secret value for the specified client_id and path."""
     if current_app.secrets_store is None:
         abort(HTTPStatus.BAD_REQUEST, message="No secrets store")
+    if not g.client_id:
+        abort(
+            HTTPStatus.UNAUTHORIZED,
+            message="A login (known client_id) is required to securely store"
+            " information.",
+        )
     if client_id != g.client_id:
         abort(
             HTTPStatus.FORBIDDEN,
@@ -1467,90 +1595,4 @@ def secrets_delete(client_id, path):
     except (StoreError, UnexpectedError) as error:
         abort(HTTPStatus.INTERNAL_SERVER_ERROR, message=str(error))
 
-    return "OK"
-
-
-@v1.get("/result/<job_id>/output")
-def legacy_output_get(job_id: str) -> str:
-    """Legacy endpoint to get job output for a specified job_id.
-
-    TODO: Remove after CLI/agent migration completes.
-
-    :param job_id: UUID as a string for the job
-    :raises HTTPError: BAD_REQUEST when job_id is invalid
-    :return: Plain text output
-    """
-    if not check_valid_uuid(job_id):
-        abort(HTTPStatus.BAD_REQUEST, message="Invalid job_id specified")
-    response = database.mongo.db.output.find_one_and_delete(
-        {"job_id": job_id}, {"_id": False}
-    )
-    output = response.get("output", []) if response else None
-    if output:
-        return "\n".join(output)
-    return "", HTTPStatus.NO_CONTENT
-
-
-@v1.post("/result/<job_id>/output")
-def legacy_output_post(job_id: str) -> str:
-    """Legacy endpoint to post output for a specified job_id.
-
-    TODO: Remove after CLI/agent migration completes.
-
-    :param job_id: UUID as a string for the job
-    :raises HTTPError: BAD_REQUEST when job_id is invalid
-    :return: "OK" on success
-    """
-    if not check_valid_uuid(job_id):
-        abort(HTTPStatus.BAD_REQUEST, message="Invalid job_id specified")
-    data = request.get_data().decode("utf-8")
-    timestamp = datetime.now(timezone.utc)
-    database.mongo.db.output.update_one(
-        {"job_id": job_id},
-        {"$set": {"updated_at": timestamp}, "$push": {"output": data}},
-        upsert=True,
-    )
-    return "OK"
-
-
-@v1.get("/result/<job_id>/serial_output")
-def legacy_serial_output_get(job_id: str) -> str:
-    """Legacy endpoint to get latest serial output for a specified job ID.
-
-    TODO: Remove after CLI/agent migration completes.
-
-    :param job_id: UUID as a string for the job
-    :raises HTTPError: BAD_REQUEST when job_id is invalid
-    :return: Plain text serial output
-    """
-    if not check_valid_uuid(job_id):
-        abort(HTTPStatus.BAD_REQUEST, message="Invalid job_id specified")
-    response = database.mongo.db.serial_output.find_one_and_delete(
-        {"job_id": job_id}, {"_id": False}
-    )
-    output = response.get("serial_output", []) if response else None
-    if output:
-        return "\n".join(output)
-    return "", HTTPStatus.NO_CONTENT
-
-
-@v1.post("/result/<job_id>/serial_output")
-def legacy_serial_output_post(job_id: str) -> str:
-    """Legacy endpoint to post serial output for a specified job ID.
-
-    TODO: Remove after CLI/agent migration completes.
-
-    :param job_id: UUID as a string for the job
-    :raises HTTPError: BAD_REQUEST when job_id is invalid
-    :return: "OK" on success
-    """
-    if not check_valid_uuid(job_id):
-        abort(HTTPStatus.BAD_REQUEST, message="Invalid job_id specified")
-    data = request.get_data().decode("utf-8")
-    timestamp = datetime.now(timezone.utc)
-    database.mongo.db.serial_output.update_one(
-        {"job_id": job_id},
-        {"$set": {"updated_at": timestamp}, "$push": {"serial_output": data}},
-        upsert=True,
-    )
     return "OK"

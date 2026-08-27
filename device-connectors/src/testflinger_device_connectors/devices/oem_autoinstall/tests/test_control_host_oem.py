@@ -17,39 +17,39 @@ import unittest
 from pathlib import Path
 
 from testflinger_device_connectors.devices import ProvisioningError
-from testflinger_device_connectors.devices.oem_autoinstall.zapper_oem import (
-    ZapperOem,
+from testflinger_device_connectors.devices.oem_autoinstall.control_host_oem import (  # noqa: E501
+    ControlHostOem,
 )
 
 
-class ZapperOemTests(unittest.TestCase):
-    """Test Cases for the ZapperOem class."""
+class ControlHostOemTests(unittest.TestCase):
+    """Test Cases for the ControlHostOem class."""
 
     def _create_device(self, config=None):
         """Create a test device with default config."""
         if config is None:
             config = {
                 "device_ip": "192.168.1.100",
-                "control_host": "zapper-host",
+                "control_host": "control-host",
                 "reboot_script": "snmp 1.2.3.4.5.6.7",
             }
-        return ZapperOem(config)
+        return ControlHostOem(config)
 
     def test_validate_configuration_minimal(self):
         """Test _validate_configuration with minimal config."""
         device = self._create_device()
         device.job_data = {
             "provision_data": {
-                "zapper_iso_url": "http://example.com/image.iso",
-                "zapper_iso_type": "bootstrap",
+                "control_host_iso_url": "http://example.com/image.iso",
+                "control_host_iso_type": "bootstrap",
             }
         }
 
         args, kwargs = device._validate_configuration()
 
         expected = {
-            "zapper_iso_url": "http://example.com/image.iso",
-            "zapper_iso_type": "bootstrap",
+            "control_host_iso_url": "http://example.com/image.iso",
+            "control_host_iso_type": "bootstrap",
             "device_ip": "192.168.1.100",
             "update_user_data": False,
             "username": "ubuntu",
@@ -73,8 +73,8 @@ class ZapperOemTests(unittest.TestCase):
         device = self._create_device()
         device.job_data = {
             "provision_data": {
-                "zapper_iso_url": "http://example.com/image.iso",
-                "zapper_iso_type": "stock",
+                "control_host_iso_url": "http://example.com/image.iso",
+                "control_host_iso_type": "stock",
             },
             "test_data": {
                 "test_username": "testuser",
@@ -104,8 +104,8 @@ class ZapperOemTests(unittest.TestCase):
         args, kwargs = device._validate_configuration()
 
         expected = {
-            "zapper_iso_url": "http://example.com/image.iso",
-            "zapper_iso_type": "stock",
+            "control_host_iso_url": "http://example.com/image.iso",
+            "control_host_iso_type": "stock",
             "device_ip": "192.168.1.100",
             "update_user_data": False,
             "username": "testuser",
@@ -124,33 +124,33 @@ class ZapperOemTests(unittest.TestCase):
         device = self._create_device()
         device.job_data = {
             "provision_data": {
-                "zapper_iso_type": "bootstrap",
+                "control_host_iso_type": "bootstrap",
             }
         }
         with self.assertRaises(ProvisioningError) as context:
             device._validate_configuration()
-        self.assertIn("zapper_iso_url is required", str(context.exception))
+        self.assertIn("ISO URL", str(context.exception))
 
     def test_validate_configuration_missing_iso_type(self):
-        """Test _validate_configuration with missing zapper_iso_type."""
+        """Test _validate_configuration with missing control_host_iso_type."""
         device = self._create_device()
         device.job_data = {
             "provision_data": {
-                "zapper_iso_url": "http://example.com/image.iso",
+                "control_host_iso_url": "http://example.com/image.iso",
             }
         }
         with self.assertRaises(ProvisioningError) as context:
             device._validate_configuration()
-        self.assertIn("zapper_iso_type is required", str(context.exception))
+        self.assertIn("ISO type", str(context.exception))
 
     def test_validate_configuration_missing_device_ip(self):
         """Test _validate_configuration with missing device_ip."""
         # Config with control_host but missing device_ip
-        device = self._create_device(config={"control_host": "zapper-host"})
+        device = self._create_device(config={"control_host": "control-host"})
         device.job_data = {
             "provision_data": {
-                "zapper_iso_url": "http://example.com/image.iso",
-                "zapper_iso_type": "bootstrap",
+                "control_host_iso_url": "http://example.com/image.iso",
+                "control_host_iso_type": "bootstrap",
             }
         }
         with self.assertRaises(ProvisioningError) as context:
@@ -162,8 +162,8 @@ class ZapperOemTests(unittest.TestCase):
         device = self._create_device()
         device.job_data = {
             "provision_data": {
-                "zapper_iso_url": "http://example.com/image.iso",
-                "zapper_iso_type": "invalid_type",
+                "control_host_iso_url": "http://example.com/image.iso",
+                "control_host_iso_type": "invalid_type",
             }
         }
 
@@ -182,7 +182,7 @@ class ZapperOemTests(unittest.TestCase):
 
     def test_provision_method_constant(self):
         """Test that the PROVISION_METHOD constant is set correctly."""
-        self.assertEqual(ZapperOem.PROVISION_METHOD, "ProvisioningOEM")
+        self.assertEqual(ControlHostOem.PROVISION_METHOD, "ProvisioningOEM")
 
 
 if __name__ == "__main__":

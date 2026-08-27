@@ -31,9 +31,15 @@
   <table aria-label="Queues table" class="p-table--mobile-card">
     <thead>
       <tr>
-        <th>Name</th>
-        <th>Number of jobs</th>
-        <th>Description</th>
+        <th aria-sort="none">
+          <button class="p-table__sort-button">Name</button>
+        </th>
+        <th aria-sort="none" use-numeric-sort>
+          <button class="p-table__sort-button">Number of jobs</button>
+        </th>
+        <th aria-sort="none">
+          <button class="p-table__sort-button">Description</button>
+        </th>
       </tr>
     </thead>
     <tbody>

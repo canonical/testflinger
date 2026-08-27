@@ -43,14 +43,14 @@ from testflinger_cli.errors import (
     NoJobDataError,
 )
 
-URL = "https://testflinger.canonical.com"
+from .conftest import URL
 
 
 def test_status(capsys, requests_mock):
     """Status should report job_state data."""
     jobid = str(uuid.uuid1())
     fake_return = {"job_state": "completed"}
-    requests_mock.get(f"{URL}/v1/result/{jobid}", json=fake_return)
+    requests_mock.get(f"{URL}/v1/result/{jobid}/status", json=fake_return)
     sys.argv = ["", "status", jobid]
     tfcli = testflinger_cli.TestflingerCli()
     tfcli.status()
@@ -404,8 +404,8 @@ def test_submit_with_attachments(tmp_path, auth_fixture):
         # - the attachment submission endpoint
         history = mocker.request_history
         assert len(history) == 4
-        assert history[0].path == "/v1/queues/fake/agents"
-        assert history[1].path == "/v1/oauth2/token"
+        assert history[0].path == "/v1/oauth2/token"
+        assert history[1].path == "/v1/queues/fake/agents"
         assert history[2].path == "/v1/job"
         assert history[3].path == f"/v1/job/{job_id}/attachments"
 
@@ -491,8 +491,8 @@ def test_submit_attachments_retries(tmp_path, auth_fixture):
         # - there are repeated requests to the attachment submission endpoint
         history = mocker.request_history
         assert len(history) == 7
-        assert history[0].path == "/v1/queues/fake/agents"
-        assert history[1].path == "/v1/oauth2/token"
+        assert history[0].path == "/v1/oauth2/token"
+        assert history[1].path == "/v1/queues/fake/agents"
         assert history[2].path == "/v1/job"
         for entry in history[3:]:
             assert entry.path == f"/v1/job/{job_id}/attachments"
@@ -560,8 +560,8 @@ def test_submit_attachments_no_retries(tmp_path, auth_fixture):
         # - there is a final request to cancel the action
         history = mocker.request_history
         assert len(history) == 5
-        assert history[0].path == "/v1/queues/fake/agents"
-        assert history[1].path == "/v1/oauth2/token"
+        assert history[0].path == "/v1/oauth2/token"
+        assert history[1].path == "/v1/queues/fake/agents"
         assert history[2].path == "/v1/job"
         assert history[3].path == f"/v1/job/{job_id}/attachments"
         assert history[4].path == f"/v1/job/{job_id}/action"
@@ -634,8 +634,8 @@ def test_submit_attachments_timeout(tmp_path, auth_fixture):
         # - the attachment submission endpoint (with retries)
         history = mocker.request_history
         assert len(history) == 6
-        assert history[0].path == "/v1/queues/fake/agents"
-        assert history[1].path == "/v1/oauth2/token"
+        assert history[0].path == "/v1/oauth2/token"
+        assert history[1].path == "/v1/queues/fake/agents"
         assert history[2].path == "/v1/job"
         assert history[3].path == f"/v1/job/{job_id}/attachments"
         assert history[4].path == f"/v1/job/{job_id}/attachments"
@@ -888,7 +888,8 @@ def test_reserve_with_distro(capsys, requests_mock):
     # Mock position and result to handle polling
     requests_mock.get(URL + f"/v1/job/{jobid}/position", text="1")
     requests_mock.get(
-        URL + f"/v1/result/{jobid}", json={"job_state": "completed"}
+        URL + f"/v1/result/{jobid}/status",
+        json={"job_state": "completed"},
     )
     requests_mock.get(
         URL + f"/v1/result/{jobid}/log/output?start_fragment=0",
@@ -2236,7 +2237,7 @@ def test_live_polling_with_empty_poll(
 
     # Mock job status
     requests_mock.get(
-        f"{URL}/v1/result/{job_id}",
+        f"{URL}/v1/result/{job_id}/status",
         10 * [{"json": {"job_state": "active"}}]
         + [{"json": {"job_state": "complete"}}],
     )
@@ -2288,7 +2289,7 @@ def test_live_polling_by_phase(mock_sleep, capsys, requests_mock, monkeypatch):
 
     # Mock job status checks
     requests_mock.get(
-        f"{URL}/v1/result/{job_id}",
+        f"{URL}/v1/result/{job_id}/status",
         2
         * [
             {
@@ -2360,7 +2361,8 @@ def test_get_job_state_network_error(requests_mock):
     """Test get_job_state returns dict on network errors."""
     jobid = str(uuid.uuid1())
     requests_mock.get(
-        f"{URL}/v1/result/{jobid}", exc=requests.exceptions.ConnectionError
+        f"{URL}/v1/result/{jobid}/status",
+        exc=requests.exceptions.ConnectionError,
     )
     sys.argv = ["", "status", jobid]
     tfcli = testflinger_cli.TestflingerCli()
@@ -2386,7 +2388,7 @@ def test_poll_exponential_backoff_on_network_errors(
 
     # Mock both endpoints to fail 5 times then succeed
     requests_mock.get(
-        f"{URL}/v1/result/{job_id}",
+        f"{URL}/v1/result/{job_id}/status",
         [{"exc": requests.exceptions.ConnectionError}] * 5
         + [{"json": {"job_state": "complete"}}],
     )

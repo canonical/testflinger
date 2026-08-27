@@ -18,6 +18,7 @@ class TestflingerServerConfig(pydantic.BaseModel):
     keepalive: int = 10
     max_pool_size: int = 100
     jwt_signing_key: str = ""
+    jwt_leeway: int = 5
     testflinger_secrets_master_key: str = ""
     http_proxy: str = ""
     https_proxy: str = ""

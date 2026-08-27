@@ -15,20 +15,29 @@
 """Shared pytest fixtures and configuration."""
 
 import uuid
+from http import HTTPStatus
 
 import jwt
 import pytest
 
+from testflinger_cli.auth import TestflingerCliAuth
+from testflinger_cli.client import Client
 from testflinger_cli.enums import ServerRoles
 from testflinger_cli.status_line import StatusLine
 
-from .test_cli import URL
+URL = "https://testflinger.example.com"
 
 # Mock required authentication
 TEST_CLIENT_ID = "my_client_id"
 TEST_SECRET_KEY = "my_secret_key"
 JWT_SIGNING_KEY = "my-secret"
 OIDC_USER = "user@example.com"
+
+
+@pytest.fixture(autouse=True)
+def set_default_server(monkeypatch):
+    """Set the default server URL for all tests to match mock registrations."""
+    monkeypatch.setenv("TESTFLINGER_SERVER", URL)
 
 
 @pytest.fixture(autouse=True)
@@ -42,6 +51,12 @@ def mock_xdg_config(monkeypatch, tmp_path):
     monkeypatch.setattr(
         "testflinger_cli.auth.xdg_config_home", lambda: tmp_path
     )
+
+
+@pytest.fixture
+def client():
+    """Provide a Client instance with a real auth manager for unit tests."""
+    return Client(URL, TestflingerCliAuth(URL))
 
 
 @pytest.fixture
@@ -152,3 +167,13 @@ def mock_tty(monkeypatch):
     )
     monkeypatch.setattr("sys.stdout.isatty", lambda: True)
     yield
+
+
+@pytest.fixture(autouse=True)
+def default_oidc_disabled(requests_mock):
+    """Fixture for disabling OIDC authentication by default."""
+    requests_mock.post(
+        f"{URL}/oidc/auth-init",
+        status_code=HTTPStatus.NOT_FOUND,
+        json={"message": "OIDC not enabled"},
+    )

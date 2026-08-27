@@ -26,7 +26,7 @@ import testflinger_cli
 from testflinger_cli.consts import DEFAULT_SECRET_EXPIRATION
 from testflinger_cli.enums import ServerRoles
 
-from .test_cli import URL
+from .conftest import URL
 
 
 @pytest.mark.parametrize(

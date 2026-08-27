@@ -125,7 +125,7 @@ def test_retrieve_logs(mongo_app_with_outputs):
     assert combined_log["log_data"] == combined_log_expected
 
 
-def test_output_post_get(mongo_app):
+def test_output_post_get(mongo_app, agent_auth_header):
     """Test posting output data for a job then reading it back."""
     app, _ = mongo_app
     job_id = "00000000-0000-0000-0000-000000000000"
@@ -139,7 +139,7 @@ def test_output_post_get(mongo_app):
         "phase": phase,
         "log_data": log_data,
     }
-    output = app.post(output_url, json=log_json)
+    output = app.post(output_url, json=log_json, headers=agent_auth_header)
     assert "OK" == output.text
     output = app.get(output_url)
     phase_output = output.json["output"][phase]
@@ -147,7 +147,7 @@ def test_output_post_get(mongo_app):
     assert phase_output["log_data"] == log_data
 
 
-def test_output_post_get_query(mongo_app):
+def test_output_post_get_query(mongo_app, agent_auth_header):
     """Test output endpoints with timestamp querying."""
     app, _ = mongo_app
     job_id = "00000000-0000-0000-0000-000000000000"
@@ -164,7 +164,7 @@ def test_output_post_get_query(mongo_app):
             "phase": phase,
             "log_data": log_data,
         }
-        output = app.post(output_url, json=log_json)
+        output = app.post(output_url, json=log_json, headers=agent_auth_header)
         assert "OK" == output.text
     query_timestamp = datetime(
         2025, 4, 24, 10, 32, 0, tzinfo=timezone.utc
@@ -180,7 +180,7 @@ def test_output_post_get_query(mongo_app):
     assert phase_output["last_fragment_number"] == 9
 
 
-def test_output_post_get_phase_query(mongo_app):
+def test_output_post_get_phase_query(mongo_app, agent_auth_header):
     """Test output endpoints with phase querying."""
     app, _ = mongo_app
     job_id = "00000000-0000-0000-0000-000000000000"
@@ -198,7 +198,9 @@ def test_output_post_get_phase_query(mongo_app):
                 "phase": phase,
                 "log_data": log_data,
             }
-            output = app.post(output_url, json=log_json)
+            output = app.post(
+                output_url, json=log_json, headers=agent_auth_header
+            )
             assert "OK" == output.text
     query_timestamp = datetime(
         2025, 4, 24, 10, 32, 0, tzinfo=timezone.utc
@@ -229,7 +231,7 @@ def test_output_get_invalid_query(mongo_app):
     assert output.status_code == 400
 
 
-def test_serial_output(mongo_app):
+def test_serial_output(mongo_app, agent_auth_header):
     """Test api endpoint to get serial log output."""
     app, _ = mongo_app
     job_id = "00000000-0000-0000-0000-000000000000"
@@ -243,7 +245,7 @@ def test_serial_output(mongo_app):
         "phase": phase,
         "log_data": log_data,
     }
-    output = app.post(output_url, json=log_json)
+    output = app.post(output_url, json=log_json, headers=agent_auth_header)
     assert "OK" == output.text
     output = app.get(output_url)
     phase_output = output.json["serial"][phase]
