@@ -1131,6 +1131,45 @@ class TestStartupState:
         requests_mock.get(rmock.ANY)
         requests_mock.post(rmock.ANY)
 
+    def test_no_state_posted_before_server_state_is_read(
+        self, requests_mock, base_config
+    ):
+        """State must not be POSTed to the server before the agent has read
+        the server's current state.  Posting state first could clobber an
+        OFFLINE or MAINTENANCE state that was set by an administrator.
+        """
+        requests_mock.get(
+            self.AGENT_DATA_URL,
+            json={"state": AgentState.OFFLINE, "comment": "set by admin"},
+        )
+        self._make_agent(requests_mock, base_config)
+
+        history = requests_mock.request_history
+        # Index of the first GET that reads the agent's current state
+        first_state_get = next(
+            (
+                i
+                for i, call in enumerate(history)
+                if call.method == "GET" and "/v1/agents/data/" in call.path
+            ),
+            None,
+        )
+        assert first_state_get is not None, (
+            "Agent never read its state from the server on startup"
+        )
+        # Any POST before that GET must not contain a 'state' field
+        premature_state_posts = [
+            call
+            for call in history[:first_state_get]
+            if call.method == "POST"
+            and "/v1/agents/data/" in call.path
+            and "state" in (call.json() or {})
+        ]
+        assert not premature_state_posts, (
+            "Agent POSTed a state to the server before reading the current "
+            f"server state: {[c.json() for c in premature_state_posts]}"
+        )
+
     def _make_agent(self, requests_mock, base_config):
         """Instantiate the agent; mock infrastructure is already registered."""
         return _TestflingerAgent(_TestflingerClient(base_config))
