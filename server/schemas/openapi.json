@@ -52,11 +52,62 @@
         },
         "type": "object"
       },
+      "AgentJob": {
+        "additionalProperties": false,
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "job_id": {
+            "type": "string"
+          },
+          "job_priority": {
+            "type": "integer"
+          },
+          "job_queue": {
+            "type": "string"
+          },
+          "job_state": {
+            "type": "string"
+          },
+          "started_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "submitted_by": {
+            "default": null,
+            "nullable": true,
+            "type": "string"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "job_id"
+        ],
+        "type": "object"
+      },
       "AgentOut": {
         "additionalProperties": false,
         "properties": {
           "comment": {
             "type": "string"
+          },
+          "job": {
+            "anyOf": [
+              {
+                "nullable": true,
+                "type": "object"
+              },
+              {
+                "$ref": "#/components/schemas/AgentJob"
+              }
+            ]
           },
           "job_id": {
             "type": "string"
@@ -306,6 +357,88 @@
         ],
         "type": "object"
       },
+      "JobOut": {
+        "additionalProperties": false,
+        "properties": {
+          "allocate_data": {
+            "additionalProperties": {},
+            "type": "object"
+          },
+          "allocation_timeout": {
+            "type": "integer"
+          },
+          "debug": {
+            "type": "boolean"
+          },
+          "exclude_agents": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "firmware_update_data": {
+            "additionalProperties": {},
+            "type": "object"
+          },
+          "global_timeout": {
+            "type": "integer"
+          },
+          "job_id": {
+            "type": "string"
+          },
+          "job_priority": {
+            "type": "integer"
+          },
+          "job_queue": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "job_status_webhook": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "output_timeout": {
+            "type": "integer"
+          },
+          "parent_job_id": {
+            "type": "string"
+          },
+          "provision_data": {
+            "anyOf": [
+              {
+                "nullable": true,
+                "type": "object"
+              },
+              {
+                "$ref": "#/components/schemas/ProvisionData"
+              }
+            ]
+          },
+          "reserve_data": {
+            "$ref": "#/components/schemas/ReserveData"
+          },
+          "submitted_by": {
+            "default": null,
+            "nullable": true,
+            "type": "string"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "test_data": {
+            "$ref": "#/components/schemas/TestData"
+          }
+        },
+        "required": [
+          "job_queue"
+        ],
+        "type": "object"
+      },
       "JobSearchResponse": {
         "additionalProperties": false,
         "properties": {
@@ -489,6 +622,11 @@
           },
           "allocate_status": {
             "type": "integer"
+          },
+          "cancelled_by": {
+            "default": null,
+            "nullable": true,
+            "type": "string"
           },
           "cleanup_output": {
             "type": "string"
@@ -1525,7 +1663,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Job"
+                  "$ref": "#/components/schemas/JobOut"
                 }
               }
             },

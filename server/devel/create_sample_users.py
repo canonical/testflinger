@@ -39,9 +39,10 @@ from pymongo import MongoClient
 from testflinger.database import get_mongo_uri
 from sample_users import SAMPLE_CLIENTS
 
-# testflinger-admin is the OIDC identity used for authentication via Dex.
-# It is registered here so it also has a permissions record in MongoDB.
+# testflinger-admin is both the OIDC identity (via Dex) and a credential-based
+# admin client used by create_sample_data.py.
 TESTFLINGER_ADMIN_ID = "testflinger-admin"
+TESTFLINGER_ADMIN_SECRET = "testflinger"
 
 
 def _make_secret_hash(secret: str) -> str:
@@ -57,13 +58,14 @@ def main():
         db.client_permissions.insert_one(
             {
                 "client_id": TESTFLINGER_ADMIN_ID,
+                "client_secret_hash": _make_secret_hash(TESTFLINGER_ADMIN_SECRET),
                 "role": "admin",
                 "max_priority": {"*": 100},
                 "allowed_queues": [],
                 "max_reservation_time": {},
             }
         )
-        print(f"Created OIDC admin credential '{TESTFLINGER_ADMIN_ID}'")
+        print(f"Created admin credential '{TESTFLINGER_ADMIN_ID}'")
 
     for client in SAMPLE_CLIENTS:
         client_id = client["client_id"]

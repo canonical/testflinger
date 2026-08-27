@@ -735,10 +735,10 @@ def test_resubmit_job_state(mongo_app):
     assert "waiting" == updated_data.get("job_state")
 
 
-def test_job_post_stores_client_id(mongo_app):
-    """Test that submitting a job stores client_id at top level.
+def test_job_post_stores_submitted_by(mongo_app):
+    """Test that submitting a job stores submitted_by at top level.
 
-    When OIDC is not enabled, the client_id can be None (anonymous), but
+    When OIDC is not enabled, submitted_by can be None (anonymous), but
     the key should still be present on the job document.
     """
     app, mongo = mongo_app
@@ -746,12 +746,12 @@ def test_job_post_stores_client_id(mongo_app):
     output = app.post("/v1/job", json=job_data)
     job_id = output.json.get("job_id")
     job = mongo.jobs.find_one({"job_id": job_id})
-    assert "client_id" in job
-    assert job["client_id"] is None
+    assert "submitted_by" in job
+    assert job["submitted_by"] is None
 
 
-def test_job_builder_stores_client_id(testapp):
-    """Test that job_builder stores g.client_id on the job document."""
+def test_job_builder_stores_submitted_by(testapp):
+    """Test that job_builder stores g.client_id as submitted_by on the job."""
     from unittest.mock import patch
 
     data = {"job_queue": "test"}
@@ -763,7 +763,7 @@ def test_job_builder_stores_client_id(testapp):
         mock_g.client_id = "test-client-123"
         mock_g.permissions = {}
         job = v1.job_builder(data)
-    assert job["client_id"] == "test-client-123"
+    assert job["submitted_by"] == "test-client-123"
 
 
 def test_get_nonexistant_job(mongo_app, agent_auth_header):
@@ -1103,6 +1103,52 @@ def test_agents_provision_logs_post(mongo_app, agent_auth_header):
     agent_data = mongo.agents.find_one({"name": agent_name})
     assert agent_data["provision_streak_type"] == "pass"
     assert agent_data["provision_streak_count"] == 1
+
+
+def test_provision_log_submitted_by_copied_from_job(
+    mongo_app, agent_auth_header, role_clients_factory
+):
+    """Test that submitted_by is copied from the job onto the provision log.
+
+    When an agent posts a provision log, the server looks up the job to find
+    who submitted it and stores that on the provision log entry.
+    """
+    app, mongo = mongo_app
+    contributor = role_clients_factory[ServerRoles.CONTRIBUTOR]
+    agent_name = "agent1"
+
+    # Register the agent
+    app.post(
+        f"/v1/agents/data/{agent_name}",
+        json={"state": "waiting", "queues": ["test"], "location": "here"},
+        headers=agent_auth_header,
+    )
+
+    # Submit a job as a known client
+    result = app.post(
+        "/v1/job",
+        json={"job_queue": "test"},
+        headers=contributor["bearer_header"],
+    )
+    assert result.status_code == 200
+    job_id = result.json["job_id"]
+
+    # Confirm submitted_by was stored on the job
+    job = mongo.jobs.find_one({"job_id": job_id})
+    assert job["submitted_by"] == contributor["id"]
+
+    # Agent posts a provision log for that job
+    result = app.post(
+        f"/v1/agents/provision_logs/{agent_name}",
+        json={"job_id": job_id, "exit_code": 0, "detail": "provision_success"},
+        headers=agent_auth_header,
+    )
+    assert result.status_code == 200
+
+    # submitted_by should be copied from the job onto the provision log entry
+    provision_log_records = mongo.provision_logs.find_one({"name": agent_name})
+    entry = provision_log_records["provision_log"][0]
+    assert entry["submitted_by"] == contributor["id"]
 
 
 def test_agents_status_put(mongo_app, agent_auth_header, webhook_fixture):
