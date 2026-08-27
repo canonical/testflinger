@@ -9,7 +9,7 @@ import pytest
 import yaml
 from conftest import create_mock_token
 
-from defaults import LOCAL_TESTFLINGER_PATH, VIRTUAL_ENV_PATH
+from defaults import LOCAL_TESTFLINGER_PATH, UV_BIN_PATH, VIRTUAL_ENV_PATH
 
 TEST_CONFIG_01 = {
     "config-repo": "https://github.com/canonical/testflinger.git",
@@ -58,7 +58,12 @@ def test_update_testflinger_action(juju: jubilant.Juju):
 
     # Ensure that Testflinger packages are installed properly
     pip_freeze = juju.exec(
-        f"{VIRTUAL_ENV_PATH}/bin/pip3", "freeze", unit=f"{APP_NAME}/0"
+        UV_BIN_PATH,
+        "pip",
+        "freeze",
+        "--python",
+        f"{VIRTUAL_ENV_PATH}/bin/python3",
+        unit=f"{APP_NAME}/0",
     )
     assert pip_freeze.return_code == 0
 
