@@ -74,6 +74,9 @@
     "POST": ["AGENT"],
     "GET": ["AGENT", "CONTRIBUTOR", "MANAGER", "ADMIN"]
   },
+  "/v1/result/<job_id>/status": {
+    "GET": ["AGENT", "CONTRIBUTOR", "MANAGER", "ADMIN"]
+  },
   "/v1/result/<job_id>/artifact": {
     "POST": ["AGENT"],
     "GET": ["CONTRIBUTOR", "MANAGER", "ADMIN"]
