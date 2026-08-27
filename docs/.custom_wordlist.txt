@@ -1,3 +1,4 @@
+addon
 autoinstall
 dragonboard
 fragment_number
@@ -6,6 +7,7 @@ log_data
 logfile
 muxpi
 netboot
+noprovision
 oemrecovery
 passwordless
 preconfigured

@@ -22,7 +22,7 @@ server.
 
 .. note::
 
-    For simplicity, all of the diagrams are targetting the ``/v1/jobs`` endpoint
+    For simplicity, all of the diagrams are targeting the ``/v1/jobs`` endpoint
     on Testflinger server side but the same flow applies to any other endpoint
     that requires authentication.
 

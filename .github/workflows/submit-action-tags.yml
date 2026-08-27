@@ -22,7 +22,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           fetch-depth: 0  # necessary for semantic versioning
           filter: blob:none # exclude file contents for faster checkout
@@ -30,7 +30,7 @@ jobs:
 
       - name: Generate semantic version
         id: version
-        uses: PaulHatch/semantic-version@9f72830310d5ed81233b641ee59253644cd8a8fc  # v6.0.2
+        uses: PaulHatch/semantic-version@502226b17e3e242e4befd0a45690fcbb27dd1373  # v6.0.3
         with:
           tag_prefix: "submit/v"
           major_pattern: "breaking(submit):"

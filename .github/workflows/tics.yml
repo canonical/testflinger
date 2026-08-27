@@ -20,7 +20,7 @@ jobs:
       contents: read
     steps:
     - name: Checkout
-      uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
       with:
         persist-credentials: false
     - name: Install dependencies
@@ -29,7 +29,7 @@ jobs:
         sudo apt-get install -y pipx pkgconf libssl-dev build-essential
     
     - name: Install uv and set up Python
-      uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
+      uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
     # Require to install uv_build as we are not using venv managed by uv
     - name: Install uv_build 
       run: pip install uv_build
@@ -109,7 +109,7 @@ jobs:
         mv device-connectors/coverage.xml .coverage/device_connectors_coverage.xml
 
     - name: Run TiCS Analysis
-      uses: tiobe/tics-github-action@016a4d79f3027fe7b4a2901619a58c745ab7cadf # v3.10.0
+      uses: tiobe/tics-github-action@333078bc527399e5916a166bd1a3a788be5a01a9 # v3.12.0
       with:
         mode: qserver
         project: testflinger
