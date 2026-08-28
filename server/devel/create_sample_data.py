@@ -319,8 +319,8 @@ def main():
     # Primary client used for queue/agent setup (needs admin role)
     admin_client = TestflingerClient(
         server_url=args.server,
-        client_id=os.environ.get("TESTFLINGER_CLIENT_ID", "dev-admin"),
-        client_key=os.environ.get("TESTFLINGER_SECRET_KEY", "dev-secret-for-testing"),
+        client_id=os.environ.get("TESTFLINGER_CLIENT_ID", "testflinger-admin"),
+        client_key=os.environ.get("TESTFLINGER_SECRET_KEY", "testflinger"),
     )
 
     queues = QueueDataGenerator(num_queues=args.queues)

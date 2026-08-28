@@ -60,17 +60,31 @@ class AgentIn(Schema):
     comment = fields.String(required=False)
 
 
+class AgentJob(Schema):
+    """Lightweight summary of the job currently assigned to an agent."""
+
+    job_id = fields.String(required=True)
+    submitted_by = fields.String(load_default=None)
+    created_at = fields.DateTime(required=False)
+    started_at = fields.DateTime(required=False)
+    job_queue = fields.String(required=False)
+    job_state = fields.String(required=False)
+    job_priority = fields.Integer(required=False)
+    tags = fields.List(fields.String(), required=False)
+
+
 class AgentOut(Schema):
     """Agent data output schema."""
 
     name = fields.String(required=True)
+    job_id = fields.String(required=False)
     state = fields.String(required=False)
     queues = fields.List(fields.String(), required=False)
     location = fields.String(required=False)
     provision_type = fields.String(required=False)
-    job_id = fields.String(required=False)
     comment = fields.String(required=False)
     restricted_to = fields.Dict(required=False)
+    job = fields.Nested(AgentJob, required=False, allow_none=True)
 
 
 class ActionIn(Schema):
@@ -412,6 +426,12 @@ class JobId(Schema):
     job_id = fields.String(required=True)
 
 
+class JobOut(Job):
+    """Job output schema — extends Job with server-assigned fields."""
+
+    submitted_by = fields.String(load_default=None)
+
+
 class JobSearchRequest(Schema):
     """Job search request schema."""
 
@@ -437,33 +457,40 @@ class JobSearchResponse(Schema):
     jobs = fields.List(fields.Nested(Job), required=True)
 
 
-class ResultGet(Schema):
-    """Result Get schema."""
+class ResultStatus(Schema):
+    """Result Status schema - job state and phase exit codes only, no logs."""
 
     setup_status = fields.Integer(required=False)
+    provision_status = fields.Integer(required=False)
+    firmware_update_status = fields.Integer(required=False)
+    test_status = fields.Integer(required=False)
+    allocate_status = fields.Integer(required=False)
+    reserve_status = fields.Integer(required=False)
+    cleanup_status = fields.Integer(required=False)
+    job_state = fields.String(required=False)
+
+
+class ResultGet(ResultStatus):
+    """Result Get schema."""
+
     setup_output = fields.String(required=False)
     setup_serial = fields.String(required=False)
-    provision_status = fields.Integer(required=False)
     provision_output = fields.String(required=False)
     provision_serial = fields.String(required=False)
-    firmware_update_status = fields.Integer(required=False)
     firmware_update_output = fields.String(required=False)
     firmware_update_serial = fields.String(required=False)
-    test_status = fields.Integer(required=False)
     test_output = fields.String(required=False)
     test_serial = fields.String(required=False)
-    allocate_status = fields.Integer(required=False)
     allocate_output = fields.String(required=False)
     allocate_serial = fields.String(required=False)
-    reserve_status = fields.Integer(required=False)
     reserve_output = fields.String(required=False)
     reserve_serial = fields.String(required=False)
-    cleanup_status = fields.Integer(required=False)
     cleanup_output = fields.String(required=False)
     cleanup_serial = fields.String(required=False)
 
     device_info = fields.Dict(required=False)
     job_state = fields.String(required=False)
+    cancelled_by = fields.String(load_default=None)
 
 
 class ResultPost(Schema):
@@ -556,6 +583,12 @@ job_empty = {
                 "schema": {"type": "object", "properties": {}}
             }
         },
+    }
+}
+
+result_empty = {
+    204: {
+        "description": "No result found",
     }
 }
 

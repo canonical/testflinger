@@ -26,10 +26,10 @@ import pytest
 import yaml
 from testflinger_common.enums import LogType, TestPhase
 
+from testflinger.database import get_agents
 from testflinger.views import (
     agent_detail,
     as_yaml,
-    attach_active_job,
     build_job_yaml,
     highlight,
     job_detail,
@@ -91,10 +91,7 @@ def test_queues():
     )
 
     # Get the data from the function we use to generate the view
-    with (
-        patch("testflinger.views.mongo", mongo),
-        patch("testflinger.database.mongo", mongo),
-    ):
+    with patch("testflinger.database.mongo", mongo):
         data = queues_data()
 
     # Make sure we found all the queues, not just advertised ones
@@ -125,10 +122,7 @@ def test_agent_detail_no_provision_log(testapp):
     mongo.db.agents.insert_one(
         {"name": "agent1", "updated_at": datetime.now(tz=timezone.utc)}
     )
-    with (
-        patch("testflinger.views.mongo", mongo),
-        patch("testflinger.database.mongo", mongo),
-    ):
+    with patch("testflinger.database.mongo", mongo):
         with testapp.test_request_context():
             response = agent_detail("agent1")
 
@@ -142,7 +136,7 @@ def test_agent_not_found(testapp):
     an agent is not found.
     """
     mongo = mongomock.MongoClient()
-    with patch("testflinger.views.mongo", mongo):
+    with patch("testflinger.database.mongo", mongo):
         with testapp.test_request_context():
             response = agent_detail("agent1")
 
@@ -167,10 +161,7 @@ def test_agent_detail_with_restricted_to(testapp):
             "updated_at": datetime.now(tz=timezone.utc),
         }
     )
-    with (
-        patch("testflinger.views.mongo", mongo),
-        patch("testflinger.database.mongo", mongo),
-    ):
+    with patch("testflinger.database.mongo", mongo):
         with testapp.test_request_context():
             response = agent_detail("agent1")
 
@@ -206,10 +197,7 @@ def test_agent_detail_with_non_advertised_queue(testapp):
         ]
     )
 
-    with (
-        patch("testflinger.views.mongo", mongo),
-        patch("testflinger.database.mongo", mongo),
-    ):
+    with patch("testflinger.database.mongo", mongo):
         with testapp.test_request_context():
             response = agent_detail("agent1")
 
@@ -227,7 +215,7 @@ def test_job_not_found(testapp):
     a job is not found.
     """
     mongo = mongomock.MongoClient()
-    with patch("testflinger.views.mongo", mongo):
+    with patch("testflinger.database.mongo", mongo):
         with testapp.test_request_context():
             response = job_detail("job1")
 
@@ -275,9 +263,7 @@ def test_job_results_mongo_logs(testapp):
             },
         ]
     )
-    with (
-        patch("testflinger.views.mongo", mongo),
-    ):
+    with patch("testflinger.database.mongo", mongo):
         with testapp.test_request_context():
             response = job_detail(job_id)
 
@@ -314,6 +300,26 @@ def test_build_job_yaml():
     assert "should-not-appear" not in job_yaml
 
 
+def test_build_job_yaml_trailing_whitespace():
+    """build_job_yaml uses literal block style even with trailing whitespace.
+
+    PyYAML silently falls back to double-quoted style when any line has
+    trailing whitespace; the representer must strip it first.
+    """
+    job_data = {
+        "job_queue": "queue1",
+        "test_data": {"test_cmds": "echo hello  \nlsb_release -a \n"},
+    }
+
+    job_yaml = build_job_yaml(job_data)
+
+    # Must still use literal block style, not double-quoted
+    assert "test_cmds: |" in job_yaml
+    # Round-trip value equals the stripped version (trailing spaces removed)
+    parsed = yaml.safe_load(job_yaml)
+    assert parsed["test_data"]["test_cmds"] == "echo hello\nlsb_release -a\n"
+
+
 def test_job_definition_fields_derived_from_schema():
     """Definition fields track the Job schema minus server-managed fields.
 
@@ -346,7 +352,7 @@ def test_job_detail_has_copy_button(testapp):
             "result_data": {"job_state": "complete"},
         }
     )
-    with patch("testflinger.views.mongo", mongo):
+    with patch("testflinger.database.mongo", mongo):
         with testapp.test_request_context():
             response = job_detail(job_id)
 
@@ -396,7 +402,7 @@ def test_job_detail_renders_yaml_not_python_repr(testapp):
             "result_data": {"job_state": "complete"},
         }
     )
-    with patch("testflinger.views.mongo", mongo):
+    with patch("testflinger.database.mongo", mongo):
         with testapp.test_request_context():
             response = job_detail(job_id)
 
@@ -426,7 +432,10 @@ def test_authorized_view_access(oidc_app, endpoint):
     """Test views are available when OIDC is enabled and user authenticated."""
     app, _ = oidc_app
     mongo = mongomock.MongoClient()
-    with app.test_client() as client, patch("testflinger.views.mongo", mongo):
+    with (
+        app.test_client() as client,
+        patch("testflinger.database.mongo", mongo),
+    ):
         with client.session_transaction() as sess:
             sess["user"] = "testuser"
         response = client.get(endpoint)
@@ -441,8 +450,8 @@ def test_home_accessible_without_auth_when_oidc_enabled(oidc_app):
     assert response.status_code == HTTPStatus.OK
 
 
-def test_attach_active_job():
-    """Test that agents are enriched with active_job from their jobs."""
+def test_get_agents_active_job():
+    """Test that get_agents enriches agents with a nested job object."""
     mongo = mongomock.MongoClient()
     mongo.db.agents.insert_many(
         [
@@ -453,48 +462,45 @@ def test_attach_active_job():
     )
     mongo.db.jobs.insert_many(
         [
-            {"job_id": "job-1", "client_id": "client-A"},
-            {"job_id": "job-2", "client_id": "client-B"},
+            {"job_id": "job-1", "submitted_by": "client-A"},
+            {"job_id": "job-2", "submitted_by": "client-B"},
         ]
     )
 
-    agents = list(mongo.db.agents.find())
-    with patch("testflinger.views.mongo", mongo):
-        enriched = attach_active_job(agents)
+    with patch("testflinger.database.mongo", mongo):
+        enriched = get_agents()
 
     by_name = {a["name"]: a for a in enriched}
-    assert by_name["agent1"]["active_job"]["client_id"] == "client-A"
-    assert by_name["agent2"]["active_job"]["client_id"] == "client-B"
-    assert by_name["agent3"]["active_job"] is None
+    assert by_name["agent1"]["job"]["submitted_by"] == "client-A"
+    assert by_name["agent2"]["job"]["submitted_by"] == "client-B"
+    assert by_name["agent3"].get("job") is None
 
 
-def test_enrich_agents_no_jobs():
-    """Test enrichment when no agents have a job_id."""
+def test_get_agents_no_jobs():
+    """Test get_agents enrichment when no agents have a job_id."""
     mongo = mongomock.MongoClient()
     mongo.db.agents.insert_many([{"name": "agent1"}, {"name": "agent2"}])
 
-    agents = list(mongo.db.agents.find())
-    with patch("testflinger.views.mongo", mongo):
-        enriched = attach_active_job(agents)
+    with patch("testflinger.database.mongo", mongo):
+        enriched = get_agents()
 
     for agent in enriched:
-        assert agent["active_job"] is None
+        assert agent.get("job") is None
 
 
-def test_enrich_agents_job_not_found():
-    """Test enrichment when the job has been deleted."""
+def test_get_agents_job_not_found():
+    """Test get_agents enrichment when the job has been deleted."""
     mongo = mongomock.MongoClient()
     mongo.db.agents.insert_one({"name": "agent1", "job_id": "deleted-job"})
 
-    agents = list(mongo.db.agents.find())
-    with patch("testflinger.views.mongo", mongo):
-        enriched = attach_active_job(agents)
+    with patch("testflinger.database.mongo", mongo):
+        enriched = get_agents()
 
-    assert enriched[0]["active_job"] is None
+    assert enriched[0].get("job") is None
 
 
 def test_agent_detail_provision_log_with_client_id(testapp):
-    """Test that provision log entries are enriched with client_id."""
+    """Test that provision log entries display submitted_by."""
     mongo = mongomock.MongoClient()
     job_id_1 = str(uuid.uuid4())
     job_id_2 = str(uuid.uuid4())
@@ -504,27 +510,22 @@ def test_agent_detail_provision_log_with_client_id(testapp):
             "updated_at": datetime.now(tz=timezone.utc),
         }
     )
-    mongo.db.jobs.insert_many(
-        [
-            {"job_id": job_id_1, "client_id": "client-A"},
-            {"job_id": job_id_2, "client_id": "client-B"},
-        ]
-    )
     provision_log = [
         {
             "job_id": job_id_1,
             "exit_code": 0,
             "timestamp": datetime.now(tz=timezone.utc),
+            "submitted_by": "client-A",
         },
         {
             "job_id": job_id_2,
             "exit_code": 1,
             "timestamp": datetime.now(tz=timezone.utc),
+            "submitted_by": "client-B",
         },
     ]
 
     with (
-        patch("testflinger.views.mongo", mongo),
         patch("testflinger.database.mongo", mongo),
         patch(
             "testflinger.views.database.get_provision_log",

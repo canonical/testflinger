@@ -52,11 +52,62 @@
         },
         "type": "object"
       },
+      "AgentJob": {
+        "additionalProperties": false,
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "job_id": {
+            "type": "string"
+          },
+          "job_priority": {
+            "type": "integer"
+          },
+          "job_queue": {
+            "type": "string"
+          },
+          "job_state": {
+            "type": "string"
+          },
+          "started_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "submitted_by": {
+            "default": null,
+            "nullable": true,
+            "type": "string"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "job_id"
+        ],
+        "type": "object"
+      },
       "AgentOut": {
         "additionalProperties": false,
         "properties": {
           "comment": {
             "type": "string"
+          },
+          "job": {
+            "anyOf": [
+              {
+                "nullable": true,
+                "type": "object"
+              },
+              {
+                "$ref": "#/components/schemas/AgentJob"
+              }
+            ]
           },
           "job_id": {
             "type": "string"
@@ -306,6 +357,88 @@
         ],
         "type": "object"
       },
+      "JobOut": {
+        "additionalProperties": false,
+        "properties": {
+          "allocate_data": {
+            "additionalProperties": {},
+            "type": "object"
+          },
+          "allocation_timeout": {
+            "type": "integer"
+          },
+          "debug": {
+            "type": "boolean"
+          },
+          "exclude_agents": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "firmware_update_data": {
+            "additionalProperties": {},
+            "type": "object"
+          },
+          "global_timeout": {
+            "type": "integer"
+          },
+          "job_id": {
+            "type": "string"
+          },
+          "job_priority": {
+            "type": "integer"
+          },
+          "job_queue": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "job_status_webhook": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "output_timeout": {
+            "type": "integer"
+          },
+          "parent_job_id": {
+            "type": "string"
+          },
+          "provision_data": {
+            "anyOf": [
+              {
+                "nullable": true,
+                "type": "object"
+              },
+              {
+                "$ref": "#/components/schemas/ProvisionData"
+              }
+            ]
+          },
+          "reserve_data": {
+            "$ref": "#/components/schemas/ReserveData"
+          },
+          "submitted_by": {
+            "default": null,
+            "nullable": true,
+            "type": "string"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "test_data": {
+            "$ref": "#/components/schemas/TestData"
+          }
+        },
+        "required": [
+          "job_queue"
+        ],
+        "type": "object"
+      },
       "JobSearchResponse": {
         "additionalProperties": false,
         "properties": {
@@ -490,6 +623,11 @@
           "allocate_status": {
             "type": "integer"
           },
+          "cancelled_by": {
+            "default": null,
+            "nullable": true,
+            "type": "string"
+          },
           "cleanup_output": {
             "type": "string"
           },
@@ -572,6 +710,36 @@
               "type": "integer"
             },
             "type": "object"
+          }
+        },
+        "type": "object"
+      },
+      "ResultStatus": {
+        "additionalProperties": false,
+        "properties": {
+          "allocate_status": {
+            "type": "integer"
+          },
+          "cleanup_status": {
+            "type": "integer"
+          },
+          "firmware_update_status": {
+            "type": "integer"
+          },
+          "job_state": {
+            "type": "string"
+          },
+          "provision_status": {
+            "type": "integer"
+          },
+          "reserve_status": {
+            "type": "integer"
+          },
+          "setup_status": {
+            "type": "integer"
+          },
+          "test_status": {
+            "type": "integer"
           }
         },
         "type": "object"
@@ -1495,7 +1663,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Job"
+                  "$ref": "#/components/schemas/JobOut"
                 }
               }
             },
@@ -2199,6 +2367,10 @@
             },
             "description": "Successful response"
           },
+          "204": {
+            "content": {},
+            "description": "No result found"
+          },
           "404": {
             "content": {
               "application/json": {
@@ -2482,6 +2654,57 @@
           "V1"
         ],
         "x-permission-roles": [
+          "agent"
+        ]
+      }
+    },
+    "/v1/result/{job_id}/status": {
+      "get": {
+        "description": "This is a lightweight alternative to GET /result/<job_id> that omits\nlog data (output and serial).  Use this when only the job state or\nphase statuses are needed.\n\n:param job_id: UUID as a string for the job\n:raises HTTPError: If the job_id is not a valid UUID",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultStatus"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "204": {
+            "content": {},
+            "description": "No result found"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          }
+        },
+        "summary": "Return job state and phase exit codes for a specified job_id.",
+        "tags": [
+          "V1"
+        ],
+        "x-permission-roles": [
+          "admin",
+          "manager",
+          "contributor",
           "agent"
         ]
       }
