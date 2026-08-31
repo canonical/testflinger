@@ -939,3 +939,23 @@ def add_agent_event(agent_name: str, event: dict) -> None:
         },
         upsert=True,
     )
+
+
+def get_agent_events(agent_name: str, display_limit: int | None) -> list[dict]:
+    """Retrieve the list of events for a specific agents.
+
+    The events are returned in reverse chronological order (most recent first).
+    Additionally, the number of events returned can be limited by specifying a
+    display_limit. If no limit is provided, all events will be returned.
+
+    :param agent_name: The name of the agent.
+    :param display_limit: The maximum number of events to return if specified.
+    :return: A list of events for the specified agent
+    """
+    search_query = {"_id": False, "events": True} | (
+        {"events": {"$slice": display_limit}} if display_limit else {}
+    )
+    agent_events = mongo.db.agents_events.find_one(
+        {"agent_name": agent_name}, search_query
+    )
+    return agent_events.get("events", []) if agent_events else []

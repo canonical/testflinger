@@ -782,3 +782,31 @@ class ImagesIn(Schema):
                         f"Provision data for image '{image_name}' in queue"
                         f" '{queue}' must be a string"
                     )
+
+
+class AgentEvent(Schema):
+    """Agent Event schema."""
+
+    event_name = fields.String(required=True)
+    timestamp = fields.DateTime(required=True)
+    message = fields.String(required=True)
+    detail = fields.String(required=False)
+
+
+class AgentEventsQuery(Schema):
+    """Query params for GET agent events."""
+
+    limit = fields.Integer(
+        required=False,
+        validate=validators.Range(min=1),
+        metadata={
+            "description": "Max number of events to return (newest first)"
+        },
+    )
+
+
+class AgentEventOut(Schema):
+    """Agent Event output schema."""
+
+    agent_name = fields.String(required=True)
+    events = fields.List(fields.Nested(AgentEvent), required=True)

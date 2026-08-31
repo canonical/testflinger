@@ -828,6 +828,30 @@ def agents_get_one(agent_name):
     return jsonify(agent_data)
 
 
+@v1.get("/agents/data/<agent_name>/events")
+@authenticate
+@require_role(*ServerRoles)
+@v1.input(schemas.AgentEventsQuery, location="query")
+@v1.output(schemas.AgentEventOut)
+def agents_get_events(agent_name, query_data: dict):
+    """Get the events from a specified agent.
+
+    :param agent_name: Name of the agent to retrieve events from.
+    :param query_data: Query parameters for filtering events
+    :return: JSON data with the specified agent events.
+    """
+    # If the display limit is not specified, all events will be returned
+    display_limit = query_data.get("limit")
+    if not database.get_agent_info(agent_name):
+        abort(HTTPStatus.NOT_FOUND, message=f"Agent '{agent_name}' not found.")
+    return jsonify(
+        {
+            "agent_name": agent_name,
+            "events": database.get_agent_events(agent_name, display_limit),
+        }
+    )
+
+
 @v1.post("/agents/data/<agent_name>")
 @authenticate
 @require_role(ServerRoles.ADMIN, ServerRoles.MANAGER, ServerRoles.AGENT)
