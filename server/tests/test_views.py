@@ -538,3 +538,85 @@ def test_agent_detail_provision_log_with_client_id(testapp):
     html = str(response)
     assert "client-A" in html
     assert "client-B" in html
+
+
+def _seed_agent_events(mongo, agent_name, count):
+    """Insert an agent and a set of events into the mock database.
+
+    Events are stored newest-first, matching the order add_agent_event
+    maintains via its $sort on insertion.
+    """
+    base_timestamp = datetime(2026, 8, 31, 10, 0, 0, tzinfo=timezone.utc)
+    mongo.db.agents.insert_one(
+        {"name": agent_name, "updated_at": datetime.now(tz=timezone.utc)}
+    )
+    # Build newest-first: highest index (newest timestamp) comes first
+    events = [
+        {
+            "event_name": "agent_offline",
+            "timestamp": base_timestamp.replace(second=evt_idx),
+            "message": f"Event {evt_idx}",
+            "detail": "",
+        }
+        for evt_idx in reversed(range(count))
+    ]
+    mongo.db.agents_events.insert_one(
+        {
+            "agent_name": agent_name,
+            "updated_at": datetime.now(tz=timezone.utc),
+            "events": events,
+        }
+    )
+
+
+def test_agent_detail_events_section(testapp):
+    """Test that the agent detail page renders the events table."""
+    mongo = mongomock.MongoClient()
+    _seed_agent_events(mongo, "agent1", 2)
+
+    with patch("testflinger.database.mongo", mongo):
+        with testapp.test_request_context():
+            response = agent_detail("agent1")
+
+    html = str(response)
+    assert "Events" in html
+    assert "Event 0" in html
+    assert "Event 1" in html
+
+
+def test_agent_detail_events_empty(testapp):
+    """Test the events section shows an empty-state message with no events."""
+    mongo = mongomock.MongoClient()
+    mongo.db.agents.insert_one(
+        {"name": "agent1", "updated_at": datetime.now(tz=timezone.utc)}
+    )
+
+    with patch("testflinger.database.mongo", mongo):
+        with testapp.test_request_context():
+            response = agent_detail("agent1")
+
+    assert "No events recorded for this agent." in str(response)
+
+
+def test_agent_detail_events_pagination(testapp):
+    """Test that events are paginated and page 2 shows the older events."""
+    mongo = mongomock.MongoClient()
+    # 60 events -> 2 pages at the default page size of 50
+    _seed_agent_events(mongo, "agent1", 60)
+
+    with patch("testflinger.database.mongo", mongo):
+        # Page 1 shows the newest 50 (events 59..10) and a link to page 2
+        with testapp.test_request_context():
+            response = agent_detail("agent1")
+        html = str(response)
+        assert "p-pagination" in html
+        assert "page=2" in html
+        assert "Event 59" in html
+        assert "Event 0" not in html  # oldest event is on page 2
+
+        # Page 2 shows the remaining older 10 events (events 9..0)
+        with testapp.test_request_context("/agents/agent1?page=2"):
+            response = agent_detail("agent1")
+        html = str(response)
+        assert "Event 0" in html
+        assert "Event 59" not in html  # newest event is on page 1
