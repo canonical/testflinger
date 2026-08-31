@@ -1,0 +1,73 @@
+<h2 class="p-muted-heading">Activity</h2>
+<div class="p-tabs">
+  <div class="p-tabs__list" role="tablist" aria-label="Agent activity tabs">
+    <div class="p-tabs__item">
+      <button class="p-tabs__link"
+              role="tab"
+              aria-selected="true"
+              aria-controls="events-panel"
+              id="events-tab">Events</button>
+    </div>
+    <div class="p-tabs__item">
+      <button class="p-tabs__link"
+              role="tab"
+              aria-selected="false"
+              aria-controls="agent-log-panel"
+              id="agent-log-tab">Agent Log</button>
+    </div>
+  </div>
+  <div tabindex="0"
+       role="tabpanel"
+       id="events-panel"
+       aria-labelledby="events-tab">
+    {% if agent.events_data.events %}
+      <table aria-label="Events table" class="p-table--mobile-card">
+        <thead>
+          <tr>
+            <th style="width: 150pt">Time</th>
+            <th>Event</th>
+            <th>Detail</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for event in agent.events_data.events %}
+            <tr>
+              <td data-heading="Time">{{ event.timestamp.strftime("%Y-%m-%d %H:%M:%S") }}</td>
+              <td data-heading="Event">{{ event.message }}</td>
+              <td data-heading="Detail">{{ event.detail }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% if agent.events_data.total_pages > 1 %}
+        <nav class="p-pagination" aria-label="Events pagination">
+          <a class="p-pagination__link--previous {{ 'is-disabled' if agent.events_data.page <= 1 }}"
+             {% if agent.events_data.page > 1 %}href="{{ url_for('testflinger.agent_detail', agent_id=agent.name, page=agent.events_data.page - 1, start=agent.start, stop=agent.stop) }}#events-panel"{% endif %}>Previous</a>
+          {% for p in range(1, agent.events_data.total_pages + 1) %}
+            <a class="p-pagination__link {{ 'is-active' if p == agent.events_data.page }}"
+               href="{{ url_for('testflinger.agent_detail', agent_id=agent.name, page=p, start=agent.start, stop=agent.stop) }}#events-panel">{{ p }}</a>
+          {% endfor %}
+          <a class="p-pagination__link--next {{ 'is-disabled' if agent.events_data.page >= agent.events_data.total_pages }}"
+             {% if agent.events_data.page < agent.events_data.total_pages %}href="{{ url_for('testflinger.agent_detail', agent_id=agent.name, page=agent.events_data.page + 1, start=agent.start, stop=agent.stop) }}#events-panel"{% endif %}>Next</a>
+        </nav>
+      {% endif %}
+    {% else %}
+      <p>No events recorded for this agent.</p>
+    {% endif %}
+  </div>
+  <div tabindex="0"
+       role="tabpanel"
+       id="agent-log-panel"
+       aria-labelledby="agent-log-tab"
+       hidden>
+    <div class="p-code-snippet">
+      <div class="scrollable">
+        <pre class="p-code-snippet__block">
+          <code>
+              {{ agent.log|join('\n') }}
+          </code>
+        </pre>
+      </div>
+    </div>
+  </div>
+</div>

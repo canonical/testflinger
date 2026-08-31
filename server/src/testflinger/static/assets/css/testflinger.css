@@ -127,3 +127,10 @@ main {
     margin-bottom: 0.5rem;
     white-space: nowrap;
 }
+
+/* Suppress the focus ring when the events panel is targeted by anchor
+   navigation (scroll-to). The panel is a scroll target, not an interactive
+   control; the tab button carries the keyboard focus indicator instead. */
+#events-panel:focus {
+    outline: none;
+}

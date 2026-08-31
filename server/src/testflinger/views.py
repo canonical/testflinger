@@ -38,6 +38,9 @@ from testflinger.logs import MongoLogHandler
 
 views = APIBlueprint("testflinger", __name__, enable_openapi=False)
 
+DEFAULT_PAGE = 1
+DEFAULT_PAGE_SIZE = 50
+
 
 @views.before_request
 def require_login():
@@ -230,7 +233,33 @@ def agent_detail(agent_id):
         # Avoid division by zero
         agent_info["provision_success_rate"] = 0
 
+    agent_info["events_data"] = get_paginated_agent_events(agent_id)
+
     return render_template("agent_detail.html", agent=agent_info)
+
+
+def get_paginated_agent_events(agent_id, page_size=DEFAULT_PAGE_SIZE) -> dict:
+    """Get the events for a specific agent with pagination.
+
+    :param agent_id: The ID of the agent.
+    :param page_size: The number of events per page.
+    :return: A dictionary containing the events, current page, and total pages.
+    """
+    try:
+        page = max(DEFAULT_PAGE, int(request.args.get("page", DEFAULT_PAGE)))
+    except ValueError:
+        page = DEFAULT_PAGE
+
+    all_events = database.get_agent_events(agent_id, display_limit=None)
+    total_events = len(all_events)
+    total_pages = max(1, (total_events + page_size - 1) // page_size)
+    page = min(page, total_pages)
+    events = all_events[(page - 1) * page_size : page * page_size]
+    return {
+        "events": events,
+        "page": page,
+        "total_pages": total_pages,
+    }
 
 
 @views.route("/jobs")

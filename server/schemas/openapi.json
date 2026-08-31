@@ -16,6 +16,49 @@
         ],
         "type": "object"
       },
+      "AgentEvent": {
+        "additionalProperties": false,
+        "properties": {
+          "detail": {
+            "type": "string"
+          },
+          "event_name": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "timestamp": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "event_name",
+          "message",
+          "timestamp"
+        ],
+        "type": "object"
+      },
+      "AgentEventOut": {
+        "additionalProperties": false,
+        "properties": {
+          "agent_name": {
+            "type": "string"
+          },
+          "events": {
+            "items": {
+              "$ref": "#/components/schemas/AgentEvent"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "agent_name",
+          "events"
+        ],
+        "type": "object"
+      },
       "AgentIn": {
         "additionalProperties": false,
         "properties": {
@@ -47,6 +90,20 @@
             "type": "array"
           },
           "state": {
+            "enum": [
+              "waiting",
+              "offline",
+              "maintenance",
+              "restart",
+              "unknown",
+              "setup",
+              "provision",
+              "firmware_update",
+              "test",
+              "allocate",
+              "reserve",
+              "cleanup"
+            ],
             "type": "string"
           }
         },
@@ -1014,7 +1071,7 @@
         ]
       },
       "post": {
-        "description": "The json sent to this endpoint may contain data such as the following:\n{\n\"state\": string, # State the device is in\n\"queues\": array[string], # Queues the device is listening on\n\"location\": string, # Location of the device\n\"job_id\": string, # Job ID the device is running, if any\n\"log\": array[string], # push and keep only the last 100 lines\n}",
+        "description": "The json sent to this endpoint may contain data such as the following:\n{\n\"state\": string, # State the device is in\n\"queues\": array[string], # Queues the device is listening on\n\"location\": string, # Location of the device\n\"job_id\": string, # Job ID the device is running, if any\n\"log\": array[string], # push and keep only the last 100 lines\n}\n\nAdditionally, any state change will be logged as an event in the database.\n\n:param agent_name: Name of the agent to update.\n:param json_data: JSON data containing the agent information.",
         "parameters": [
           {
             "in": "path",
@@ -1071,6 +1128,73 @@
         "x-permission-roles": [
           "admin",
           "manager",
+          "agent"
+        ]
+      }
+    },
+    "/v1/agents/data/{agent_name}/events": {
+      "get": {
+        "description": ":param agent_name: Name of the agent to retrieve events from.\n:param query_data: Query parameters for filtering events\n:return: JSON data with the specified agent events.",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "agent_name",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Max number of events to return (newest first)",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentEventOut"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "summary": "Get the events from a specified agent.",
+        "tags": [
+          "V1"
+        ],
+        "x-permission-roles": [
+          "admin",
+          "manager",
+          "contributor",
           "agent"
         ]
       }

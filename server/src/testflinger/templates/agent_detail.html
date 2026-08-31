@@ -133,14 +133,5 @@
       </tbody>
     </table>
   </div>
-  <h2 class="p-muted-heading">Agent Log</h2>
-  <div class="p-code-snippet">
-    <div class="scrollable">
-      <pre class="p-code-snippet__block">
-        <code>
-            {{ agent.log|join('\n') }}
-        </code>
-        </pre>
-    </div>
-  </div>
+  {% include "_agent_activity.html" %}
 {% endblock content %}
