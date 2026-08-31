@@ -15,15 +15,19 @@
 #
 """Unit tests for testflinger database functions."""
 
+from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
 
 import mongomock
 import pytest
 from mongomock.gridfs import enable_gridfs_integration
 
+import testflinger.database as database
 from testflinger.database import (
     DEFAULT_EXPIRATION,
+    add_agent_event,
     create_indexes,
+    get_agent_events,
     retrieve_file,
     save_file,
 )
@@ -107,3 +111,101 @@ def test_create_indexes_gridfs_collections(mock_mongo):
     assert chunks_ttl.get("expireAfterSeconds") == DEFAULT_EXPIRATION
     assert files_ttl is not None
     assert files_ttl.get("expireAfterSeconds") == DEFAULT_EXPIRATION
+
+
+def _make_event(event: str, message: str, timestamp: datetime) -> dict:
+    """Build a minimal event dict as produced by events.build_event.
+
+    This is using a string for the event_name instead of the enum for
+    test simplicity.
+    """
+    return {
+        "event_name": event,
+        "timestamp": timestamp,
+        "message": message,
+        "detail": "",
+    }
+
+
+@patch("testflinger.database.mongo", new_callable=mongomock.MongoClient)
+def test_add_agent_event_stores_envelope(mock_mongo):
+    """Test add_agent_event stores the full event envelope and updated_at."""
+    timestamp = datetime(2026, 8, 31, 10, 0, 0, tzinfo=timezone.utc)
+    event = _make_event("agent_offline", "Agent set to offline", timestamp)
+    add_agent_event("agent1", event)
+
+    doc = mock_mongo.db.agents_events.find_one({"agent_name": "agent1"})
+    assert doc is not None
+    assert len(doc["events"]) == 1
+    stored = doc["events"][0]
+    assert stored["event_name"] == "agent_offline"
+    # mongomock (like MongoDB) returns datetimes as naive UTC
+    assert stored["timestamp"] == timestamp.replace(tzinfo=None)
+    assert stored["message"] == "Agent set to offline"
+    assert stored["detail"] == ""
+    # updated_at must be set for the TTL index
+    assert "updated_at" in doc
+
+
+@patch.object(database, "AGENT_EVENT_LIMIT", 3)
+@patch("testflinger.database.mongo", new_callable=mongomock.MongoClient)
+def test_add_agent_event_fifo_cap(mock_mongo):
+    """Test the event log is capped and keeps the newest events first."""
+    base = datetime(2026, 8, 31, 10, 0, 0, tzinfo=timezone.utc)
+    # Push 5 events with increasing timestamps (oldest first)
+    for i in range(5):
+        database.add_agent_event(
+            "agent1",
+            _make_event(
+                f"event {i}",
+                f"Event {i} occurred",
+                base + timedelta(seconds=i),
+            ),
+        )
+
+    doc = mock_mongo.db.agents_events.find_one({"agent_name": "agent1"})
+    events = doc["events"]
+    # The event log should be capped at 3 events
+    assert len(events) == 3
+    # Newest first; the two oldest (event 0, event 1) were already dropped
+    messages = [evt["message"] for evt in events]
+    assert messages == [
+        "Event 4 occurred",
+        "Event 3 occurred",
+        "Event 2 occurred",
+    ]
+
+
+@patch("testflinger.database.mongo", new_callable=mongomock.MongoClient)
+def test_get_agent_events_all_and_limit(mock_mongo):
+    """Test get_agent_events returns all events or a limited newest subset."""
+    base = datetime(2026, 8, 31, 10, 0, 0, tzinfo=timezone.utc)
+    for i in range(4):
+        add_agent_event(
+            "agent1",
+            _make_event(
+                f"event {i}",
+                f"Event {i} occurred",
+                base + timedelta(seconds=i),
+            ),
+        )
+
+    # no limit returns all events, newest first
+    all_events = get_agent_events("agent1", None)
+    assert len(all_events) == 4
+    # Newest first
+    assert all_events[0]["message"] == "Event 3 occurred"
+
+    # limit returns only the newest events up to the limit
+    limited = get_agent_events("agent1", 2)
+    assert len(limited) == 2
+    assert [evt["message"] for evt in limited] == [
+        "Event 3 occurred",
+        "Event 2 occurred",
+    ]
+
+
+@patch("testflinger.database.mongo", new_callable=mongomock.MongoClient)
+def test_get_agent_events_unknown_agent(mock_mongo):
+    """Test get_agent_events returns an empty list for an unknown agent."""
+    assert get_agent_events("nonexistent", None) == []

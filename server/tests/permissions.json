@@ -6,6 +6,9 @@
     "POST": ["AGENT", "MANAGER", "ADMIN"],
     "GET": ["AGENT", "CONTRIBUTOR", "MANAGER", "ADMIN"]
   },
+  "/v1/agents/data/<agent_name>/events": {
+    "GET": ["AGENT", "CONTRIBUTOR", "MANAGER", "ADMIN"]
+  },
   "/v1/agents/images": {
     "POST": ["AGENT", "MANAGER", "ADMIN"]
   },
