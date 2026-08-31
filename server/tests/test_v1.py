@@ -23,7 +23,7 @@ from http import HTTPStatus
 
 import pytest
 import requests
-from testflinger_common.enums import ServerRoles
+from testflinger_common.enums import AgentEventType, ServerRoles
 
 from testflinger.api import v1
 from tests.utilities import get_access_token_header
@@ -2039,3 +2039,97 @@ def test_agent_job_id_not_cleared_for_nonterminal_state(
 
     agent_record = mongo.agents.find_one({"name": agent_name})
     assert agent_record.get("job_id") == job_id
+
+
+def test_agents_post_records_self_offline_event(mongo_app, agent_auth_header):
+    """An agent reporting its own state records a self-initiated event."""
+    app, mongo = mongo_app
+    output = app.post(
+        "/v1/agents/data/agent1",
+        json={"state": "offline", "comment": "offline after recovery failed"},
+        headers=agent_auth_header,
+    )
+    assert output.status_code == HTTPStatus.OK
+
+    doc = mongo.agents_events.find_one({"agent_name": "agent1"})
+    assert doc is not None
+    event = doc["events"][0]
+    assert event["event_name"] == AgentEventType.AGENT_OFFLINE
+    assert event["message"] == "Agent set to offline"
+    assert event["detail"] == "offline after recovery failed"
+
+
+def test_agents_post_records_requested_offline_event(mongo_app):
+    """A manager setting an agent offline records a requested event."""
+    app, mongo = mongo_app
+    manager_header = get_access_token_header("manager1", ServerRoles.MANAGER)
+    output = app.post(
+        "/v1/agents/data/agent1",
+        json={"state": "offline"},
+        headers=manager_header,
+    )
+    assert output.status_code == HTTPStatus.OK
+
+    doc = mongo.agents_events.find_one({"agent_name": "agent1"})
+    assert doc is not None
+    event = doc["events"][0]
+    assert event["event_name"] == AgentEventType.OFFLINE_REQUESTED
+    assert event["message"] == "Offline requested by manager1"
+
+
+def test_agents_get_events(mongo_app, agent_auth_header):
+    """Test retrieving agent events with shape, ordering, and limit."""
+    app, _ = mongo_app
+    # Record two events via state changes
+    app.post(
+        "/v1/agents/data/agent1",
+        json={"state": "offline"},
+        headers=agent_auth_header,
+    )
+    app.post(
+        "/v1/agents/data/agent1",
+        json={"state": "waiting"},
+        headers=agent_auth_header,
+    )
+
+    output = app.get(
+        "/v1/agents/data/agent1/events", headers=agent_auth_header
+    )
+    assert output.status_code == HTTPStatus.OK
+    assert output.json["agent_name"] == "agent1"
+    events = output.json["events"]
+    assert len(events) == 2
+    # Newest first: the waiting (online) event is most recent
+    assert events[0]["event_name"] == AgentEventType.AGENT_ONLINE
+    assert events[1]["event_name"] == AgentEventType.AGENT_OFFLINE
+
+    # Limit restricts to the newest up to the limit
+    output = app.get(
+        "/v1/agents/data/agent1/events?limit=1", headers=agent_auth_header
+    )
+    assert output.status_code == HTTPStatus.OK
+    assert len(output.json["events"]) == 1
+    assert (
+        output.json["events"][0]["event_name"] == AgentEventType.AGENT_ONLINE
+    )
+
+
+@pytest.mark.parametrize("limit", ["0", "-1", "abc"])
+def test_agents_get_events_invalid_limit(mongo_app, agent_auth_header, limit):
+    """Test that a non-positive or non-integer limit is rejected."""
+    app, _ = mongo_app
+    output = app.get(
+        f"/v1/agents/data/agent1/events?limit={limit}",
+        headers=agent_auth_header,
+    )
+    assert output.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+
+
+def test_agents_get_events_agent_not_found(mongo_app, agent_auth_header):
+    """Test that requesting events for a nonexistent agent returns 404."""
+    app, _ = mongo_app
+    output = app.get(
+        "/v1/agents/data/nonexistent/events",
+        headers=agent_auth_header,
+    )
+    assert output.status_code == HTTPStatus.NOT_FOUND
