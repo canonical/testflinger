@@ -33,7 +33,7 @@ from urllib3.util.retry import Retry
 from werkzeug.routing import BaseConverter
 
 from testflinger import database
-from testflinger.api import auth, helpers, schemas
+from testflinger.api import auth, events, helpers, schemas
 from testflinger.api.auth import authenticate, require_role
 from testflinger.logs import LogFragment, MongoLogHandler
 from testflinger.owasp import OWASPLogger
@@ -843,9 +843,29 @@ def agents_post(agent_name, json_data):
         "job_id": string, # Job ID the device is running, if any
         "log": array[string], # push and keep only the last 100 lines
     }
+
+    Additionally, any state change will be logged as an event in the database.
+
+    :param agent_name: Name of the agent to update.
+    :param json_data: JSON data containing the agent information.
     """
     json_data["name"] = agent_name
-    json_data["updated_at"] = datetime.now(timezone.utc)
+    timestamp = datetime.now(timezone.utc)
+    json_data["updated_at"] = timestamp
+
+    if "state" in json_data:
+        event_type = events.agent_state_change_event(
+            json_data["state"], g.role
+        )
+        if event_type:
+            event = events.build_event(
+                event_type,
+                timestamp,
+                detail=json_data.get("comment", ""),
+                client_id=g.client_id,
+            )
+            database.add_agent_event(agent_name, event)
+
     # extract log from data so we can push it instead of setting it
     log = json_data.pop("log", [])
 

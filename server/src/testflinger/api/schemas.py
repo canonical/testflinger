@@ -20,7 +20,7 @@ from apiflask.validators import Length, OneOf, Regexp
 from marshmallow import INCLUDE, ValidationError, validates_schema
 from marshmallow_oneofschema import OneOfSchema
 from testflinger_common.duration import DurationParseError, parse_duration
-from testflinger_common.enums import ServerRoles, TestPhase
+from testflinger_common.enums import AgentState, ServerRoles, TestPhase
 
 ValidJobStates = (
     "setup",
@@ -56,7 +56,15 @@ class AgentIn(Schema):
     log = fields.List(fields.String(), required=False)
     provision_type = fields.String(required=False)
     queues = fields.List(fields.String(), required=False)
-    state = fields.String(required=False)
+    # An agent state is currently determined as either an
+    # AgentState or a TestPhase
+    state = fields.String(
+        required=False,
+        validate=OneOf(
+            [state.value for state in AgentState]
+            + [phase.value for phase in TestPhase]
+        ),
+    )
     comment = fields.String(required=False)
 
 

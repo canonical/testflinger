@@ -30,6 +30,11 @@ DEFAULT_EXPIRATION = 60 * 60 * 24 * 7  # 7 days
 OUTPUT_EXPIRATION = 60 * 60 * 4  # 4 hours
 ACCOUNT_DELETE_EXPIRATION = 60 * 60 * 24 * 90  # 90 days
 
+# Limit the amount of event we store in the database for each agent
+# The document size is estimated around ~200B per agent event.
+# With default limit of 1000 events, this would be ~200KB per agent document.
+AGENT_EVENT_LIMIT = int(os.getenv("AGENT_EVENT_LIMIT", "1000"))
+
 mongo = PyMongo()
 
 
@@ -128,10 +133,16 @@ def create_indexes():
         partialFilterExpression={"sub": {"$exists": True}},
     )
 
+    # Remove stale agent events after defined expiration
+    mongo.db.agents_events.create_index(
+        "updated_at", expireAfterSeconds=DEFAULT_EXPIRATION
+    )
+
     # Faster lookups for common queries
     mongo.db.refresh_tokens.create_index("refresh_token", unique=True)
     mongo.db.refresh_tokens.create_index("client_id")
     mongo.db.agents.create_index("name", unique=True)
+    mongo.db.agents_events.create_index("agent_name", unique=True)
     mongo.db.client_permissions.create_index("client_id", unique=True)
     mongo.db.client_permissions.create_index("sub", sparse=True)
     mongo.db.jobs.create_index("job_id")
@@ -901,3 +912,30 @@ def update_agent_provision_log(agent_name, json_data) -> bool:
         mongo.db.agents.update_one({"name": agent_name}, {"$set": agent})
         found = True
     return found
+
+
+def add_agent_event(agent_name: str, event: dict) -> None:
+    """Add an event to the agent's event log.
+
+    The agent event log collection is capped at a maximum number of events
+    (AGENT_EVENT_LIMIT) to prevent unbounded growth. This uses a First-In,
+    First-Out (FIFO) approach, where the oldest events are removed
+    when the limit is exceeded and new events are added.
+
+    :param agent_name: The name of the agent.
+    :param event: The event data to add.
+    """
+    mongo.db.agents_events.update_one(
+        {"agent_name": agent_name},
+        {
+            "$push": {
+                "events": {
+                    "$each": [event],
+                    "$sort": {"timestamp": -1},
+                    "$slice": AGENT_EVENT_LIMIT,
+                }
+            },
+            "$set": {"updated_at": datetime.now(timezone.utc)},
+        },
+        upsert=True,
+    )
