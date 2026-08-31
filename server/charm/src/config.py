@@ -30,6 +30,7 @@ class TestflingerServerConfig(pydantic.BaseModel):
     oidc_client_id: str = ""
     oidc_client_secret: str = ""
     oidc_provider_issuer: str = ""
+    agent_event_limit: int = 1000
 
     @pydantic.field_validator("external_hostname")
     @classmethod

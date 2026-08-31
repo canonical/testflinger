@@ -455,6 +455,7 @@ class TestflingerCharm(ops.CharmBase):
             "OIDC_CLIENT_ID": self.typed_config.oidc_client_id,
             "OIDC_CLIENT_SECRET": self.typed_config.oidc_client_secret,
             "OIDC_PROVIDER_ISSUER": self.typed_config.oidc_provider_issuer,
+            "AGENT_EVENT_LIMIT": str(self.typed_config.agent_event_limit),
         }
         return env
 

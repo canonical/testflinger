@@ -153,6 +153,10 @@ config:
       type: string
       default: ""
       description: The OIDC provider issuer URL for authenticating users
+    agent_event_limit:
+      type: int
+      default: 1000
+      description: The maximum number of events to keep in the agent's event collection.
 
 
 parts:
