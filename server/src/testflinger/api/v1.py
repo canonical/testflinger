@@ -199,7 +199,7 @@ def job_builder(data: dict) -> dict:
         "created_at": now,
         "result_data": {
             "job_state": "waiting",
-            "job_state_changed_at": now.isoformat(),
+            "job_state_changed_at": now,
         },
     }
 

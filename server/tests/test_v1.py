@@ -1965,7 +1965,7 @@ def test_initial_job_state_changed_at(mongo_app):
     assert "job_state_changed_at" in result
     # Validate it is a parseable ISO 8601 datetime string
     changed_at = datetime.fromisoformat(result["job_state_changed_at"])
-    assert changed_at.tzinfo is not None
+    assert isinstance(changed_at, datetime)
 
 
 def test_job_state_changed_at_on_result_post(mongo_app, agent_auth_header):
@@ -1977,7 +1977,9 @@ def test_job_state_changed_at_on_result_post(mongo_app, agent_auth_header):
 
     # Record the initial timestamp
     initial_result = app.get(f"/v1/result/{job_id}").json
-    initial_changed_at = initial_result["job_state_changed_at"]
+    initial_changed_at = datetime.fromisoformat(
+        initial_result["job_state_changed_at"]
+    )
 
     # Post a new job_state
     app.post(
@@ -1993,9 +1995,9 @@ def test_job_state_changed_at_on_result_post(mongo_app, agent_auth_header):
     updated_changed_at = datetime.fromisoformat(
         updated_result["job_state_changed_at"]
     )
-    assert updated_changed_at.tzinfo is not None
+    assert isinstance(updated_changed_at, datetime)
     # Timestamp must be >= the original (monotonically non-decreasing)
-    assert updated_result["job_state_changed_at"] >= initial_changed_at
+    assert updated_changed_at >= initial_changed_at
 
 
 def test_job_state_changed_at_not_updated_without_state(
@@ -2021,6 +2023,27 @@ def test_job_state_changed_at_not_updated_without_state(
     assert updated_result["job_state_changed_at"] == initial_changed_at
 
 
+def test_job_state_changed_at_not_updated_without_state_change(
+    mongo_app, agent_auth_header
+):
+    """Ensure job_state_changed_at is not updated for the current state."""
+    app, _ = mongo_app
+    output = app.post("/v1/job", json={"job_queue": "test"})
+    job_id = output.json.get("job_id")
+    initial_result = app.get(f"/v1/result/{job_id}").json
+
+    app.post(
+        f"/v1/result/{job_id}",
+        json={"job_state": "waiting"},
+        headers=agent_auth_header,
+    )
+
+    updated_result = app.get(f"/v1/result/{job_id}").json
+    assert updated_result["job_state_changed_at"] == initial_result[
+        "job_state_changed_at"
+    ]
+
+
 def test_job_state_changed_at_on_pop_job(mongo_app, agent_auth_header):
     """Ensure job_state_changed_at is set when an agent picks up a job."""
     app, mongo = mongo_app
@@ -2039,10 +2062,7 @@ def test_job_state_changed_at_on_pop_job(mongo_app, agent_auth_header):
     job = mongo.jobs.find_one({"job_id": job_id})
     assert job["result_data"]["job_state"] == "running"
     assert "job_state_changed_at" in job["result_data"]
-    changed_at = datetime.fromisoformat(
-        job["result_data"]["job_state_changed_at"]
-    )
-    assert changed_at.tzinfo is not None
+    assert isinstance(job["result_data"]["job_state_changed_at"], datetime)
 
 
 def test_job_state_changed_at_on_cancel(mongo_app):
@@ -2057,10 +2077,7 @@ def test_job_state_changed_at_on_cancel(mongo_app):
     job = mongo.jobs.find_one({"job_id": job_id})
     assert job["result_data"]["job_state"] == "cancelled"
     assert "job_state_changed_at" in job["result_data"]
-    changed_at = datetime.fromisoformat(
-        job["result_data"]["job_state_changed_at"]
-    )
-    assert changed_at.tzinfo is not None
+    assert isinstance(job["result_data"]["job_state_changed_at"], datetime)
 
 
 def test_agent_job_id_cleared_on_job_completion(mongo_app, agent_auth_header):

@@ -229,13 +229,12 @@ def pop_job(queue_list: list[str], agent_name: str) -> dict | None:
             "job_data.exclude_agents": {"$nin": [agent_name]},
         }
 
-        running_at = datetime.now(timezone.utc)
         response = mongo.db.jobs.find_one_and_update(
             query_filter,
             {
                 "$set": {
                     "result_data.job_state": "running",
-                    "result_data.job_state_changed_at": running_at.isoformat(),
+                    "result_data.job_state_changed_at": datetime.now(timezone.utc),
                     "result_data.agent_id": agent_name,
                 }
             },
@@ -280,9 +279,7 @@ def cancel_job(job_id, client_id: str | None = None):
     modifications = 0
     update_fields = {
         "result_data.job_state": "cancelled",
-        "result_data.job_state_changed_at": datetime.now(
-            timezone.utc
-        ).isoformat(),
+        "result_data.job_state_changed_at": datetime.now(timezone.utc),
     }
     if client_id is not None:
         update_fields["result_data.cancelled_by"] = client_id
@@ -791,21 +788,34 @@ def get_job(job_id: str) -> dict | None:
 
 def add_job_results(job_id: str, json_data: dict):
     """Add results to specified job id with "result_data" prepended."""
-    # If the job_state is being updated, record the time of the change
-    if "job_state" in json_data:
-        json_data["job_state_changed_at"] = datetime.now(
-            timezone.utc
-        ).isoformat()
+    has_job_state = "job_state" in json_data
+    job_state = json_data.pop("job_state", None)
+    json_data.pop("job_state_changed_at", None)
     # First, we need to prepend "result_data" to each key in the result_data
     for key in list(json_data):
         json_data[f"result_data.{key}"] = json_data.pop(key)
 
     mongo.db.jobs.update_one({"job_id": job_id}, {"$set": json_data})
+    if has_job_state:
+        mongo.db.jobs.update_one(
+            {
+                "job_id": job_id,
+                "result_data.job_state": {"$ne": job_state},
+            },
+            {
+                "$set": {
+                    "result_data.job_state": job_state,
+                    "result_data.job_state_changed_at": datetime.now(
+                        timezone.utc
+                    ),
+                }
+            },
+        )
 
     # Additionally, because the job_data may reflect that the job is now done,
     # we need to disassociate the agent from the job if the job is done:
     terminal_states = {"complete", "completed", "cancelled"}
-    if json_data.get("result_data.job_state") in terminal_states:
+    if job_state in terminal_states:
         clear_agent_job(job_id)
 
 
