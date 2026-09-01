@@ -1630,3 +1630,19 @@ def secrets_delete(client_id, path):
         abort(HTTPStatus.INTERNAL_SERVER_ERROR, message=str(error))
 
     return "OK"
+
+
+@v1.get("/events/job/<job_id>")
+@authenticate
+@require_role(*ServerRoles)
+@v1.output(schemas.JobEventsOut)
+def get_job_events(job_id):
+    """Get all available events associated with a specific job_id.
+
+    :param job_id: UUID as a string for the job
+    """
+    if not check_valid_uuid(job_id) or not database.job_exists(job_id):
+        abort(HTTPStatus.NOT_FOUND, message="Job not found")
+
+    job_events = database.get_job_events(job_id)
+    return jsonify({"job_id": job_id, "events": job_events})
