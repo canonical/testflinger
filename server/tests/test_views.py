@@ -276,6 +276,72 @@ def test_job_results_mongo_logs(testapp):
     assert "Exit Status:</span> 1" in html
 
 
+def test_job_detail_shows_activity_events(testapp):
+    """Test that job_detail renders stored events in the Activity section."""
+    mongo = mongomock.MongoClient()
+    job_id = str(uuid.uuid4())
+    mongo.db.jobs.insert_one(
+        {
+            "job_id": job_id,
+            "created_at": datetime.now(timezone.utc),
+            "job_data": {"job_queue": "queue1"},
+            "result_data": {"job_state": "complete"},
+        }
+    )
+    mongo.db.jobs_events.insert_one(
+        {
+            "job_id": job_id,
+            "events": [
+                {
+                    "event_name": "job_started",
+                    "timestamp": datetime(
+                        2026, 1, 1, 12, 0, 0, tzinfo=timezone.utc
+                    ),
+                    "message": "Job started.",
+                    "detail": "",
+                },
+                {
+                    "event_name": "job_submitted",
+                    "timestamp": datetime(
+                        2026, 1, 1, 11, 0, 0, tzinfo=timezone.utc
+                    ),
+                    "message": "Job submitted.",
+                    "detail": "",
+                },
+            ],
+        }
+    )
+    with patch("testflinger.database.mongo", mongo):
+        with testapp.test_request_context():
+            response = job_detail(job_id)
+
+    html = str(response)
+    assert "Activity" in html
+    assert "Job started." in html
+    assert "Job submitted." in html
+    assert "2026-01-01 12:00:00" in html
+
+
+def test_job_detail_no_events_shows_placeholder(testapp):
+    """Test that the Activity section shows a placeholder with no events."""
+    mongo = mongomock.MongoClient()
+    job_id = str(uuid.uuid4())
+    mongo.db.jobs.insert_one(
+        {
+            "job_id": job_id,
+            "created_at": datetime.now(timezone.utc),
+            "job_data": {"job_queue": "queue1"},
+            "result_data": {"job_state": "complete"},
+        }
+    )
+    with patch("testflinger.database.mongo", mongo):
+        with testapp.test_request_context():
+            response = job_detail(job_id)
+
+    html = str(response)
+    assert "No events available for this job." in html
+
+
 def test_build_job_yaml():
     """build_job_yaml produces a submittable, ordered job definition."""
     job_data = {
