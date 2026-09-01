@@ -144,8 +144,11 @@ def _build_job_lifecycle_events(
     if not new_job_state:
         return []
 
-    # Terminal job stated log a completion event
+    previous_job_state = previous_data.get("job_state")
+    # Terminal job state: log a completion event once
     if new_job_state in {"completed", "complete"}:
+        if previous_job_state in {"completed", "complete"}:
+            return []
         return [
             build_event(
                 event_type=JobEvent.JOB_COMPLETED,
@@ -154,7 +157,6 @@ def _build_job_lifecycle_events(
         ]
 
     # Early return if the job state has not changed
-    previous_job_state = previous_data.get("job_state")
     if (
         new_job_state not in {phase.value for phase in TestPhase}
         or new_job_state == previous_job_state
