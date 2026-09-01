@@ -144,18 +144,17 @@ def test_add_job_event(mock_mongo):
 
 
 @patch("testflinger.database.mongo", new_callable=mongomock.MongoClient)
-def test_new_job_events_sorted_by_timestamp(mock_mongo):
-    """Test new jobs are appended to collection, sorted by desc timestamp."""
+def test_new_job_events_preserve_insertion_order(mock_mongo):
+    """Test new events are appended in insertion (oldest-first) order."""
     job_id = str(uuid4())
-    timestamps = [
-        datetime.datetime(2026, 1, 1, 12, 0, tzinfo=datetime.timezone.utc),
-        datetime.datetime(2026, 1, 1, 12, 5, tzinfo=datetime.timezone.utc),
-        datetime.datetime(2026, 1, 1, 12, 10, tzinfo=datetime.timezone.utc),
-    ]
+    timestamp = datetime.datetime(
+        2026, 1, 1, 12, 0, tzinfo=datetime.timezone.utc
+    )
+    # timestamp is fixed for test simplicity and for validating insertion order
     events = [
-        _make_event("job_submitted", "Job submitted", timestamps[0]),
-        _make_event("job_started", "Job started", timestamps[1]),
-        _make_event("job_completed", "Job completed", timestamps[2]),
+        _make_event("job_submitted", "Job submitted", timestamp),
+        _make_event("job_started", "Job started", timestamp),
+        _make_event("job_completed", "Job completed", timestamp),
     ]
 
     for event in events:
@@ -164,13 +163,9 @@ def test_new_job_events_sorted_by_timestamp(mock_mongo):
     doc = mock_mongo.db.jobs_events.find_one({"job_id": job_id})
     stored_events = doc["events"]
     assert len(stored_events) == 3
-    # We need to sort the expected events by timestamp to match the db ordering
-    expected_events = sorted(
-        events, key=lambda evt: evt["timestamp"], reverse=True
-    )
     # strip tz info before comparison as mongomock stores datetime in naive UTC
     normalized_expected = [
         {**evt, "timestamp": evt["timestamp"].replace(tzinfo=None)}
-        for evt in expected_events
+        for evt in events
     ]
     assert stored_events == normalized_expected
