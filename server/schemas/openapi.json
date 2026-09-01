@@ -233,6 +233,28 @@
         ],
         "type": "object"
       },
+      "Event": {
+        "additionalProperties": false,
+        "properties": {
+          "detail": {
+            "type": "string"
+          },
+          "event_name": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "timestamp": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "event_name",
+          "timestamp"
+        ],
+        "type": "object"
+      },
       "HTTPError": {
         "properties": {
           "detail": {
@@ -342,6 +364,25 @@
         "required": [
           "event_name",
           "timestamp"
+        ],
+        "type": "object"
+      },
+      "JobEventsOut": {
+        "additionalProperties": false,
+        "properties": {
+          "events": {
+            "items": {
+              "$ref": "#/components/schemas/Event"
+            },
+            "type": "array"
+          },
+          "job_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "events",
+          "job_id"
         ],
         "type": "object"
       },
@@ -1471,6 +1512,53 @@
         "x-permission-roles": [
           "admin",
           "manager"
+        ]
+      }
+    },
+    "/v1/events/job/{job_id}": {
+      "get": {
+        "description": ":param job_id: UUID as a string for the job",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobEventsOut"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          }
+        },
+        "summary": "Get all available events associated with a specific job_id.",
+        "tags": [
+          "V1"
+        ],
+        "x-permission-roles": [
+          "admin",
+          "manager",
+          "contributor",
+          "agent"
         ]
       }
     },
