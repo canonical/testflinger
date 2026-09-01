@@ -28,11 +28,11 @@ from flask import current_app, g, jsonify, request, send_file
 from marshmallow import ValidationError
 from prometheus_client import Counter
 from requests.adapters import HTTPAdapter
-from testflinger_common.enums import LogType, ServerRoles, TestPhase
+from testflinger_common.enums import JobEvent, LogType, ServerRoles, TestPhase
 from urllib3.util.retry import Retry
 from werkzeug.routing import BaseConverter
 
-from testflinger import database
+from testflinger import database, events
 from testflinger.api import auth, helpers, schemas
 from testflinger.api.auth import authenticate, require_role
 from testflinger.logs import LogFragment, MongoLogHandler
@@ -140,6 +140,16 @@ def job_post(json_data: dict) -> dict:
     # CAUTION! If you ever move this line, you may need to pass data as a copy
     # because it will get modified by submit_job and other things it calls
     database.add_job(job)
+
+    database.add_job_event(
+        job_id=job["job_id"],
+        event=events.build_event(
+            event_type=JobEvent.JOB_SUBMITTED,
+            timestamp=datetime.now(timezone.utc),
+            client_id=g.client_id,
+            queue_name=job["job_data"]["job_queue"],
+        ),
+    )
     return jsonify(job_id=job.get("job_id"))
 
 
@@ -261,6 +271,15 @@ def job_get():
     job = database.pop_job(queue_list=queue_list, agent_name=agent_name)
     if not job:
         return jsonify({}), HTTPStatus.NO_CONTENT
+
+    database.add_job_event(
+        job_id=job["job_id"],
+        event=events.build_event(
+            event_type=JobEvent.JOB_ASSIGNED,
+            timestamp=datetime.now(timezone.utc),
+            agent_name=agent_name,
+        ),
+    )
     if (secrets := retrieve_secrets(job)) is not None:
         job["test_data"]["secrets"] = secrets
     database.set_agent_job(agent_name, job["job_id"])
@@ -590,7 +609,14 @@ def result_post(job_id: str, json_data: dict) -> str:
     if content_length and content_length >= 16 * 1024 * 1024:
         abort(HTTPStatus.REQUEST_ENTITY_TOO_LARGE, message="Payload too large")
 
+    # We need to get new events before json_data is mutated by add_job_results
+    previous_results = database.get_job_results(job_id) or {}
+    previous_data = previous_results.get("result_data", {})
+    new_events = events.detect_new_result_events(previous_data, json_data)
+
     database.add_job_results(job_id, json_data)
+    for event in new_events:
+        database.add_job_event(job_id=job_id, event=event)
     return "OK"
 
 
@@ -689,6 +715,16 @@ def _cancel_job(job_id):
             "The job is already completed or cancelled",
             HTTPStatus.BAD_REQUEST,
         )
+
+    # Only add an event if the cancellation is actually made
+    database.add_job_event(
+        job_id=job_id,
+        event=events.build_event(
+            event_type=JobEvent.JOB_CANCELLED,
+            timestamp=datetime.now(timezone.utc),
+            client_id=g.client_id,
+        ),
+    )
     return "OK"
 
 

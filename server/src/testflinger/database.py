@@ -128,6 +128,11 @@ def create_indexes():
         partialFilterExpression={"sub": {"$exists": True}},
     )
 
+    # Remove stale job events after defined expiration
+    mongo.db.jobs_events.create_index(
+        "updated_at", expireAfterSeconds=DEFAULT_EXPIRATION
+    )
+
     # Faster lookups for common queries
     mongo.db.refresh_tokens.create_index("refresh_token", unique=True)
     mongo.db.refresh_tokens.create_index("client_id")
@@ -135,6 +140,7 @@ def create_indexes():
     mongo.db.client_permissions.create_index("client_id", unique=True)
     mongo.db.client_permissions.create_index("sub", sparse=True)
     mongo.db.jobs.create_index("job_id")
+    mongo.db.jobs_events.create_index("job_id", unique=True)
     mongo.db.jobs.create_index(["result_data.job_state", "job_data.job_queue"])
     mongo.db.agents.create_index("queues")
 
@@ -901,3 +907,24 @@ def update_agent_provision_log(agent_name, json_data) -> bool:
         mongo.db.agents.update_one({"name": agent_name}, {"$set": agent})
         found = True
     return found
+
+
+def add_job_event(job_id: str, event: dict) -> None:
+    """Add an event to the job events collection.
+
+    :param job_id: The ID of the job.
+    :param event: The event data to add.
+    """
+    mongo.db.jobs_events.update_one(
+        {"job_id": job_id},
+        {
+            "$push": {
+                "events": {
+                    "$each": [event],
+                    "$sort": {"timestamp": -1},
+                }
+            },
+            "$set": {"updated_at": datetime.now(timezone.utc)},
+        },
+        upsert=True,
+    )
