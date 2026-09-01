@@ -74,7 +74,7 @@ def build_event(
         "message": message,
         "detail": detail,
     }
-    # Preserve the status key in the event if its present in the context
+    # Preserve the status key in the event if it's present in the context
     if "status" in context:
         event["status"] = context["status"]
     return event
