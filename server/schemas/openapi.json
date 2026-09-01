@@ -246,6 +246,7 @@
             "type": "string"
           },
           "timestamp": {
+            "format": "date-time",
             "type": "string"
           }
         },

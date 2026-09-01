@@ -780,7 +780,7 @@ class Event(Schema):
     """Event schema."""
 
     event_name = fields.String(required=True)
-    timestamp = fields.String(required=True)
+    timestamp = fields.DateTime(required=True)
     message = fields.String(required=False)
     detail = fields.String(required=False)
 
