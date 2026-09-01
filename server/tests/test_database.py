@@ -112,7 +112,9 @@ def test_create_indexes_gridfs_collections(mock_mongo):
     assert files_ttl.get("expireAfterSeconds") == DEFAULT_EXPIRATION
 
 
-def _make_event(event: str, message: str, timestamp: datetime) -> dict:
+def _make_event(
+    event: str, message: str, timestamp: datetime.datetime
+) -> dict:
     """Build a minimal event dict as produced by events.build_event.
     This is using a string for the event_name instead of the enum for
     test simplicity.
