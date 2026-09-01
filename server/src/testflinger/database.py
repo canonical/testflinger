@@ -936,4 +936,4 @@ def get_job_events(job_id: str) -> list[dict]:
     result = mongo.db.jobs_events.find_one(
         {"job_id": job_id}, {"_id": False, "events": True}
     )
-    return result["events"] if result else []
+    return result.get("events", []) if result else []
