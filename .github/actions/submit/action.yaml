@@ -159,7 +159,7 @@ runs:
             echo "::error::Failed to submit job to Testflinger server"
             exit 1
           fi
-          echo "id=$JOB_ID" >> $GITHUB_OUTPUT
+          echo "id=$JOB_ID" > "$GITHUB_OUTPUT"
           echo "::notice::Testflinger job id: $JOB_ID"
 
           if [[ "$POLL" != "true" ]]; then
