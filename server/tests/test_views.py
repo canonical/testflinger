@@ -299,6 +299,7 @@ def test_job_detail_shows_activity_events(testapp):
                     ),
                     "message": "Job started.",
                     "detail": "",
+                    "status": 0,
                 },
                 {
                     "event_name": "job_submitted",
@@ -320,6 +321,8 @@ def test_job_detail_shows_activity_events(testapp):
     assert "Job started." in html
     assert "Job submitted." in html
     assert "2026-01-01 12:00:00" in html
+    assert '<i class="p-icon--success" aria-label="Success"></i>' in html
+    assert '<i class="p-icon--information" aria-label="Info"></i>' in html
 
 
 def test_job_detail_no_events_shows_placeholder(testapp):
