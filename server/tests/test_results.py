@@ -287,7 +287,7 @@ def test_result_log_nonexistent_job_returns_empty(mongo_app, log_type):
 @pytest.mark.parametrize("phase", list(TestPhase))
 def test_result_status_single_phase(mongo_app, agent_auth_header, phase):
     """Status endpoint returns the correct exit code for each TestPhase."""
-    app, _ = mongo_app
+    app, mongo = mongo_app
     newjob = app.post("/v1/job", json={"job_queue": "test"})
     job_id = newjob.json.get("job_id")
 
@@ -302,11 +302,16 @@ def test_result_status_single_phase(mongo_app, agent_auth_header, phase):
     assert response.status_code == HTTPStatus.OK
     assert response.json.get(f"{phase}_status") == 0
 
+    # A new status key should emit exactly one JOB_PHASE_COMPLETED event.
+    doc = mongo.jobs_events.find_one({"job_id": job_id})
+    event_names = [event["event_name"] for event in doc["events"]]
+    assert event_names.count("job_phase_completed") == 1
+
 
 @pytest.mark.parametrize("exit_code", [0, 1, 2, 127, 255])
 def test_result_status_exit_codes(mongo_app, agent_auth_header, exit_code):
     """Status endpoint correctly surfaces various phase exit code values."""
-    app, _ = mongo_app
+    app, mongo = mongo_app
     newjob = app.post("/v1/job", json={"job_queue": "test"})
     job_id = newjob.json.get("job_id")
 
@@ -321,13 +326,22 @@ def test_result_status_exit_codes(mongo_app, agent_auth_header, exit_code):
     assert response.status_code == HTTPStatus.OK
     assert response.json.get("test_status") == exit_code
 
+    # The JOB_PHASE_COMPLETED event message should surface the exit code.
+    doc = mongo.jobs_events.find_one({"job_id": job_id})
+    phase_completed = next(
+        event
+        for event in doc["events"]
+        if event["event_name"] == "job_phase_completed"
+    )
+    assert str(exit_code) in phase_completed["message"]
+
 
 @pytest.mark.parametrize("job_state", list(JobState))
 def test_result_status_job_state_values(
     mongo_app, agent_auth_header, job_state
 ):
     """Status endpoint returns the correct job_state for each JobState."""
-    app, _ = mongo_app
+    app, mongo = mongo_app
     newjob = app.post("/v1/job", json={"job_queue": "test"})
     job_id = newjob.json.get("job_id")
 
@@ -342,10 +356,22 @@ def test_result_status_job_state_values(
     assert response.status_code == HTTPStatus.OK
     assert response.json.get("job_state") == job_state
 
+    # Also validate the corresponding lifecycle event(s) were recorded.
+    doc = mongo.jobs_events.find_one({"job_id": job_id})
+    event_names = {event["event_name"] for event in doc["events"]}
+    if job_state in {"complete", "completed"}:
+        assert "job_completed" in event_names
+    elif job_state in {phase.value for phase in TestPhase}:
+        assert {"job_started", "job_phase_started"} <= event_names
+    else:
+        # any other job_state values should not emit any lifecycle events
+        # besides the initial JOB_SUBMITTED event that is always present.
+        assert event_names == {"job_submitted"}
+
 
 def test_result_status_all_phases(mongo_app, agent_auth_header):
     """Status endpoint returns exit codes for all phases when all posted."""
-    app, _ = mongo_app
+    app, mongo = mongo_app
     newjob = app.post("/v1/job", json={"job_queue": "test"})
     job_id = newjob.json.get("job_id")
 
@@ -361,6 +387,12 @@ def test_result_status_all_phases(mongo_app, agent_auth_header):
     assert response.status_code == HTTPStatus.OK
     for idx, phase in enumerate(TestPhase):
         assert response.json.get(f"{phase}_status") == idx
+
+    # Posting all phases in one payload should emit one JOB_PHASE_COMPLETED
+    # event per phase.
+    doc = mongo.jobs_events.find_one({"job_id": job_id})
+    event_names = [event["event_name"] for event in doc["events"]]
+    assert event_names.count("job_phase_completed") == len(TestPhase)
 
 
 # ---------------------------------------------------------------------------
@@ -445,3 +477,77 @@ def test_result_log_contains_no_status_fields(mongo_app, agent_auth_header):
         f"Log endpoint returned unexpected status fields: "
         f"{returned_keys & _STATUS_FIELDS}"
     )
+
+
+def test_result_post_emits_only_start_events_once_per_phase(
+    mongo_app, agent_auth_header
+):
+    """Test the phase started event is emitted only once per phase."""
+    app, mongo = mongo_app
+    newjob = app.post("/v1/job", json={"job_queue": "test"})
+    job_id = newjob.json.get("job_id")
+    result_url = f"/v1/result/{job_id}"
+
+    app.post(
+        result_url,
+        json={"job_state": JobState.PROVISION},
+        headers=agent_auth_header,
+    )
+    app.post(
+        result_url,
+        json={"job_state": JobState.TEST},
+        headers=agent_auth_header,
+    )
+
+    doc = mongo.jobs_events.find_one({"job_id": job_id})
+    event_names = [event["event_name"] for event in doc["events"]]
+    assert event_names.count("job_submitted") == 1
+    assert event_names.count("job_started") == 1
+    assert event_names.count("job_phase_started") == 2
+
+
+def test_result_post_does_not_duplicate_phase_completed_on_retry(
+    mongo_app, agent_auth_header
+):
+    """Test re-posting the same phase status does not duplicate the event."""
+    app, mongo = mongo_app
+    newjob = app.post("/v1/job", json={"job_queue": "test"})
+    job_id = newjob.json.get("job_id")
+    result_url = f"/v1/result/{job_id}"
+
+    app.post(
+        result_url,
+        json={"status": {JobState.PROVISION: 0}},
+        headers=agent_auth_header,
+    )
+    app.post(
+        result_url,
+        json={"status": {JobState.PROVISION: 0}},
+        headers=agent_auth_header,
+    )
+
+    doc = mongo.jobs_events.find_one({"job_id": job_id})
+    event_names = [event["event_name"] for event in doc["events"]]
+    assert event_names.count("job_phase_completed") == 1
+
+
+def test_result_post_no_events_for_device_info_only_payload(
+    mongo_app, agent_auth_header
+):
+    """Test posting device_info without job_state/status emits no events."""
+    app, mongo = mongo_app
+    newjob = app.post("/v1/job", json={"job_queue": "test"})
+    job_id = newjob.json.get("job_id")
+    result_url = f"/v1/result/{job_id}"
+
+    response = app.post(
+        result_url,
+        json={"device_info": {"foo": "bar"}},
+        headers=agent_auth_header,
+    )
+    assert response.status_code == HTTPStatus.OK
+
+    doc = mongo.jobs_events.find_one({"job_id": job_id})
+    # Only the job_submitted event from job creation should be present
+    assert len(doc["events"]) == 1
+    assert doc["events"][0]["event_name"] == "job_submitted"
