@@ -912,18 +912,15 @@ def update_agent_provision_log(agent_name, json_data) -> bool:
 def add_job_event(job_id: str, event: dict) -> None:
     """Add an event to the job events collection.
 
+    Events are appended in natural insertion order (oldest first).
+
     :param job_id: The ID of the job.
     :param event: The event data to add.
     """
     mongo.db.jobs_events.update_one(
         {"job_id": job_id},
         {
-            "$push": {
-                "events": {
-                    "$each": [event],
-                    "$sort": {"timestamp": -1},
-                }
-            },
+            "$push": {"events": event},
             "$set": {"updated_at": datetime.now(timezone.utc)},
         },
         upsert=True,
