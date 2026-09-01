@@ -783,6 +783,7 @@ class Event(Schema):
     timestamp = fields.DateTime(required=True)
     message = fields.String(required=False)
     detail = fields.String(required=False)
+    status = fields.Integer(required=False, allow_none=True)
 
 
 class JobEventsOut(Schema):
