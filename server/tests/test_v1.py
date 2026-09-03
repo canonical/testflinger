@@ -735,6 +735,37 @@ def test_resubmit_job_state(mongo_app):
     assert "waiting" == updated_data.get("job_state")
 
 
+def test_job_post_stores_submitted_by(mongo_app):
+    """Test that submitting a job stores submitted_by at top level.
+
+    When OIDC is not enabled, submitted_by can be None (anonymous), but
+    the key should still be present on the job document.
+    """
+    app, mongo = mongo_app
+    job_data = {"job_queue": "test"}
+    output = app.post("/v1/job", json=job_data)
+    job_id = output.json.get("job_id")
+    job = mongo.jobs.find_one({"job_id": job_id})
+    assert "submitted_by" in job
+    assert job["submitted_by"] is None
+
+
+def test_job_builder_stores_submitted_by(testapp):
+    """Test that job_builder stores g.client_id as submitted_by on the job."""
+    from unittest.mock import patch
+
+    data = {"job_queue": "test"}
+    with (
+        testapp.test_request_context(),
+        patch("testflinger.api.v1.g") as mock_g,
+        patch("testflinger.api.v1.auth.check_permissions"),
+    ):
+        mock_g.client_id = "test-client-123"
+        mock_g.permissions = {}
+        job = v1.job_builder(data)
+    assert job["submitted_by"] == "test-client-123"
+
+
 def test_get_nonexistant_job(mongo_app, agent_auth_header):
     """Test for 204 when getting from a nonexistent queue."""
     app, _ = mongo_app
@@ -1315,6 +1346,52 @@ def test_agents_provision_logs_post(mongo_app, agent_auth_header):
     agent_data = mongo.agents.find_one({"name": agent_name})
     assert agent_data["provision_streak_type"] == "pass"
     assert agent_data["provision_streak_count"] == 1
+
+
+def test_provision_log_submitted_by_copied_from_job(
+    mongo_app, agent_auth_header, role_clients_factory
+):
+    """Test that submitted_by is copied from the job onto the provision log.
+
+    When an agent posts a provision log, the server looks up the job to find
+    who submitted it and stores that on the provision log entry.
+    """
+    app, mongo = mongo_app
+    contributor = role_clients_factory[ServerRoles.CONTRIBUTOR]
+    agent_name = "agent1"
+
+    # Register the agent
+    app.post(
+        f"/v1/agents/data/{agent_name}",
+        json={"state": "waiting", "queues": ["test"], "location": "here"},
+        headers=agent_auth_header,
+    )
+
+    # Submit a job as a known client
+    result = app.post(
+        "/v1/job",
+        json={"job_queue": "test"},
+        headers=contributor["bearer_header"],
+    )
+    assert result.status_code == 200
+    job_id = result.json["job_id"]
+
+    # Confirm submitted_by was stored on the job
+    job = mongo.jobs.find_one({"job_id": job_id})
+    assert job["submitted_by"] == contributor["id"]
+
+    # Agent posts a provision log for that job
+    result = app.post(
+        f"/v1/agents/provision_logs/{agent_name}",
+        json={"job_id": job_id, "exit_code": 0, "detail": "provision_success"},
+        headers=agent_auth_header,
+    )
+    assert result.status_code == 200
+
+    # submitted_by should be copied from the job onto the provision log entry
+    provision_log_records = mongo.provision_logs.find_one({"name": agent_name})
+    entry = provision_log_records["provision_log"][0]
+    assert entry["submitted_by"] == contributor["id"]
 
 
 def test_agents_status_put(mongo_app, agent_auth_header, webhook_fixture):
@@ -2014,6 +2091,62 @@ def test_pop_job_respects_exclude_agents(mongo_app, agent_auth_header):
     assert output.json["job_id"] == job_id
 
 
+def test_pop_job_records_agent_id_in_result_data(mongo_app, agent_auth_header):
+    """Test that agent_id is stored in result_data when a job is picked up."""
+    app, mongo = mongo_app
+
+    # Setup agent in database
+    agent_name = "agent1"
+    app.post(
+        f"/v1/agents/data/{agent_name}",
+        json={"state": "waiting", "queues": ["test"], "location": "here"},
+        headers=agent_auth_header,
+    )
+
+    # Submit a job
+    job_data = {"job_queue": "test"}
+    resp = app.post("/v1/job", json=job_data)
+    assert resp.status_code == HTTPStatus.OK
+    job_id = resp.json["job_id"]
+
+    # Agent picks up the job
+    output = app.get("/v1/job?queue=test", headers=agent_auth_header)
+    assert output.status_code == HTTPStatus.OK
+    assert output.json["job_id"] == job_id
+
+    # Verify agent_id is recorded in the job's result_data
+    job_record = mongo.jobs.find_one({"job_id": job_id})
+    assert job_record["result_data"]["agent_id"] == agent_name
+    assert job_record["result_data"]["job_state"] == "running"
+
+
+def test_job_dispatch_sets_job_id_on_agent(mongo_app, agent_auth_header):
+    """Test that dispatching a job sets job_id on the agent record."""
+    app, mongo = mongo_app
+
+    agent_name = "agent1"
+    app.post(
+        f"/v1/agents/data/{agent_name}",
+        json={"state": "waiting", "queues": ["test"], "location": "here"},
+        headers=agent_auth_header,
+    )
+
+    # Confirm no job_id on agent before dispatch
+    agent_record = mongo.agents.find_one({"name": agent_name})
+    assert not agent_record.get("job_id")
+
+    # Submit and dispatch a job
+    job_data = {"job_queue": "test"}
+    resp = app.post("/v1/job", json=job_data)
+    job_id = resp.json["job_id"]
+
+    app.get("/v1/job?queue=test", headers=agent_auth_header)
+
+    # Verify the server set job_id on the agent record at dispatch time
+    agent_record = mongo.agents.find_one({"name": agent_name})
+    assert agent_record["job_id"] == job_id
+
+
 def test_get_job_without_agent_id_fails(mongo_app, agent_auth_header):
     """Test that getting a job without agent_id cookie fails."""
     app, mongo = mongo_app
@@ -2362,3 +2495,91 @@ def test_synthesise_legacy_state_in_all_agents_response(
 
     assert agents_by_name["synth_all_offline"]["state"] == "offline"
     assert agents_by_name["synth_all_online"]["state"] == "waiting"
+
+
+def test_agent_job_id_cleared_on_job_completion(mongo_app, agent_auth_header):
+    """Test that posting a terminal job state clears job_id from the agent
+    record.
+    """
+    app, mongo = mongo_app
+    agent_name = "agent1"
+
+    # Register agent, submit a job, and have the agent pick it up
+    app.post(
+        f"/v1/agents/data/{agent_name}",
+        json={"state": "waiting", "queues": ["test"], "location": "here"},
+        headers=agent_auth_header,
+    )
+    resp = app.post("/v1/job", json={"job_queue": "test"})
+    job_id = resp.json["job_id"]
+    app.get("/v1/job?queue=test", headers=agent_auth_header)
+
+    agent_record = mongo.agents.find_one({"name": agent_name})
+    assert agent_record["job_id"] == job_id
+
+    # Agent posts a terminal result
+    result = app.post(
+        f"/v1/result/{job_id}",
+        json={"job_state": "complete"},
+        headers=agent_auth_header,
+    )
+    assert result.status_code == HTTPStatus.OK
+
+    # job_id must be cleared from the agent record immediately
+    agent_record = mongo.agents.find_one({"name": agent_name})
+    assert "job_id" not in agent_record
+
+
+def test_agent_job_id_cleared_on_job_cancelled(mongo_app, agent_auth_header):
+    """Test that posting a cancelled state also clears job_id from the agent
+    record.
+    """
+    app, mongo = mongo_app
+    agent_name = "agent1"
+
+    app.post(
+        f"/v1/agents/data/{agent_name}",
+        json={"state": "waiting", "queues": ["test"], "location": "here"},
+        headers=agent_auth_header,
+    )
+    resp = app.post("/v1/job", json={"job_queue": "test"})
+    job_id = resp.json["job_id"]
+    app.get("/v1/job?queue=test", headers=agent_auth_header)
+
+    app.post(
+        f"/v1/result/{job_id}",
+        json={"job_state": "cancelled"},
+        headers=agent_auth_header,
+    )
+
+    agent_record = mongo.agents.find_one({"name": agent_name})
+    assert "job_id" not in agent_record
+
+
+def test_agent_job_id_not_cleared_for_nonterminal_state(
+    mongo_app, agent_auth_header
+):
+    """Test that posting a non-terminal state (e.g. running) does not clear
+    job_id.
+    """
+    app, mongo = mongo_app
+    agent_name = "agent1"
+
+    app.post(
+        f"/v1/agents/data/{agent_name}",
+        json={"state": "waiting", "queues": ["test"], "location": "here"},
+        headers=agent_auth_header,
+    )
+    resp = app.post("/v1/job", json={"job_queue": "test"})
+    job_id = resp.json["job_id"]
+    app.get("/v1/job?queue=test", headers=agent_auth_header)
+
+    # Post an intermediate result (e.g. a phase update)
+    app.post(
+        f"/v1/result/{job_id}",
+        json={"job_state": "running"},
+        headers=agent_auth_header,
+    )
+
+    agent_record = mongo.agents.find_one({"name": agent_name})
+    assert agent_record.get("job_id") == job_id

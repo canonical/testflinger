@@ -123,8 +123,14 @@ class _JobYamlDumper(yaml.SafeDumper):
 
 def _str_representer(dumper, data):
     """Represent multiline strings (e.g. test_cmds) as literal blocks."""
-    style = "|" if "\n" in data else None
-    return dumper.represent_scalar("tag:yaml.org,2002:str", data, style=style)
+    if "\n" in data:
+        # remove trailing whitespace from each line
+        # (suggested fix for https://github.com/yaml/pyyaml/issues/240)
+        data = "\n".join(line.rstrip() for line in data.splitlines()) + "\n"
+        return dumper.represent_scalar(
+            "tag:yaml.org,2002:str", data, style="|"
+        )
+    return dumper.represent_scalar("tag:yaml.org,2002:str", data)
 
 
 _JobYamlDumper.add_representer(str, _str_representer)
@@ -195,7 +201,7 @@ def home():
 @views.route("/agents")
 def agents():
     """Agents view."""
-    agent_info = list(mongo.db.agents.find())
+    agent_info = database.get_agents()
     for agent in agent_info:
         _enrich_agent(agent)
     return render_template("agents.html", agents=agent_info)
@@ -219,7 +225,7 @@ def agent_detail(agent_id):
         tzinfo=timezone.utc
     ) + timedelta(days=1)
 
-    agent_info = mongo.db.agents.find_one({"name": agent_id})
+    agent_info = database.get_agent_info(agent_id)
     if not agent_info:
         response = make_response(
             render_template("agent_not_found.html", agent_id=agent_id)
@@ -239,7 +245,7 @@ def agent_detail(agent_id):
 
     queue_info = []
     for queue_name in agent_info.pop("queues", []):
-        queue_data = mongo.db.queues.find_one({"name": queue_name})
+        queue_data = database.mongo.db.queues.find_one({"name": queue_name})
         if not queue_data:
             queue_data = {"description": ""}
         queue_data["name"] = queue_name
@@ -341,14 +347,14 @@ def agent_state_update(agent_id):
 @views.route("/jobs")
 def jobs():
     """Jobs view."""
-    jobs_data = mongo.db.jobs.find(sort=[("created_at", -1)])
+    jobs_data = database.mongo.db.jobs.find({}, sort=[("created_at", -1)])
     return render_template("jobs.html", jobs=jobs_data)
 
 
 @views.route("/jobs/<job_id>")
 def job_detail(job_id):
     """Job detail view."""
-    job_data = mongo.db.jobs.find_one({"job_id": job_id})
+    job_data = database.get_job(job_id)
     if not job_data:
         response = make_response(
             render_template("job_not_found.html", job_id=job_id),
@@ -360,8 +366,10 @@ def job_detail(job_id):
         if not any(
             key.endswith(("_output", "_serial")) for key in result_data.keys()
         ):
-            log_handler = MongoLogHandler(mongo)
+            log_handler = MongoLogHandler(database.mongo)
             log_handler.format_logs_as_results(job_id, result_data)
+
+    job_data["agent_name"] = job_data.get("result_data", {}).get("agent_id")
     job_yaml = build_job_yaml(job_data.get("job_data", {}))
     return render_template("job_detail.html", job=job_data, job_yaml=job_yaml)
 
@@ -382,13 +390,13 @@ def queues_data():
     """Generate data for the queues view, this makes testing easier."""
     # First, get all the advertised queues with descriptions
     queue_data = list(
-        mongo.db.queues.find(
+        database.mongo.db.queues.find(
             projection={"_id": 0, "name": 1, "description": 1}
         )
     )
 
     # Get all the queues the agents say they are listening to from agent data
-    agent_data = mongo.db.agents.find({}, {"_id": 0, "queues": 1})
+    agent_data = database.mongo.db.agents.find({}, {"_id": 0, "queues": 1})
     agent_queues_set = {
         queue for agent in agent_data for queue in agent.get("queues", [])
     }
@@ -413,13 +421,13 @@ def queues_data():
 @views.route("/queues/<queue_name>")
 def queue_detail(queue_name):
     """Queue detailed view."""
-    queue_data = mongo.db.queues.find_one({"name": queue_name})
+    queue_data = database.mongo.db.queues.find_one({"name": queue_name})
     if not queue_data:
         # If it's not an advertised queue, create some dummy data
         queue_data = {"name": queue_name, "description": "No description"}
 
     # Find all the jobs active jobs in this queue
-    job_data = mongo.db.jobs.find(
+    job_data = database.mongo.db.jobs.find(
         {
             "job_data.job_queue": queue_name,
             "result_data.job_state": {
@@ -440,7 +448,7 @@ def queue_detail(queue_name):
     for key, value in queue_percentile_data.items():
         queue_percentile_data[key] = seconds_to_hms(value)
 
-    agents_data = database.get_agents_on_queue(queue_name)
+    agents_data = database.get_agents(queue=queue_name)
 
     return render_template(
         "queue_detail.html",

@@ -121,9 +121,9 @@ def job_post(json_data: dict) -> dict:
         # Make sure that there are at least some agents in the selected queue
         # which can run this job.
         agents_can_run = [
-            agent
-            for agent in database.get_agents_on_queue(job_queue)
-            if agent["name"] not in exclude_agents
+            name
+            for name in database.get_agent_names_on_queue(job_queue)
+            if name not in exclude_agents
         ]
         if not agents_can_run:
             abort(
@@ -206,6 +206,11 @@ def job_builder(data: dict) -> dict:
             "job_state": "waiting",
         },
     }
+
+    # Always store the submitted_by field at the top level of the job
+    # document so it can be displayed in the web views and API.
+    job["submitted_by"] = g.client_id
+
     # If the job_id is provided, keep it as long as the uuid is good.
     # This is for job resubmission
     job_id = data.pop("job_id", None)
@@ -264,6 +269,7 @@ def job_get():
         return jsonify({}), HTTPStatus.NO_CONTENT
     if (secrets := retrieve_secrets(job)) is not None:
         job["test_data"]["secrets"] = secrets
+    database.set_agent_job(agent_name, job["job_id"])
     job["started_at"] = datetime.now(timezone.utc)
     return jsonify(job)
 
@@ -305,7 +311,7 @@ def retrieve_secrets(data: dict) -> dict | None:
 @v1.get("/job/<job_id>")
 @authenticate
 @require_role(ServerRoles.ADMIN, ServerRoles.MANAGER, ServerRoles.CONTRIBUTOR)
-@v1.output(schemas.Job)
+@v1.output(schemas.JobOut)
 def job_get_id(job_id):
     """Request the json job definition for a specified job, even if it has
        already run.
@@ -318,12 +324,14 @@ def job_get_id(job_id):
     if not check_valid_uuid(job_id):
         abort(400, message="Invalid job_id specified")
     response = database.mongo.db.jobs.find_one(
-        {"job_id": job_id}, projection={"job_data": True, "_id": False}
+        {"job_id": job_id},
+        projection={"job_data": True, "submitted_by": True, "_id": False},
     )
     if not response:
         return {}, 204
     job_data = response.get("job_data")
     job_data["job_id"] = job_id
+    job_data["submitted_by"] = response.get("submitted_by")
     return job_data
 
 
@@ -592,10 +600,45 @@ def result_post(job_id: str, json_data: dict) -> str:
     return "OK"
 
 
+@v1.get("/result/<job_id>/status")
+@authenticate
+@require_role(*ServerRoles)
+@v1.output(schemas.ResultStatus)
+@v1.doc(responses=schemas.result_empty)
+def result_status_get(job_id: str):
+    """Return job state and phase exit codes for a specified job_id.
+
+    This is a lightweight alternative to GET /result/<job_id> that omits
+    log data (output and serial).  Use this when only the job state or
+    phase statuses are needed.
+
+    :param job_id: UUID as a string for the job
+    :raises HTTPError: If the job_id is not a valid UUID
+    """
+    if not check_valid_uuid(job_id):
+        abort(HTTPStatus.BAD_REQUEST, message="Invalid job_id specified")
+
+    response = database.get_job_results(job_id)
+
+    if not response or not (result_data := response.get("result_data")):
+        return "", HTTPStatus.NO_CONTENT
+
+    phase_status = result_data.get("status", {})
+    status_response = {
+        f"{phase}_status": status
+        for phase in TestPhase
+        if (status := phase_status.get(phase)) is not None
+    }
+    if job_state := result_data.get("job_state"):
+        status_response["job_state"] = job_state
+    return status_response
+
+
 @v1.get("/result/<job_id>")
 @authenticate
 @require_role(*ServerRoles)
 @v1.output(schemas.ResultGet)
+@v1.doc(responses=schemas.result_empty)
 def result_get(job_id: str):
     """Return results for a specified job_id.
 
@@ -639,10 +682,20 @@ def action_post(job_id, json_data):
         return "Invalid job id\n", 400
     action = json_data["action"]
     supported_actions = {
-        "cancel": cancel_job,
+        "cancel": _cancel_job,
     }
     # Validation of actions happens in schemas.py:ActionIn
     return supported_actions[action](job_id)
+
+
+def _cancel_job(job_id):
+    modifications = database.cancel_job(job_id, client_id=g.client_id)
+    if not modifications:
+        return (
+            "The job is already completed or cancelled",
+            HTTPStatus.BAD_REQUEST,
+        )
+    return "OK"
 
 
 @v1.get("/agents/queues")
@@ -977,40 +1030,9 @@ def agents_post(agent_name, json_data):
 @v1.input(schemas.ProvisionLogsIn, location="json")
 def agents_provision_logs_post(agent_name, json_data):
     """Post provision logs for the agent to the server."""
-    agent_record = {}
-
-    # timestamp this agent record and provision log entry
-    timestamp = datetime.now(timezone.utc)
-    agent_record["updated_at"] = json_data["timestamp"] = timestamp
-
-    update_operation = {
-        "$set": json_data,
-        "$push": {
-            "provision_log": {"$each": [json_data], "$slice": -100},
-        },
-    }
-    database.mongo.db.provision_logs.update_one(
-        {"name": agent_name},
-        update_operation,
-        upsert=True,
-    )
-    agent = database.mongo.db.agents.find_one(
-        {"name": agent_name},
-        {"provision_streak_type": 1, "provision_streak_count": 1},
-    )
-    if not agent:
-        return "Agent not found\n", 404
-    previous_provision_streak_type = agent.get("provision_streak_type", "")
-    previous_provision_streak_count = agent.get("provision_streak_count", 0)
-
-    agent["provision_streak_type"] = (
-        "fail" if json_data["exit_code"] != 0 else "pass"
-    )
-    if agent["provision_streak_type"] == previous_provision_streak_type:
-        agent["provision_streak_count"] = previous_provision_streak_count + 1
-    else:
-        agent["provision_streak_count"] = 1
-    database.mongo.db.agents.update_one({"name": agent_name}, {"$set": agent})
+    found = database.update_agent_provision_log(agent_name, json_data)
+    if not found:
+        abort(HTTPStatus.NOT_FOUND, message="Agent not found")
     return "OK"
 
 
@@ -1155,27 +1177,6 @@ def job_position_get(job_id):
     return "Job not found or already started\n", 410
 
 
-def cancel_job(job_id):
-    """Cancel a specified job ID.
-
-    :param job_id:
-        UUID as a string for the job
-    """
-    # Set the job status to cancelled
-    response = database.mongo.db.jobs.update_one(
-        {
-            "job_id": job_id,
-            "result_data.job_state": {
-                "$nin": ["cancelled", "complete", "completed"]
-            },
-        },
-        {"$set": {"result_data.job_state": "cancelled"}},
-    )
-    if response.modified_count == 0:
-        return "The job is already completed or cancelled", 400
-    return "OK"
-
-
 @v1.get("/queues/wait_times")
 @authenticate
 @require_role(ServerRoles.ADMIN, ServerRoles.MANAGER, ServerRoles.CONTRIBUTOR)
@@ -1203,7 +1204,7 @@ def get_agents_on_queue(queue_name):
             message=f"Queue '{queue_name}' does not exist.",
         )
 
-    agents = database.get_agents_on_queue(queue_name)
+    agents = database.get_agents(queue=queue_name)
     if not agents:
         return [], HTTPStatus.NO_CONTENT
     return agents

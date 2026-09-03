@@ -33,6 +33,9 @@
       <th aria-sort="none" id="agentsJobIdHeader">
         <button class="p-table__sort-button">Job ID</button>
       </th>
+      <th aria-sort="none" id="agentsClientIdHeader">
+        <button class="p-table__sort-button">Submitted By</button>
+      </th>
     </tr>
   </thead>
   <tbody>
@@ -76,8 +79,11 @@
           </td>
           <td data-heading="Updated At">{{ agent.updated_at.strftime("%Y-%m-%d %H:%M:%S") }}</td>
           <td class="u-align--right u-truncate" data-heading="Job ID">
-            <a href="{{ url_for('testflinger.job_detail', job_id=agent.job_id) }}">{{ agent.job_id }}</a>
+            {% if agent.job and agent.job.job_id %}
+              <a href="{{ url_for('testflinger.job_detail', job_id=agent.job.job_id) }}">{{ agent.job.job_id }}</a>
+            {% endif %}
           </td>
+          <td data-heading="Submitted By">{{ agent.job.submitted_by if agent.job else "" }}</td>
         </tr>
       {% endfor %}
     {% else %}

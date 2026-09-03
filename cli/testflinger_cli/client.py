@@ -306,7 +306,7 @@ class Client:
         :param job_id: ID for the test job
         :return: data containing the job state and each test phase status
         """
-        endpoint = "/v1/result/{}".format(job_id)
+        endpoint = "/v1/result/{}/status".format(job_id)
         data = json.loads(self.get(endpoint))
         job_status = {
             phase.value: data.get(f"{phase.value}_status")
