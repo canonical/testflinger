@@ -18,15 +18,38 @@
 import json
 import os
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from http import HTTPStatus
 
 import pytest
 import requests
 from testflinger_common.enums import ServerRoles
 
+from testflinger import database
 from testflinger.api import v1
 from tests.utilities import get_access_token_header
+
+
+class _AdvancingClock:
+    """Test double for ``datetime`` exposing a scripted ``now()``.
+
+    Each call to ``now()`` returns a strictly-increasing UTC-aware datetime
+    so tests can assert on timestamp progression without ``time.sleep``.
+    """
+
+    def __init__(
+        self,
+        start: datetime | None = None,
+        step: timedelta = timedelta(seconds=1),
+    ):
+        self._current = start or datetime(2026, 1, 1, tzinfo=timezone.utc)
+        self._step = step
+
+    def now(self, tz=None):  # noqa: D401 - matches datetime.now signature
+        """Return the next scripted timestamp."""
+        value = self._current
+        self._current = value + self._step
+        return value
 
 
 def test_home(mongo_app):
@@ -2075,7 +2098,7 @@ def test_other_result_fields_persist_when_state_unchanged(
 
 
 def test_client_supplied_job_state_changed_at_is_ignored(
-    mongo_app, agent_auth_header
+    mongo_app, agent_auth_header, mocker
 ):
     """A client cannot spoof job_state_changed_at via the result POST.
 
@@ -2083,8 +2106,6 @@ def test_client_supplied_job_state_changed_at_is_ignored(
     ``add_job_results`` additionally strips the field before writing to the
     database as defense in depth.
     """
-    import time
-
     app, mongo = mongo_app
     output = app.post("/v1/job", json={"job_queue": "test"})
     job_id = output.json.get("job_id")
@@ -2099,15 +2120,14 @@ def test_client_supplied_job_state_changed_at_is_ignored(
     )
     assert rejected.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
 
-    # Sleep long enough that any subsequent write lands in a later
-    # millisecond (BSON datetime precision).
-    time.sleep(0.01)
+    # Deterministically advance the clock the database module observes so
+    # any subsequent write lands at a distinct, later timestamp without
+    # relying on wall-clock sleeps.
+    mocker.patch("testflinger.database.datetime", _AdvancingClock())
 
     # Defense in depth: even if the field reaches add_job_results (e.g. via
     # a future schema change), the server value must win.
-    from testflinger import database as _database
-
-    _database.add_job_results(
+    database.add_job_results(
         job_id,
         {
             "job_state": "provision",
@@ -2129,11 +2149,9 @@ def test_client_supplied_job_state_changed_at_is_ignored(
 
 
 def test_job_state_changed_at_updates_across_transitions(
-    mongo_app, agent_auth_header
+    mongo_app, agent_auth_header, mocker
 ):
     """Every real state transition must bump job_state_changed_at."""
-    import time
-
     app, _ = mongo_app
     output = app.post("/v1/job", json={"job_queue": "test"})
     job_id = output.json.get("job_id")
@@ -2142,11 +2160,15 @@ def test_job_state_changed_at_updates_across_transitions(
         app.get(f"/v1/result/{job_id}").json["job_state_changed_at"]
     )
 
+    # Scripted clock so each transition lands at a strictly later time
+    # regardless of wall-clock resolution. Anchor well past the wall-clock
+    # timestamp captured on job creation so ordering assertions hold.
+    mocker.patch(
+        "testflinger.database.datetime",
+        _AdvancingClock(start=previous_ts + timedelta(seconds=1)),
+    )
+
     for state in ("provision", "test", "complete"):
-        # BSON datetimes have millisecond precision, so sleep long enough
-        # that a subsequent write is guaranteed to land in a later
-        # millisecond and the strict-greater comparison is meaningful.
-        time.sleep(0.01)
         app.post(
             f"/v1/result/{job_id}",
             json={"job_state": state},

@@ -309,9 +309,8 @@ def save_queue_wait_time(
     queue: str, started_at: datetime, created_at: datetime
 ):
     """Save data about the wait time in seconds for the specified queue."""
-    # Ensure that python knows both datestamps are in UTC
-    started_at = started_at.replace(tzinfo=timezone.utc)
-    created_at = created_at.replace(tzinfo=timezone.utc)
+    # Both datestamps are UTC tz-aware (MongoClient is configured with
+    # tz_aware=True, tzinfo=UTC; started_at is constructed with UTC).
     wait_seconds = (started_at - created_at).seconds
     mongo.db.queue_wait_times.update_one(
         {"name": queue},
@@ -792,36 +791,41 @@ def get_job(job_id: str) -> dict | None:
 
 def add_job_results(job_id: str, json_data: dict):
     """Add results to specified job id with "result_data" prepended."""
-    has_job_state = "job_state" in json_data
-    job_state = json_data.pop("job_state", None)
     # Never allow a client to set the change timestamp directly.
     json_data.pop("job_state_changed_at", None)
 
-    # Prepend "result_data." to each remaining key.
+    # ResultPost validates job_state as a String (or absent), so popping
+    # with a None default cleanly distinguishes "no transition" (None)
+    # from "transition to <state>" (any string).
+    job_state = json_data.pop("job_state", None)
+
+    # Prepend "result_data." to each remaining sibling key.
     set_fields = {
         f"result_data.{key}": value for key, value in json_data.items()
     }
 
-    if set_fields:
-        mongo.db.jobs.update_one({"job_id": job_id}, {"$set": set_fields})
-
-    if has_job_state:
-        # Only bump job_state_changed_at when the state actually changes.
-        # The $ne filter guarantees "no change, no update" for the timestamp.
-        mongo.db.jobs.update_one(
+    if job_state is not None:
+        # Atomically write state, timestamp and any sibling fields together,
+        # but only when the state actually changes. The $ne filter guarantees
+        # "no change, no update" for the timestamp.
+        atomic_set = {
+            **set_fields,
+            "result_data.job_state": job_state,
+            "result_data.job_state_changed_at": datetime.now(timezone.utc),
+        }
+        result = mongo.db.jobs.update_one(
             {
                 "job_id": job_id,
                 "result_data.job_state": {"$ne": job_state},
             },
-            {
-                "$set": {
-                    "result_data.job_state": job_state,
-                    "result_data.job_state_changed_at": datetime.now(
-                        timezone.utc
-                    ),
-                }
-            },
+            {"$set": atomic_set},
         )
+        # If the state was already at `job_state`, no atomic write happened,
+        # but any sibling fields still need to be persisted.
+        if result.matched_count == 0 and set_fields:
+            mongo.db.jobs.update_one({"job_id": job_id}, {"$set": set_fields})
+    elif set_fields:
+        mongo.db.jobs.update_one({"job_id": job_id}, {"$set": set_fields})
 
     # Additionally, because the job_data may reflect that the job is now done,
     # we need to disassociate the agent from the job if the job is done:
