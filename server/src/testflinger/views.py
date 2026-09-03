@@ -70,8 +70,14 @@ class _JobYamlDumper(yaml.SafeDumper):
 
 def _str_representer(dumper, data):
     """Represent multiline strings (e.g. test_cmds) as literal blocks."""
-    style = "|" if "\n" in data else None
-    return dumper.represent_scalar("tag:yaml.org,2002:str", data, style=style)
+    if "\n" in data:
+        # remove trailing whitespace from each line
+        # (suggested fix for https://github.com/yaml/pyyaml/issues/240)
+        data = "\n".join(line.rstrip() for line in data.splitlines()) + "\n"
+        return dumper.represent_scalar(
+            "tag:yaml.org,2002:str", data, style="|"
+        )
+    return dumper.represent_scalar("tag:yaml.org,2002:str", data)
 
 
 _JobYamlDumper.add_representer(str, _str_representer)
