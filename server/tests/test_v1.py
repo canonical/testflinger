@@ -1965,7 +1965,7 @@ def test_initial_job_state_changed_at(mongo_app):
     assert "job_state_changed_at" in result
     # Validate it is a parseable ISO 8601 datetime string
     changed_at = datetime.fromisoformat(result["job_state_changed_at"])
-    assert isinstance(changed_at, datetime)
+    assert changed_at.tzinfo is not None
 
 
 def test_job_state_changed_at_on_result_post(mongo_app, agent_auth_header):
@@ -2039,9 +2039,125 @@ def test_job_state_changed_at_not_updated_without_state_change(
     )
 
     updated_result = app.get(f"/v1/result/{job_id}").json
-    assert updated_result["job_state_changed_at"] == initial_result[
-        "job_state_changed_at"
-    ]
+    assert (
+        updated_result["job_state_changed_at"]
+        == initial_result["job_state_changed_at"]
+    )
+
+
+def test_other_result_fields_persist_when_state_unchanged(
+    mongo_app, agent_auth_header
+):
+    """Non-state result fields must be written when state is unchanged."""
+    app, _ = mongo_app
+    output = app.post("/v1/job", json={"job_queue": "test"})
+    job_id = output.json.get("job_id")
+    initial_result = app.get(f"/v1/result/{job_id}").json
+
+    # Post a redundant state along with other result_data fields.
+    app.post(
+        f"/v1/result/{job_id}",
+        json={
+            "job_state": "waiting",
+            "device_info": {"serial": "abc123"},
+        },
+        headers=agent_auth_header,
+    )
+
+    updated_result = app.get(f"/v1/result/{job_id}").json
+    # Timestamp must remain unchanged (no state transition).
+    assert (
+        updated_result["job_state_changed_at"]
+        == initial_result["job_state_changed_at"]
+    )
+    # But the sibling result_data field must have been written.
+    assert updated_result.get("device_info") == {"serial": "abc123"}
+
+
+def test_client_supplied_job_state_changed_at_is_ignored(
+    mongo_app, agent_auth_header
+):
+    """A client cannot spoof job_state_changed_at via the result POST.
+
+    The ``ResultPost`` schema rejects unknown fields at the API layer, and
+    ``add_job_results`` additionally strips the field before writing to the
+    database as defense in depth.
+    """
+    import time
+
+    app, mongo = mongo_app
+    output = app.post("/v1/job", json={"job_queue": "test"})
+    job_id = output.json.get("job_id")
+    initial_result = app.get(f"/v1/result/{job_id}").json
+    spoofed = "1970-01-01T00:00:00Z"
+
+    # API-level rejection: schema validation must refuse unknown fields.
+    rejected = app.post(
+        f"/v1/result/{job_id}",
+        json={"job_state_changed_at": spoofed},
+        headers=agent_auth_header,
+    )
+    assert rejected.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+
+    # Sleep long enough that any subsequent write lands in a later
+    # millisecond (BSON datetime precision).
+    time.sleep(0.01)
+
+    # Defense in depth: even if the field reaches add_job_results (e.g. via
+    # a future schema change), the server value must win.
+    from testflinger import database as _database
+
+    _database.add_job_results(
+        job_id,
+        {
+            "job_state": "provision",
+            "job_state_changed_at": spoofed,
+        },
+    )
+    stored = mongo.jobs.find_one({"job_id": job_id})["result_data"]
+    assert stored["job_state"] == "provision"
+    assert isinstance(stored["job_state_changed_at"], datetime)
+    # The spoofed 1970 value must not have been persisted.
+    assert stored["job_state_changed_at"].year > 1970
+    # And the API response must not surface the spoofed value.
+    result = app.get(f"/v1/result/{job_id}").json
+    assert result["job_state_changed_at"] != spoofed
+    assert (
+        result["job_state_changed_at"]
+        != initial_result["job_state_changed_at"]
+    )
+
+
+def test_job_state_changed_at_updates_across_transitions(
+    mongo_app, agent_auth_header
+):
+    """Every real state transition must bump job_state_changed_at."""
+    import time
+
+    app, _ = mongo_app
+    output = app.post("/v1/job", json={"job_queue": "test"})
+    job_id = output.json.get("job_id")
+
+    previous_ts = datetime.fromisoformat(
+        app.get(f"/v1/result/{job_id}").json["job_state_changed_at"]
+    )
+
+    for state in ("provision", "test", "complete"):
+        # BSON datetimes have millisecond precision, so sleep long enough
+        # that a subsequent write is guaranteed to land in a later
+        # millisecond and the strict-greater comparison is meaningful.
+        time.sleep(0.01)
+        app.post(
+            f"/v1/result/{job_id}",
+            json={"job_state": state},
+            headers=agent_auth_header,
+        )
+        current = app.get(f"/v1/result/{job_id}").json
+        assert current["job_state"] == state
+        current_ts = datetime.fromisoformat(current["job_state_changed_at"])
+        # Each transition must strictly advance the timestamp.
+        assert current_ts > previous_ts
+        previous_ts = current_ts
 
 
 def test_job_state_changed_at_on_pop_job(mongo_app, agent_auth_header):

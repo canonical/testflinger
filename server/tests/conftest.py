@@ -17,6 +17,7 @@
 
 import secrets
 from dataclasses import dataclass
+from datetime import timezone
 from http import HTTPStatus
 from typing import Dict
 
@@ -57,7 +58,7 @@ def mongo_app_fixture(monkeypatch):
     """Create a pytest fixture for database and app."""
     secret_key = secrets.token_urlsafe(32)
     monkeypatch.setenv("JWT_SIGNING_KEY", secret_key)
-    mock_mongo = MongoClientMock()
+    mock_mongo = MongoClientMock(tz_aware=True, tzinfo=timezone.utc)
     database.mongo = mock_mongo
     app = application.create_flask_app(TestingConfig)
     yield app.test_client(), mock_mongo.db
@@ -117,7 +118,7 @@ def app_with_store(mocker, monkeypatch):
     """Create a pytest fixture for an app with a database and store."""
     secret_key = secrets.token_urlsafe(32)
     monkeypatch.setenv("JWT_SIGNING_KEY", secret_key)
-    mock_mongo = mongomock.MongoClient()
+    mock_mongo = mongomock.MongoClient(tz_aware=True, tzinfo=timezone.utc)
 
     # mock database
     database.mongo = mock_mongo

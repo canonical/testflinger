@@ -71,6 +71,8 @@ def setup_mongodb(application):
         application,
         uri=mongo_uri,
         uuidRepresentation="standard",
+        tz_aware=True,
+        tzinfo=timezone.utc,
         serverSelectionTimeoutMS=2000,
         maxPoolSize=int(os.environ.get("MONGODB_MAX_POOL_SIZE", "100")),
     )
@@ -234,7 +236,9 @@ def pop_job(queue_list: list[str], agent_name: str) -> dict | None:
             {
                 "$set": {
                     "result_data.job_state": "running",
-                    "result_data.job_state_changed_at": datetime.now(timezone.utc),
+                    "result_data.job_state_changed_at": datetime.now(
+                        timezone.utc
+                    ),
                     "result_data.agent_id": agent_name,
                 }
             },
@@ -790,13 +794,20 @@ def add_job_results(job_id: str, json_data: dict):
     """Add results to specified job id with "result_data" prepended."""
     has_job_state = "job_state" in json_data
     job_state = json_data.pop("job_state", None)
+    # Never allow a client to set the change timestamp directly.
     json_data.pop("job_state_changed_at", None)
-    # First, we need to prepend "result_data" to each key in the result_data
-    for key in list(json_data):
-        json_data[f"result_data.{key}"] = json_data.pop(key)
 
-    mongo.db.jobs.update_one({"job_id": job_id}, {"$set": json_data})
+    # Prepend "result_data." to each remaining key.
+    set_fields = {
+        f"result_data.{key}": value for key, value in json_data.items()
+    }
+
+    if set_fields:
+        mongo.db.jobs.update_one({"job_id": job_id}, {"$set": set_fields})
+
     if has_job_state:
+        # Only bump job_state_changed_at when the state actually changes.
+        # The $ne filter guarantees "no change, no update" for the timestamp.
         mongo.db.jobs.update_one(
             {
                 "job_id": job_id,
