@@ -476,6 +476,27 @@ def test_get_agents_active_job():
     assert by_name["agent3"].get("job") is None
 
 
+def test_agents_view_renders_active_job_and_submitter(testapp):
+    """Test the agents page uses the enriched agent query."""
+    mongo = mongomock.MongoClient()
+    mongo.db.agents.insert_one(
+        {
+            "name": "agent1",
+            "job_id": "job-1",
+            "state": "running",
+            "updated_at": datetime.now(timezone.utc),
+        }
+    )
+    mongo.db.jobs.insert_one({"job_id": "job-1", "submitted_by": "client-A"})
+
+    with patch("testflinger.database.mongo", mongo):
+        response = testapp.test_client().get("/agents")
+
+    assert response.status_code == HTTPStatus.OK
+    assert b"job-1" in response.data
+    assert b"client-A" in response.data
+
+
 def test_get_agents_no_jobs():
     """Test get_agents enrichment when no agents have a job_id."""
     mongo = mongomock.MongoClient()

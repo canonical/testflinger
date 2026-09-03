@@ -766,12 +766,13 @@ def register_oidc_client(userinfo: dict) -> None:
 
 
 def get_job_data(job_id: str) -> dict | None:
-    """Retrieve the job_data for a specific job id.
+    """Retrieve job data and submitter for a specific job ID.
 
-    :returns: dict with job_data and job_id, or None if not found.
+    :returns: Dict with job_data and submitted_by, or None if not found.
     """
     return mongo.db.jobs.find_one(
-        {"job_id": job_id}, projection={"job_data": True, "_id": False}
+        {"job_id": job_id},
+        projection={"job_data": True, "submitted_by": True, "_id": False},
     )
 
 
@@ -894,11 +895,6 @@ def get_waiting_jobs_in_queue(queue: str) -> list[dict]:
             sort=[("job_priority", -1)],
         )
     )
-
-
-def get_all_agents() -> list[dict]:
-    """Return all agent documents including log field."""
-    return list(mongo.db.agents.find())
 
 
 def get_agent_document(agent_id: str) -> dict | None:

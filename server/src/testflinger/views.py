@@ -148,7 +148,7 @@ def home():
 @views.route("/agents")
 def agents():
     """Agents view."""
-    agent_info = database.get_all_agents()
+    agent_info = database.get_agents()
     return render_template("agents.html", agents=agent_info)
 
 

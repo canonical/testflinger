@@ -840,6 +840,22 @@ def test_job_get_id_with_data(mongo_app):
         assert output.json[key] == value
 
 
+def test_job_get_id_includes_submitter(mongo_app):
+    """Test retrieving a job preserves its server-owned submitter metadata."""
+    app, _ = mongo_app
+    headers = get_access_token_header("test-client", ServerRoles.CONTRIBUTOR)
+    job_response = app.post(
+        "/v1/job", json={"job_queue": "test"}, headers=headers
+    )
+
+    response = app.get(
+        f"/v1/job/{job_response.json['job_id']}", headers=headers
+    )
+
+    assert response.status_code == HTTPStatus.OK
+    assert response.json["submitted_by"] == "test-client"
+
+
 def test_job_position(mongo_app, agent_auth_header):
     """Ensure initial job state is set to 'waiting'."""
     app, _ = mongo_app
