@@ -107,6 +107,11 @@ class TestflingerAgentHostCharm(ops.charm.CharmBase):
         else:
             testflinger_source.clone_repo(LOCAL_TESTFLINGER_PATH)
 
+        # Clean up old virtualenvs before creating a new one.
+        # This clears disk space and ensures legacy virtualenv is not removed
+        # on first charm upgrade.
+        testflinger_source.cleanup_old_virtualenvs()
+
         self.unit.status = ops.MaintenanceStatus("Creating virtualenv")
         new_venv = testflinger_source.create_virtualenv(LOCAL_TESTFLINGER_PATH)
         if new_venv is None:
@@ -119,7 +124,6 @@ class TestflingerAgentHostCharm(ops.charm.CharmBase):
             logger.exception("Failed to atomically update virtualenv.")
             return False
 
-        testflinger_source.cleanup_old_virtualenvs()
         return True
 
     def write_supervisor_service_files(self):

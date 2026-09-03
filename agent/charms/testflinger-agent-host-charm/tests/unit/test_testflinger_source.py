@@ -39,9 +39,10 @@ def test_clone_repo(mock_clone_from):
     )
 
 
+@patch("testflinger_source.write_file")
 @patch("testflinger_source.datetime")
 @patch("testflinger_source.run_with_logged_errors", return_value=0)
-def test_create_new_virtualenv(mock_run, mock_datetime):
+def test_create_new_virtualenv(mock_run, mock_datetime, mock_write_file):
     """Test venv creation and package installation."""
     timestamp = datetime.now(tz=timezone.utc).strftime("%Y%m%d_%H%M%S")
     mock_datetime.now.return_value.strftime.return_value = timestamp
@@ -63,8 +64,31 @@ def test_create_new_virtualenv(mock_run, mock_datetime):
             f"{LOCAL_TESTFLINGER_PATH}/device-connectors",
         ]
     )
+    # Must pre-create the lock file so non-root consumers can flock it
+    mock_write_file.assert_called_once_with(
+        location=expected_venv / testflinger_source.VENV_LOCK_FILENAME,
+        contents="",
+    )
     # Must return the new venv path on success
     assert result == expected_venv
+
+
+@patch("testflinger_source.datetime")
+@patch("testflinger_source.shutil.rmtree")
+@patch("testflinger_source.write_file", side_effect=OSError)
+@patch("testflinger_source.run_with_logged_errors", return_value=0)
+def test_create_virtualenv_lock_file_creation_fails(
+    mock_run, mock_write_file, mock_rmtree, mock_datetime
+):
+    """Test venv creation returns None when lock file creation fails."""
+    timestamp = datetime.now(tz=timezone.utc).strftime("%Y%m%d_%H%M%S")
+    mock_datetime.now.return_value.strftime.return_value = timestamp
+    expected_venv = Path(f"{VIRTUAL_ENV_PATH}-{timestamp}")
+
+    result = testflinger_source.create_virtualenv(LOCAL_TESTFLINGER_PATH)
+
+    mock_rmtree.assert_called_once_with(expected_venv, ignore_errors=True)
+    assert result is None
 
 
 @patch("testflinger_source.datetime")

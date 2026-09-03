@@ -13,7 +13,7 @@ from pathlib import Path
 
 from git import Repo
 
-from common import run_with_logged_errors
+from common import run_with_logged_errors, write_file
 from defaults import (
     DEFAULT_BRANCH,
     DEFAULT_TESTFLINGER_REPO,
@@ -103,6 +103,18 @@ def create_virtualenv(local_path: str) -> Path | None:
             logger.error("Failed to install package: %s", tf_package)
             shutil.rmtree(new_venv, ignore_errors=True)
             return None
+
+    # Pre-create the venv's advisory lock file
+    # During this process, the ownership changes to the ubuntu user
+    # so that the agent process can acquire a shared lock on
+    try:
+        write_file(location=new_venv / VENV_LOCK_FILENAME, contents="")
+    except OSError:
+        logger.error(
+            "Failed to prepare lock file for virtualenv: %s", new_venv
+        )
+        shutil.rmtree(new_venv, ignore_errors=True)
+        return None
 
     logger.info("Successfully created virtualenv: %s", new_venv)
     return new_venv
