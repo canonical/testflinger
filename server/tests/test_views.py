@@ -300,6 +300,26 @@ def test_build_job_yaml():
     assert "should-not-appear" not in job_yaml
 
 
+def test_build_job_yaml_trailing_whitespace():
+    """build_job_yaml uses literal block style even with trailing whitespace.
+
+    PyYAML silently falls back to double-quoted style when any line has
+    trailing whitespace; the representer must strip it first.
+    """
+    job_data = {
+        "job_queue": "queue1",
+        "test_data": {"test_cmds": "echo hello  \nlsb_release -a \n"},
+    }
+
+    job_yaml = build_job_yaml(job_data)
+
+    # Must still use literal block style, not double-quoted
+    assert "test_cmds: |" in job_yaml
+    # Round-trip value equals the stripped version (trailing spaces removed)
+    parsed = yaml.safe_load(job_yaml)
+    assert parsed["test_data"]["test_cmds"] == "echo hello\nlsb_release -a\n"
+
+
 def test_job_definition_fields_derived_from_schema():
     """Definition fields track the Job schema minus server-managed fields.
 
