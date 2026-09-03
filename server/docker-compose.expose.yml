@@ -1,0 +1,36 @@
+# Debug-only override for exposing the dev server outside the workshop, e.g.
+# behind a reverse proxy at http://<host>/p/5000/.
+#
+#   just serve-exposed            # from server/
+#   just workshop serve-exposed   # from the host (also connects the tunnels)
+#
+# Two changes from the default deployment:
+#
+# 1. OIDC off. Blanking these makes app_register_oidc() return None and the
+#    app allows anonymous access. Auth is deliberately out of scope when the
+#    server is exposed: dex issues tokens for the issuer URL it is configured
+#    with, which does not survive being reached from outside the compose
+#    network under a different name.
+#
+# 2. ENABLE_PROXYFIX. Makes Flask honour X-Forwarded-{For,Proto,Host,Prefix}
+#    (werkzeug ProxyFix, see src/testflinger/application.py). Without it every
+#    generated URL is root-relative (/agents) and breaks under a path prefix.
+#    It is a no-op when the server is reached directly, since the headers are
+#    then absent.
+#
+# The reverse proxy must send:
+#     proxy_set_header X-Forwarded-Prefix
+#     proxy_set_header X-Forwarded-Host
+#     proxy_set_header X-Forwarded-Proto
+#     proxy_set_header X-Forwarded-For
+# and strip the prefix before proxying (trailing slash on proxy_pass).
+#
+# NOT for production: no authentication, and ProxyFix trusts exactly one hop.
+services:
+  testflinger:
+    environment:
+      OIDC_CLIENT_ID: ""
+      OIDC_CLIENT_SECRET: ""
+      OIDC_PROVIDER_ISSUER: ""
+      WEB_SECRET_KEY: ""
+      ENABLE_PROXYFIX: "true"
