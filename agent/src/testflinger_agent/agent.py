@@ -149,7 +149,6 @@ class TestflingerAgent:
                 " on startup.",
                 server_state,
             )
-            self.set_agent_state(server_state, comment)
         else:
             # RESTART, WAITING, MAINTENANCE, UNKNOWN, or no prior state come
             # up online. Maintenance lifecycle handling belongs to the
