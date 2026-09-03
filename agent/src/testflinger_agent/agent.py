@@ -137,14 +137,13 @@ class TestflingerAgent:
     def _set_startup_state(self) -> None:
         """Set the agent state on startup.
 
-        If the server already has a known state for this agent (e.g. offline or
-        maintenance), preserve that state rather than overriding it with
-        WAITING.  The RESTART state is treated as a signal to come back online,
-        so it is replaced with WAITING as normal.
+        If the server has marked this agent offline, preserve that state rather
+        than overriding it with WAITING. The RESTART state is treated as a
+        signal to come back online, so it is replaced with WAITING as normal.
         """
         server_state, comment = self.get_agent_state()
 
-        if server_state in (AgentState.OFFLINE, AgentState.MAINTENANCE):
+        if server_state == AgentState.OFFLINE:
             logger.info(
                 "Agent was previously in state '%s' — preserving that state"
                 " on startup.",
@@ -152,7 +151,9 @@ class TestflingerAgent:
             )
             self.set_agent_state(server_state, comment)
         else:
-            # RESTART, WAITING, UNKNOWN, or no prior state → come up online.
+            # RESTART, WAITING, MAINTENANCE, UNKNOWN, or no prior state come
+            # up online. Maintenance lifecycle handling belongs to the
+            # maintenance-mode feature.
             self.set_agent_state(AgentState.WAITING)
 
     def set_agent_state(self, state: str, comment: str = "") -> None:

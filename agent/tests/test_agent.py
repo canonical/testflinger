@@ -1079,9 +1079,10 @@ class TestStartupState:
     """Tests for _set_startup_state behaviour on agent initialisation.
 
     The rule is:
-    - OFFLINE or MAINTENANCE → preserve that state (do not come up online)
-    - Everything else (RESTART, WAITING, UNKNOWN, any stale job-phase state,
-      no state key, empty response, HTTP error / unknown agent) → WAITING
+    - OFFLINE → preserve that state (do not come up online)
+    - Everything else (MAINTENANCE, RESTART, WAITING, UNKNOWN, any stale
+      job-phase state, no state key, empty response, HTTP error / unknown
+      agent) → WAITING
     """
 
     AGENT_ID = "test01"
@@ -1178,22 +1179,16 @@ class TestStartupState:
     # States that must be PRESERVED (agent stays non-online)
     # ------------------------------------------------------------------
 
-    @pytest.mark.parametrize(
-        "preserved_state",
-        [AgentState.OFFLINE, AgentState.MAINTENANCE],
-    )
-    def test_startup_preserves_offline_and_maintenance(
-        self, requests_mock, base_config, preserved_state
-    ):
-        """OFFLINE and MAINTENANCE states set by the server must not be
-        overridden with WAITING when the agent restarts.
+    def test_startup_preserves_offline(self, requests_mock, base_config):
+        """An OFFLINE state set by the server must not be overridden with
+        WAITING when the agent restarts.
         """
         requests_mock.get(
             self.AGENT_DATA_URL,
-            json={"state": preserved_state, "comment": "set by admin"},
+            json={"state": AgentState.OFFLINE, "comment": "set by admin"},
         )
         self._make_agent(requests_mock, base_config)
-        assert self._startup_state_posted(requests_mock) == preserved_state
+        assert self._startup_state_posted(requests_mock) == AgentState.OFFLINE
 
     # ------------------------------------------------------------------
     # States that must result in WAITING (agent comes up online)
@@ -1202,6 +1197,9 @@ class TestStartupState:
     @pytest.mark.parametrize(
         "server_state",
         [
+            # Maintenance lifecycle handling belongs to the maintenance-mode
+            # feature, which must preserve it through startup and polling.
+            AgentState.MAINTENANCE,
             AgentState.RESTART,  # explicit restart request → come back online
             AgentState.WAITING,  # already waiting (e.g. clean shutdown)
             AgentState.UNKNOWN,  # local-only sentinel, treat as no useful info
