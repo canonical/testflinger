@@ -132,7 +132,6 @@ def _build_job_lifecycle_events(
 
     :param previous_data: The previous results data.
     :param new_data: The new results data.
-    :param timestamp: The timestamp of the event.
     :return: new job lifecycle events or empty list if no new events.
     """
     # Early return if there is no job_state reported yet
