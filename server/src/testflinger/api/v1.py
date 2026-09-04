@@ -95,7 +95,12 @@ def get_version():
 
 @v1.post("/job")
 @authenticate
-@require_role(ServerRoles.ADMIN, ServerRoles.MANAGER, ServerRoles.CONTRIBUTOR)
+@require_role(
+    ServerRoles.ADMIN,
+    ServerRoles.MANAGER,
+    ServerRoles.CONTRIBUTOR,
+    ServerRoles.MULTIDEVICE,
+)
 @v1.input(schemas.Job, location="json")
 @v1.output(schemas.JobId)
 def job_post(json_data: dict) -> dict:
@@ -663,7 +668,12 @@ def result_get(job_id: str):
 
 @v1.post("/job/<job_id>/action")
 @authenticate
-@require_role(ServerRoles.ADMIN, ServerRoles.MANAGER, ServerRoles.CONTRIBUTOR)
+@require_role(
+    ServerRoles.ADMIN,
+    ServerRoles.MANAGER,
+    ServerRoles.CONTRIBUTOR,
+    ServerRoles.MULTIDEVICE,
+)
 @v1.input(schemas.ActionIn, location="json")
 def action_post(job_id, json_data):
     """Take action on the job status for a specified job ID.
