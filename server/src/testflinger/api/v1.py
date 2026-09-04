@@ -416,7 +416,7 @@ def search_jobs(query_data):
 
     jobs = database.search_jobs_by_pipeline(pipeline)
 
-    return jsonify(list(jobs))
+    return jsonify(jobs)
 
 
 @v1.post("/result/<job_id>/artifact")

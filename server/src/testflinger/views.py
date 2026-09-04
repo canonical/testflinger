@@ -278,7 +278,7 @@ def queues():
 def queues_data():
     """Generate data for the queues view, this makes testing easier."""
     # First, get all the advertised queues with descriptions
-    queue_data = database.get_advertised_queues_with_description()
+    queue_data = database.get_advertised_queues()
 
     # Get all the queues the agents say they are listening to from agent data
     agent_queues_set = database.get_all_agent_queue_names()

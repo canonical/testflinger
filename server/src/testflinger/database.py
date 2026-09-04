@@ -929,15 +929,6 @@ def get_job_document(job_id: str) -> dict | None:
     return mongo.db.jobs.find_one({"job_id": job_id})
 
 
-def get_advertised_queues_with_description() -> list[dict]:
-    """Return advertised queues with name and description fields."""
-    return list(
-        mongo.db.queues.find(
-            projection={"_id": 0, "name": 1, "description": 1}
-        )
-    )
-
-
 def get_all_agent_queue_names() -> set[str]:
     """Return a set of all queue names reported by agents."""
     agent_data = mongo.db.agents.find({}, {"_id": 0, "queues": 1})
