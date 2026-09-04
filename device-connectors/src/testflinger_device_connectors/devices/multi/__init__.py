@@ -42,7 +42,13 @@ class DeviceConnector(DefaultDevice):
             args.job_data
         )
         testflinger_server = self.config.get("testflinger_server")
-        tfclient = TFClient(testflinger_server)
+        client_id = self.config.get("client_id")
+        secret_key = self.config.get("secret_key")
+        tfclient = TFClient(
+            url=testflinger_server,
+            client_id=client_id,
+            secret_key=secret_key,
+        )
         self.device = Multi(self.config, self.job_data, tfclient)
 
     def provision(self, args):
