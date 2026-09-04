@@ -4,7 +4,7 @@
   },
   "/v1/agents/data/<agent_name>": {
     "POST": ["AGENT", "MANAGER", "ADMIN"],
-    "GET": ["AGENT", "CONTRIBUTOR", "MANAGER", "ADMIN"]
+    "GET": ["AGENT", "CONTRIBUTOR", "MANAGER", "ADMIN", "MULTIDEVICE"]
   },
   "/v1/agents/images": {
     "POST": ["AGENT", "MANAGER", "ADMIN"]
@@ -72,10 +72,10 @@
   },
   "/v1/result/<job_id>": {
     "POST": ["AGENT"],
-    "GET": ["AGENT", "CONTRIBUTOR", "MANAGER", "ADMIN"]
+    "GET": ["AGENT", "CONTRIBUTOR", "MANAGER", "ADMIN", "MULTIDEVICE"]
   },
   "/v1/result/<job_id>/status": {
-    "GET": ["AGENT", "CONTRIBUTOR", "MANAGER", "ADMIN"]
+    "GET": ["AGENT", "CONTRIBUTOR", "MANAGER", "ADMIN", "MULTIDEVICE"]
   },
   "/v1/result/<job_id>/artifact": {
     "POST": ["AGENT"],
