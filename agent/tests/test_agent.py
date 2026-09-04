@@ -1112,10 +1112,10 @@ class TestStartupState:
             }
         )
 
-    def _startup_state_posted(self, requests_mock) -> str:
-        """Return the state from the final state-bearing POST on startup."""
+    def _startup_state_posted(self, requests_mock) -> dict:
+        """Return the final state-bearing POST body on startup."""
         state_posts = [
-            call.json()["state"]
+            call.json()
             for call in requests_mock.request_history
             if call.method == "POST"
             and "/v1/agents/data/" in call.path
@@ -1188,7 +1188,10 @@ class TestStartupState:
             json={"state": AgentState.OFFLINE, "comment": "set by admin"},
         )
         self._make_agent(requests_mock, base_config)
-        assert self._startup_state_posted(requests_mock) == AgentState.OFFLINE
+        assert self._startup_state_posted(requests_mock) == {
+            "state": AgentState.OFFLINE,
+            "comment": "set by admin",
+        }
 
     # ------------------------------------------------------------------
     # States that must result in WAITING (agent comes up online)
@@ -1223,7 +1226,9 @@ class TestStartupState:
             json={"state": server_state, "comment": ""},
         )
         self._make_agent(requests_mock, base_config)
-        assert self._startup_state_posted(requests_mock) == AgentState.WAITING
+        assert self._startup_state_posted(requests_mock)["state"] == (
+            AgentState.WAITING
+        )
 
     @pytest.mark.parametrize(
         "mock_kwargs, description",
@@ -1245,4 +1250,16 @@ class TestStartupState:
         """
         requests_mock.get(self.AGENT_DATA_URL, **mock_kwargs)
         self._make_agent(requests_mock, base_config)
-        assert self._startup_state_posted(requests_mock) == AgentState.WAITING
+        assert self._startup_state_posted(requests_mock)["state"] == (
+            AgentState.WAITING
+        )
+
+    def test_startup_comes_up_waiting_when_server_response_is_invalid_json(
+        self, requests_mock, base_config
+    ):
+        """An invalid success response has no usable prior state."""
+        requests_mock.get(self.AGENT_DATA_URL, text="not JSON")
+        self._make_agent(requests_mock, base_config)
+        assert self._startup_state_posted(requests_mock)["state"] == (
+            AgentState.WAITING
+        )
