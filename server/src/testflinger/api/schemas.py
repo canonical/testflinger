@@ -17,7 +17,7 @@
 
 from apiflask import Schema, fields, validators
 from apiflask.validators import Length, OneOf, Regexp
-from marshmallow import INCLUDE, ValidationError, validates_schema
+from marshmallow import INCLUDE, RAISE, ValidationError, validates_schema
 from marshmallow_oneofschema import OneOfSchema
 from testflinger_common.duration import DurationParseError, parse_duration
 from testflinger_common.enums import ServerRoles, TestPhase
@@ -490,11 +490,23 @@ class ResultGet(ResultStatus):
 
     device_info = fields.Dict(required=False)
     job_state = fields.String(required=False)
+    job_state_changed_at = fields.DateTime(required=False)
     cancelled_by = fields.String(load_default=None)
 
 
 class ResultPost(Schema):
     """Result Post schema."""
+
+    class Meta:
+        """Reject unknown fields.
+
+        Explicit here (matches marshmallow's default) to lock the contract:
+        clients must not be able to smuggle server-managed fields such as
+        ``job_state_changed_at`` through this endpoint. See
+        ``add_job_results`` for the corresponding defense-in-depth strip.
+        """
+
+        unknown = RAISE
 
     status = fields.Dict(
         keys=fields.String(validate=OneOf(TestPhases)),

@@ -15,7 +15,7 @@
 #
 """Custom JSON providers for when jsonify() doesn't do what we want."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 from flask.json.provider import DefaultJSONProvider
 
@@ -26,5 +26,9 @@ class ISODatetimeProvider(DefaultJSONProvider):  # pylint: disable=too-few-publi
     def default(self, obj):
         """Encode datetime objects as ISO8601, no effect on other types."""
         if isinstance(obj, datetime):
+            # Normalize to UTC and emit without offset so the trailing 'Z'
+            # is unambiguous whether the value is naive or tz-aware.
+            if obj.tzinfo is not None:
+                obj = obj.astimezone(timezone.utc).replace(tzinfo=None)
             return obj.isoformat(timespec="seconds") + "Z"
         return super().default(obj)

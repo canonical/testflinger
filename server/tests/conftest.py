@@ -17,6 +17,7 @@
 
 import secrets
 from dataclasses import dataclass
+from datetime import timezone
 from http import HTTPStatus
 from typing import Dict
 
@@ -39,10 +40,31 @@ class TestingConfig:
 
 
 class MongoClientMock(mongomock.MongoClient):
-    """Mock MongoClient and allow GridFS."""
+    """Mock MongoClient that mirrors ``setup_mongodb`` and enables GridFS.
+
+    The app's runtime Mongo client is configured in
+    ``testflinger.database.setup_mongodb`` with ``tz_aware=True,
+    tzinfo=UTC`` so datetimes read back from Mongo are UTC-aware and
+    serialize with an explicit offset on the wire. The test fixtures
+    instantiate this mock directly and therefore never call
+    ``setup_mongodb`` -- if the mock defaults were used, tests would
+    exercise a naive-datetime configuration that no code path in this
+    repo actually uses, and datetime-shape assertions (e.g. on
+    ``job_state_changed_at``) would silently disagree with the runtime
+    client's behavior.
+
+    Pinning the kwargs here (rather than at each fixture call site) makes
+    drift impossible: a new fixture author who writes ``MongoClientMock()``
+    cannot accidentally get the wrong config. ``setdefault`` leaves the
+    door open for a test that intentionally needs a different tz setup.
+
+    If ``setup_mongodb`` gains or drops a client kwarg, mirror it here.
+    """
 
     def __init__(self, *args, **kwargs):
         """Initialize the MongoClientMock instance."""
+        kwargs.setdefault("tz_aware", True)
+        kwargs.setdefault("tzinfo", timezone.utc)
         super().__init__(*args, **kwargs)
         enable_gridfs_integration()
 
@@ -117,7 +139,11 @@ def app_with_store(mocker, monkeypatch):
     """Create a pytest fixture for an app with a database and store."""
     secret_key = secrets.token_urlsafe(32)
     monkeypatch.setenv("JWT_SIGNING_KEY", secret_key)
-    mock_mongo = mongomock.MongoClient()
+    # Use the shared MongoClientMock so this fixture inherits the same
+    # kwargs as the ``mongo_app`` fixture and as
+    # ``testflinger.database.setup_mongodb``. Instantiating
+    # ``mongomock.MongoClient`` directly here would silently diverge.
+    mock_mongo = MongoClientMock()
 
     # mock database
     database.mongo = mock_mongo

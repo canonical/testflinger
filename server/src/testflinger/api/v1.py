@@ -194,10 +194,12 @@ def has_attachments(data: dict) -> bool:
 
 def job_builder(data: dict) -> dict:
     """Build a job from a dictionary of data."""
+    now = datetime.now(timezone.utc)
     job = {
-        "created_at": datetime.now(timezone.utc),
+        "created_at": now,
         "result_data": {
             "job_state": "waiting",
+            "job_state_changed_at": now,
         },
     }
 
