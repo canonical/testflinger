@@ -192,8 +192,10 @@ class TestOemAutoinstall(unittest.TestCase):
                 with patch.object(device, "copy_to_deploy_path"):
                     with patch.object(
                         device, "prepare_storage_when_bootstrap"
-                    ):
+                    ) as mock_prepare_storage:
                         device.provision()
+
+        mock_prepare_storage.assert_called_once_with()
 
         # Verify hardreset was called
         mock_check_call.assert_called()
