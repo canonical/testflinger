@@ -108,8 +108,8 @@ class TestflingerAgent:
             self.client, heartbeat_frequency=1
         )
         signal.signal(signal.SIGUSR1, self.restart_signal_handler)
-        self.set_agent_state(AgentState.WAITING)
         self._post_initial_agent_data()
+        self._set_startup_state()
         self.metrics_handler = PrometheusHandler(
             self.client.config.get("metrics_endpoint_port"), self.agent_id
         )
@@ -133,6 +133,27 @@ class TestflingerAgent:
             agent_data["identifier"] = identifier
 
         self.client.post_agent_data(agent_data)
+
+    def _set_startup_state(self) -> None:
+        """Set the agent state on startup.
+
+        If the server has marked this agent offline, preserve that state rather
+        than overriding it with WAITING. The RESTART state is treated as a
+        signal to come back online, so it is replaced with WAITING as normal.
+        """
+        server_state, comment = self.get_agent_state()
+
+        if server_state == AgentState.OFFLINE:
+            logger.info(
+                "Agent was previously in state '%s' — preserving that state"
+                " on startup.",
+                server_state,
+            )
+        else:
+            # RESTART, WAITING, MAINTENANCE, UNKNOWN, or no prior state come
+            # up online. Maintenance lifecycle handling belongs to the
+            # maintenance-mode feature.
+            self.set_agent_state(AgentState.WAITING)
 
     def set_agent_state(self, state: str, comment: str = "") -> None:
         """Send the agent state to the server.
