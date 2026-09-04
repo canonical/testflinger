@@ -127,6 +127,7 @@ class ServerRoles(StrEnum):
     MANAGER = "manager"
     CONTRIBUTOR = "contributor"
     AGENT = "agent"
+    MULTIDEVICE = "multidevice"
 
     def __str__(self):
         return self.value
@@ -151,6 +152,7 @@ class ServerRoles(StrEnum):
             self.MANAGER: 1,
             self.CONTRIBUTOR: 2,
             self.AGENT: 3,
+            self.MULTIDEVICE: 4,
         }
         return _ranks[self] > _ranks[other]
 
