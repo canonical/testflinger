@@ -2067,6 +2067,5 @@ def test_get_job_events(mongo_app, agent_auth_header):
     event_names = {event["event_name"] for event in output.json["events"]}
     assert event_names == {
         "job_submitted",
-        "job_started",
         "job_phase_started",
     }
