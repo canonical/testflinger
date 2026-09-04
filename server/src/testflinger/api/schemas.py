@@ -774,3 +774,19 @@ class ImagesIn(Schema):
                         f"Provision data for image '{image_name}' in queue"
                         f" '{queue}' must be a string"
                     )
+
+
+class Event(Schema):
+    """Event schema."""
+
+    event_name = fields.String(required=True)
+    timestamp = fields.DateTime(required=True)
+    message = fields.String(required=False)
+    detail = fields.String(required=False)
+
+
+class JobEventsOut(Schema):
+    """Job Events output schema."""
+
+    job_id = fields.String(required=True)
+    events = fields.List(fields.Nested(Event), required=True)
