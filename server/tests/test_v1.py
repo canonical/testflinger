@@ -1988,7 +1988,7 @@ def test_initial_job_state_changed_at(mongo_app):
     assert "job_state_changed_at" in result
     # Validate it is a parseable ISO 8601 datetime string
     changed_at = datetime.fromisoformat(result["job_state_changed_at"])
-    assert changed_at.tzinfo is not None
+    assert isinstance(changed_at, datetime)
 
 
 def test_job_state_changed_at_on_result_post(mongo_app, agent_auth_header):

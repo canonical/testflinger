@@ -71,8 +71,6 @@ def setup_mongodb(application):
         application,
         uri=mongo_uri,
         uuidRepresentation="standard",
-        tz_aware=True,
-        tzinfo=timezone.utc,
         serverSelectionTimeoutMS=2000,
         maxPoolSize=int(os.environ.get("MONGODB_MAX_POOL_SIZE", "100")),
     )
@@ -309,8 +307,9 @@ def save_queue_wait_time(
     queue: str, started_at: datetime, created_at: datetime
 ):
     """Save data about the wait time in seconds for the specified queue."""
-    # Both datestamps are UTC tz-aware (MongoClient is configured with
-    # tz_aware=True, tzinfo=UTC; started_at is constructed with UTC).
+    # Ensure that python knows both datestamps are in UTC
+    started_at = started_at.replace(tzinfo=timezone.utc)
+    created_at = created_at.replace(tzinfo=timezone.utc)
     wait_seconds = (started_at - created_at).seconds
     mongo.db.queue_wait_times.update_one(
         {"name": queue},
