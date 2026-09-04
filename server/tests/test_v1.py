@@ -45,8 +45,15 @@ class _AdvancingClock:
         self._current = start or datetime(2026, 1, 1, tzinfo=timezone.utc)
         self._step = step
 
-    def now(self, tz=None):  # noqa: D401 - matches datetime.now signature
-        """Return the next scripted timestamp."""
+    def now(self, tz):
+        """Return the next scripted timestamp.
+
+        Requires ``tz`` (no default) and asserts it is UTC. Production code
+        under test always calls ``datetime.now(timezone.utc)``; a default or
+        silently-accepted non-UTC ``tz`` would mask misuse, so both cases
+        raise loudly here.
+        """
+        assert tz is timezone.utc, f"expected timezone.utc, got {tz!r}"
         value = self._current
         self._current = value + self._step
         return value

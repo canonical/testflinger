@@ -804,9 +804,11 @@ def add_job_results(job_id: str, json_data: dict):
     }
 
     if job_state is not None:
-        # Atomically write state, timestamp and any sibling fields together,
-        # but only when the state actually changes. The $ne filter guarantees
-        # "no change, no update" for the timestamp.
+        # Write state, timestamp and any sibling fields in a single
+        # document-level update. MongoDB guarantees atomicity per document,
+        # so state and timestamp cannot diverge. The $ne filter ensures the
+        # timestamp is only bumped on a real transition ("no change, no
+        # update").
         atomic_set = {
             **set_fields,
             "result_data.job_state": job_state,
@@ -819,15 +821,21 @@ def add_job_results(job_id: str, json_data: dict):
             },
             {"$set": atomic_set},
         )
-        # If the state was already at `job_state`, no atomic write happened,
-        # but any sibling fields still need to be persisted.
+        # If the state was already at `job_state`, the guarded write above
+        # matched nothing, but any sibling fields still need to be
+        # persisted. This second update is a separate operation (not part
+        # of the same atomic write); that is safe because sibling fields
+        # are not state-coupled.
         if result.matched_count == 0 and set_fields:
             mongo.db.jobs.update_one({"job_id": job_id}, {"$set": set_fields})
     elif set_fields:
         mongo.db.jobs.update_one({"job_id": job_id}, {"$set": set_fields})
 
     # Additionally, because the job_data may reflect that the job is now done,
-    # we need to disassociate the agent from the job if the job is done:
+    # we need to disassociate the agent from the job if the job is done.
+    # Note: this checks the *submitted* state, not what was persisted, so
+    # posting a terminal state clears the agent even if the job was already
+    # in that terminal state (idempotent, matches prior behavior).
     terminal_states = {"complete", "completed", "cancelled"}
     if job_state in terminal_states:
         clear_agent_job(job_id)
