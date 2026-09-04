@@ -145,7 +145,6 @@ def job_post(json_data: dict) -> dict:
         job_id=job["job_id"],
         event=events.build_event(
             event_type=JobEvent.JOB_SUBMITTED,
-            timestamp=datetime.now(timezone.utc),
             client_id=g.client_id,
             queue_name=job["job_data"]["job_queue"],
         ),
@@ -276,7 +275,6 @@ def job_get():
         job_id=job["job_id"],
         event=events.build_event(
             event_type=JobEvent.JOB_ASSIGNED,
-            timestamp=datetime.now(timezone.utc),
             agent_name=agent_name,
         ),
     )
@@ -610,8 +608,9 @@ def result_post(job_id: str, json_data: dict) -> str:
         abort(HTTPStatus.REQUEST_ENTITY_TOO_LARGE, message="Payload too large")
 
     # We need to get new events before json_data is mutated by add_job_results
-    previous_results = database.get_job_results(job_id) or {}
-    previous_data = previous_results.get("result_data", {})
+    previous_data = (database.get_job_results(job_id) or {}).get(
+        "result_data", {}
+    )
     new_events = events.detect_new_result_events(previous_data, json_data)
 
     database.add_job_results(job_id, json_data)
@@ -721,7 +720,6 @@ def _cancel_job(job_id):
         job_id=job_id,
         event=events.build_event(
             event_type=JobEvent.JOB_CANCELLED,
-            timestamp=datetime.now(timezone.utc),
             client_id=g.client_id,
         ),
     )

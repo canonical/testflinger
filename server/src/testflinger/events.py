@@ -25,7 +25,7 @@ from testflinger_common.enums import (
 )
 
 _MESSAGE_TEMPLATES = {
-    JobEvent.JOB_SUBMITTED: "Job submitted by user {client_id} for queue {queue_name}.",  # noqa: E501
+    JobEvent.JOB_SUBMITTED: "Job submitted by user {client_id} into queue {queue_name}.",  # noqa: E501
     JobEvent.JOB_ASSIGNED: "Job assigned to agent {agent_name}.",
     JobEvent.JOB_STARTED: "Job started",
     JobEvent.JOB_PHASE_STARTED: "Phase {phase} started.",
@@ -55,17 +55,16 @@ def format_event(event_type: TestflingerEvent, **context) -> str:
 
 def build_event(
     event_type: TestflingerEvent,
-    timestamp: datetime,
     detail: str = "",
     **context,
 ) -> dict:
     """Build an event dictionary with all relevant information.
 
     The event uses a formatted event message based on the event type and
-    provided context.
+    provided context. The event is recorded with the timestamp of when the
+    event was recorded by the caller.
 
     :param event_type: The type of the event.
-    :param timestamp: The timestamp of the event.
     :param detail: Additional details for the event.
     :param context: Additional context for formatting the message.
     :return: Dictionary representing the event.
@@ -73,7 +72,7 @@ def build_event(
     message = format_event(event_type, **context)
     return {
         "event_name": event_type,
-        "timestamp": timestamp,
+        "timestamp": datetime.now(timezone.utc),
         "message": message,
         "detail": detail,
     }
@@ -91,15 +90,14 @@ def detect_new_result_events(
     :param new_data: The new results data.
     :return: List of detected new events.
     """
-    timestamp = datetime.now(timezone.utc)
     return [
-        *_build_phase_completed_events(previous_data, new_data, timestamp),
-        *_build_job_lifecycle_events(previous_data, new_data, timestamp),
+        *_build_phase_completed_events(previous_data, new_data),
+        *_build_job_lifecycle_events(previous_data, new_data),
     ]
 
 
 def _build_phase_completed_events(
-    previous_data: dict, new_data: dict, timestamp: datetime
+    previous_data: dict, new_data: dict
 ) -> list[dict]:
     """Get a list of phases events that are already completed.
 
@@ -109,13 +107,11 @@ def _build_phase_completed_events(
 
     :param previous_data: The previous results data.
     :param new_data: The new results data.
-    :param timestamp: The timestamp of the event.
     :return: new phase completed events or empty list if no new events.
     """
     return [
         build_event(
             event_type=JobEvent.JOB_PHASE_COMPLETED,
-            timestamp=timestamp,
             phase=phase,
             status=status,
         )
@@ -125,7 +121,7 @@ def _build_phase_completed_events(
 
 
 def _build_job_lifecycle_events(
-    previous_data: dict, new_data: dict, timestamp: datetime
+    previous_data: dict, new_data: dict
 ) -> list[dict]:
     """Get a list of job lifecycle events.
 
@@ -152,11 +148,10 @@ def _build_job_lifecycle_events(
         return [
             build_event(
                 event_type=JobEvent.JOB_COMPLETED,
-                timestamp=timestamp,
             )
         ]
 
-    # Early return if the job state has not changed
+    # Early return if the job state has not changed or is not a known TestPhase
     if (
         new_job_state not in {phase.value for phase in TestPhase}
         or new_job_state == previous_job_state
@@ -169,15 +164,13 @@ def _build_job_lifecycle_events(
         new_events.append(
             build_event(
                 event_type=JobEvent.JOB_STARTED,
-                timestamp=timestamp,
                 phase=new_job_state,
             )
         )
-    # Any other phase change should log a phase started event
+    # All phase changes should log a phase started event
     new_events.append(
         build_event(
             event_type=JobEvent.JOB_PHASE_STARTED,
-            timestamp=timestamp,
             phase=new_job_state,
         )
     )

@@ -139,7 +139,7 @@ def create_indexes():
     mongo.db.agents.create_index("name", unique=True)
     mongo.db.client_permissions.create_index("client_id", unique=True)
     mongo.db.client_permissions.create_index("sub", sparse=True)
-    mongo.db.jobs.create_index("job_id")
+    mongo.db.jobs.create_index("job_id", unique=True)
     mongo.db.jobs_events.create_index("job_id", unique=True)
     mongo.db.jobs.create_index(["result_data.job_state", "job_data.job_queue"])
     mongo.db.agents.create_index("queues")
