@@ -31,7 +31,7 @@ from influxdb.exceptions import InfluxDBClientError
 from requests import HTTPError
 from requests.adapters import HTTPAdapter
 from requests.auth import AuthBase
-from testflinger_common.enums import LogType
+from testflinger_common.enums import JobState, LogType
 from urllib3.util import Retry
 
 from testflinger_agent.errors import TFServerError
@@ -353,7 +353,7 @@ class TestflingerClient:
                 # TODO: Remove pop once backward compatibility is not needed
                 data.pop("output", None)
                 data.pop("serial", None)
-                data["job_state"] = "complete"
+                data["job_state"] = JobState.COMPLETED
                 self.post_result(job_id, data)
             # Remove the outcome file so we don't retransmit
             outcome_file.unlink()
