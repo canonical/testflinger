@@ -122,7 +122,13 @@ def handle_max_reservation_input() -> list:
 def handle_client_id_role():
     """Define a role for a specified user."""
     default_role = "contributor"
-    allowed_roles = {1: "admin", 2: "manager", 3: default_role}
+    allowed_roles = {
+        1: "admin",
+        2: "manager",
+        3: default_role,
+        4: "agent",
+        5: "multidevice",
+    }
 
     while True:
         role_input = (
@@ -134,6 +140,8 @@ def handle_client_id_role():
             print("1. admin")
             print("2. manager")
             print("3. contributor (default)")
+            print("4. agent")
+            print("5. multidevice")
             while True:
                 try:
                     role_selection = int(

@@ -29,13 +29,13 @@
   },
   "/v1/job": {
     "GET": ["AGENT"],
-    "POST": ["CONTRIBUTOR", "MANAGER", "ADMIN"]
+    "POST": ["CONTRIBUTOR", "MANAGER", "ADMIN", "MULTIDEVICE"]
   },
   "/v1/job/<job_id>": {
     "GET": ["CONTRIBUTOR", "MANAGER", "ADMIN"]
   },
   "/v1/job/<job_id>/action": {
-    "POST": ["CONTRIBUTOR", "MANAGER", "ADMIN"]
+    "POST": ["CONTRIBUTOR", "MANAGER", "ADMIN", "MULTIDEVICE"]
   },
   "/v1/job/<job_id>/attachments": {
     "GET": ["AGENT"],
