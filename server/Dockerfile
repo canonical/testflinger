@@ -1,4 +1,4 @@
-FROM ubuntu:22.04
+FROM ubuntu:26.04
 
 # Set up uv
 COPY --from=ghcr.io/astral-sh/uv:0.11.12 /uv /uvx /bin/
