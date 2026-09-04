@@ -1998,7 +1998,9 @@ def test_initial_job_state_changed_at(mongo_app):
     assert isinstance(changed_at, datetime)
 
 
-def test_job_state_changed_at_on_result_post(mongo_app, agent_auth_header):
+def test_job_state_changed_at_on_result_post(
+    mongo_app, agent_auth_header, mocker
+):
     """Ensure job_state_changed_at is updated when job_state is posted."""
     app, _ = mongo_app
     job_data = {"job_queue": "test"}
@@ -2009,6 +2011,13 @@ def test_job_state_changed_at_on_result_post(mongo_app, agent_auth_header):
     initial_result = app.get(f"/v1/result/{job_id}").json
     initial_changed_at = datetime.fromisoformat(
         initial_result["job_state_changed_at"]
+    )
+
+    # Scripted clock so the post-transition timestamp is strictly later
+    # than the creation timestamp regardless of wall-clock resolution.
+    mocker.patch(
+        "testflinger.database.datetime",
+        _AdvancingClock(start=initial_changed_at + timedelta(seconds=1)),
     )
 
     # Post a new job_state
@@ -2026,8 +2035,8 @@ def test_job_state_changed_at_on_result_post(mongo_app, agent_auth_header):
         updated_result["job_state_changed_at"]
     )
     assert isinstance(updated_changed_at, datetime)
-    # Timestamp must be >= the original (monotonically non-decreasing)
-    assert updated_changed_at >= initial_changed_at
+    # A real transition must strictly advance the timestamp.
+    assert updated_changed_at > initial_changed_at
 
 
 def test_job_state_changed_at_not_updated_without_state(
@@ -2117,7 +2126,9 @@ def test_client_supplied_job_state_changed_at_is_ignored(
     output = app.post("/v1/job", json={"job_queue": "test"})
     job_id = output.json.get("job_id")
     initial_result = app.get(f"/v1/result/{job_id}").json
-    spoofed = "1970-01-01T00:00:00Z"
+    # Use ``+00:00`` rather than ``Z``: Python 3.10's ``fromisoformat`` does
+    # not accept the ``Z`` suffix, and this project currently supports 3.10.
+    spoofed = "1970-01-01T00:00:00+00:00"
 
     # API-level rejection: schema validation must refuse unknown fields.
     rejected = app.post(

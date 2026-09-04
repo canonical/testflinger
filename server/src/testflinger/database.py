@@ -793,10 +793,16 @@ def add_job_results(job_id: str, json_data: dict):
     # Never allow a client to set the change timestamp directly.
     json_data.pop("job_state_changed_at", None)
 
-    # ResultPost validates job_state as a String (or absent), so popping
-    # with a None default cleanly distinguishes "no transition" (None)
-    # from "transition to <state>" (any string).
+    # ``ResultPost`` validates ``job_state`` as a String (or absent) at the
+    # API boundary, but ``add_job_results`` is also called directly from
+    # other server code paths. Re-validate here so a non-string ``job_state``
+    # can never reach Mongo, where it would poison the $ne comparison and
+    # every downstream reader of ``result_data.job_state``.
     job_state = json_data.pop("job_state", None)
+    if job_state is not None and not isinstance(job_state, str):
+        raise TypeError(
+            f"job_state must be a string, got {type(job_state).__name__}"
+        )
 
     # Prepend "result_data." to each remaining sibling key.
     set_fields = {

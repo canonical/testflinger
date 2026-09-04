@@ -498,12 +498,12 @@ class ResultPost(Schema):
     """Result Post schema."""
 
     class Meta:
-        """Reject unknown fields.
+        """Configure marshmallow to reject unknown fields.
 
-        Explicit here (matches marshmallow's default) to lock the contract:
-        clients must not be able to smuggle server-managed fields such as
-        ``job_state_changed_at`` through this endpoint. See
-        ``add_job_results`` for the corresponding defense-in-depth strip.
+        Explicit ``unknown=RAISE`` (matches marshmallow's default) locks the
+        contract so clients cannot smuggle server-managed fields like
+        ``job_state_changed_at``. See ``add_job_results`` for the
+        defense-in-depth strip.
         """
 
         unknown = RAISE
