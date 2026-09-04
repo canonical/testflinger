@@ -1182,16 +1182,28 @@ class TestStartupState:
     def test_startup_preserves_offline(self, requests_mock, base_config):
         """An OFFLINE state set by the server must not be overridden with
         WAITING when the agent restarts.
+
+        The agent preserves OFFLINE by leaving the server-side state alone:
+        it must not POST any state on startup in this case (echoing it back
+        would race with any concurrent admin update to state/comment).
         """
         requests_mock.get(
             self.AGENT_DATA_URL,
             json={"state": AgentState.OFFLINE, "comment": "set by admin"},
         )
         self._make_agent(requests_mock, base_config)
-        assert self._startup_state_posted(requests_mock) == {
-            "state": AgentState.OFFLINE,
-            "comment": "set by admin",
-        }
+
+        state_posts = [
+            call.json()
+            for call in requests_mock.request_history
+            if call.method == "POST"
+            and "/v1/agents/data/" in call.path
+            and "state" in (call.json() or {})
+        ]
+        assert state_posts == [], (
+            "Agent must not POST any state on startup when server state is "
+            f"OFFLINE, but posted: {state_posts}"
+        )
 
     # ------------------------------------------------------------------
     # States that must result in WAITING (agent comes up online)
