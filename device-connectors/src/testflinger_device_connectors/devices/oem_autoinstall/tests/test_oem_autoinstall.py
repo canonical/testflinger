@@ -284,6 +284,5 @@ class TestOemAutoinstall(unittest.TestCase):
         device.prepare_storage_when_bootstrap()  # must not raise
 
 
-
 if __name__ == "__main__":
     unittest.main()
