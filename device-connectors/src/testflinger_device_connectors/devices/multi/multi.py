@@ -120,7 +120,11 @@ class Multi:
                     "device_info": device_info,
                 }
             )
-        with open("job_list.json", "w") as json_file:
+        job_list_path = os.path.join(
+            "attachments", ".testflinger-job-list.json"
+        )
+        os.makedirs("attachments", exist_ok=True)
+        with open(job_list_path, "w") as json_file:
             json.dump(job_list, json_file)
 
     def create_jobs(self):

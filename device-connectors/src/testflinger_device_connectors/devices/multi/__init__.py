@@ -95,11 +95,13 @@ class DeviceConnector(DefaultDevice):
         logger.info("END testrun")
         return exitcode
 
-    def get_job_list_data(self, job_list_file: str = "job_list.json") -> list:
+    def get_job_list_data(
+        self, job_list_file: str = "attachments/.testflinger-job-list.json"
+    ) -> list:
         """Read job_list.json and return the list data."""
         if not os.path.exists(job_list_file):
             logger.error(
-                "Unable to find multi-job data file, job_list.json not found",
+                "Unable to find multi-job data file at %s", job_list_file
             )
             return []
         with open(job_list_file) as job_list_file:
