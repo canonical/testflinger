@@ -171,7 +171,7 @@ def agent_detail(agent_id):
         tzinfo=timezone.utc
     ) + timedelta(days=1)
 
-    agent_info = database.get_agent_info(agent_id)
+    agent_info = database.get_agent_document(agent_id)
     if not agent_info:
         response = make_response(
             render_template("agent_not_found.html", agent_id=agent_id)
@@ -191,7 +191,7 @@ def agent_detail(agent_id):
 
     queue_info = []
     for queue_name in agent_info.pop("queues", []):
-        queue_data = database.mongo.db.queues.find_one({"name": queue_name})
+        queue_data = database.get_queue_document(queue_name)
         if not queue_data:
             # If it's not an advertised queue, create some dummy data
             queue_data = {"description": ""}
@@ -236,14 +236,14 @@ def agent_detail(agent_id):
 @views.route("/jobs")
 def jobs():
     """Jobs view."""
-    jobs_data = database.mongo.db.jobs.find({}, sort=[("created_at", -1)])
+    jobs_data = database.get_all_jobs_sorted()
     return render_template("jobs.html", jobs=jobs_data)
 
 
 @views.route("/jobs/<job_id>")
 def job_detail(job_id):
     """Job detail view."""
-    job_data = database.get_job(job_id)
+    job_data = database.get_job_document(job_id)
     if not job_data:
         response = make_response(
             render_template("job_not_found.html", job_id=job_id),
@@ -278,18 +278,10 @@ def queues():
 def queues_data():
     """Generate data for the queues view, this makes testing easier."""
     # First, get all the advertised queues with descriptions
-    queue_data = list(
-        database.mongo.db.queues.find(
-            projection={"_id": 0, "name": 1, "description": 1}
-        )
-    )
+    queue_data = database.get_advertised_queues()
 
     # Get all the queues the agents say they are listening to from agent data
-    agent_data = database.mongo.db.agents.find({}, {"_id": 0, "queues": 1})
-    agent_queues_set = {
-        queue for agent in agent_data for queue in agent.get("queues", [])
-    }
-    #    queue for agent in agent_data for queue in agent["queues"]
+    agent_queues_set = database.get_all_agent_queue_names()
     advertised_queues_set = {queue["name"] for queue in queue_data}
 
     # Only keep the ones that weren't also in the advertised queues
@@ -310,20 +302,13 @@ def queues_data():
 @views.route("/queues/<queue_name>")
 def queue_detail(queue_name):
     """Queue detailed view."""
-    queue_data = database.mongo.db.queues.find_one({"name": queue_name})
+    queue_data = database.get_queue_document(queue_name)
     if not queue_data:
         # If it's not an advertised queue, create some dummy data
         queue_data = {"name": queue_name, "description": "No description"}
 
     # Find all the jobs active jobs in this queue
-    job_data = database.mongo.db.jobs.find(
-        {
-            "job_data.job_queue": queue_name,
-            "result_data.job_state": {
-                "$nin": ["complete", "completed", "cancelled"]
-            },
-        }
-    )
+    job_data = database.get_active_jobs_in_queue(queue_name)
 
     # Get the percentiles of wait times for this queue
     wait_times = database.get_queue_wait_times([queue_name])

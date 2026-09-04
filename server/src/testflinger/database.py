@@ -765,6 +765,194 @@ def register_oidc_client(userinfo: dict) -> None:
     )
 
 
+def get_job_data(job_id: str) -> dict | None:
+    """Retrieve job data and submitter for a specific job ID.
+
+    :returns: Dict with job_data and submitted_by, or None if not found.
+    """
+    return mongo.db.jobs.find_one(
+        {"job_id": job_id},
+        projection={"job_data": True, "submitted_by": True, "_id": False},
+    )
+
+
+def search_jobs_by_pipeline(pipeline: list) -> list:
+    """Run an aggregation pipeline on the jobs collection.
+
+    :param pipeline: MongoDB aggregation pipeline.
+    :returns: List of matching job documents.
+    """
+    return list(mongo.db.jobs.aggregate(pipeline))
+
+
+def get_advertised_queues() -> list[dict]:
+    """Return all advertised queues with name and description."""
+    return list(
+        mongo.db.queues.find(
+            {}, projection={"_id": False, "name": True, "description": True}
+        )
+    )
+
+
+def upsert_queue(name: str, description: str, timestamp) -> None:
+    """Insert or update an advertised queue entry.
+
+    :param name: Queue name.
+    :param description: Queue description.
+    :param timestamp: Timestamp of the update.
+    """
+    mongo.db.queues.update_one(
+        {"name": name},
+        {"$set": {"description": description, "updated_at": timestamp}},
+        upsert=True,
+    )
+
+
+def get_queue_images(queue: str) -> dict | None:
+    """Return the images dict for a given queue, or None if not found."""
+    return mongo.db.queues.find_one(
+        {"name": queue}, {"_id": False, "images": True}
+    )
+
+
+def set_queue_images(queue: str, image_data: dict) -> None:
+    """Set the images for a given queue.
+
+    :param queue: Queue name.
+    :param image_data: Dict of image_name to provision_data mappings.
+    """
+    mongo.db.queues.update_one(
+        {"name": queue},
+        {"$set": {"images": image_data}},
+        upsert=True,
+    )
+
+
+def upsert_agent(agent_name: str, data: dict, log: list) -> None:
+    """Insert or update an agent record.
+
+    :param agent_name: Name of the agent.
+    :param data: Agent data fields to set.
+    :param log: Log lines to push (kept to last 100).
+    """
+    mongo.db.agents.update_one(
+        {"name": agent_name},
+        {"$set": data, "$push": {"log": {"$each": log, "$slice": -100}}},
+        upsert=True,
+    )
+
+
+def add_provision_log(agent_name: str, data: dict) -> None:
+    """Append a provision log entry for an agent.
+
+    :param agent_name: Name of the agent.
+    :param data: Provision log entry dict (must include 'updated_at').
+    """
+    mongo.db.provision_logs.update_one(
+        {"name": agent_name},
+        {
+            "$set": data,
+            "$push": {
+                "provision_log": {"$each": [data], "$slice": -100},
+            },
+        },
+        upsert=True,
+    )
+
+
+def get_agent_provision_streak(agent_name: str) -> dict | None:
+    """Return the provision streak fields for a given agent.
+
+    :param agent_name: Name of the agent.
+    :returns: Dict with provision_streak_type and provision_streak_count,
+        or None if the agent does not exist.
+    """
+    return mongo.db.agents.find_one(
+        {"name": agent_name},
+        {"provision_streak_type": 1, "provision_streak_count": 1},
+    )
+
+
+def update_agent_fields(agent_name: str, fields: dict) -> None:
+    """Update arbitrary fields on an agent document.
+
+    :param agent_name: Name of the agent.
+    :param fields: Dict of fields to set.
+    """
+    mongo.db.agents.update_one({"name": agent_name}, {"$set": fields})
+
+
+def get_waiting_jobs_in_queue(queue: str) -> list[dict]:
+    """Return waiting jobs in a queue sorted by priority descending.
+
+    :param queue: Queue name.
+    :returns: List of dicts with job_id field.
+    """
+    return list(
+        mongo.db.jobs.find(
+            {"job_data.job_queue": queue, "result_data.job_state": "waiting"},
+            {"job_id": 1},
+            sort=[("job_priority", -1)],
+        )
+    )
+
+
+def get_agent_document(agent_id: str) -> dict | None:
+    """Return the full agent document (including log) for a given agent.
+
+    :param agent_id: Name of the agent.
+    :returns: Agent document or None if not found.
+    """
+    return mongo.db.agents.find_one({"name": agent_id})
+
+
+def get_queue_document(queue_name: str) -> dict | None:
+    """Return a queue document by name.
+
+    :param queue_name: Name of the queue.
+    :returns: Queue document or None if not found.
+    """
+    return mongo.db.queues.find_one({"name": queue_name})
+
+
+def get_all_jobs_sorted() -> list[dict]:
+    """Return all job documents sorted by created_at descending."""
+    return list(mongo.db.jobs.find(sort=[("created_at", -1)]))
+
+
+def get_job_document(job_id: str) -> dict | None:
+    """Return the full job document for a given job_id.
+
+    :param job_id: UUID string of the job.
+    :returns: Full job document or None if not found.
+    """
+    return mongo.db.jobs.find_one({"job_id": job_id})
+
+
+def get_all_agent_queue_names() -> set[str]:
+    """Return a set of all queue names reported by agents."""
+    agent_data = mongo.db.agents.find({}, {"_id": 0, "queues": 1})
+    return {queue for agent in agent_data for queue in agent.get("queues", [])}
+
+
+def get_active_jobs_in_queue(queue_name: str) -> list[dict]:
+    """Return incomplete (active) jobs in a specified queue.
+
+    :param queue_name: Name of the queue.
+    :returns: List of job documents.
+    """
+    return list(
+        mongo.db.jobs.find(
+            {
+                "job_data.job_queue": queue_name,
+                "result_data.job_state": {
+                    "$nin": ["complete", "completed", "cancelled"]
+                },
+            }
+        )
+    )
+
+
 def get_job_results(job_id: str):
     """Retrieve results for a specific job id."""
     return mongo.db.jobs.find_one(
