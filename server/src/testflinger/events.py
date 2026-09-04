@@ -68,12 +68,16 @@ def build_event(
     :return: Dictionary representing the event.
     """
     message = format_event(event_type, **context)
-    return {
+    event = {
         "event_name": event_type,
         "timestamp": datetime.now(timezone.utc),
         "message": message,
         "detail": detail,
     }
+    # Preserve the status key in the event if it's present in the context
+    if "status" in context:
+        event["status"] = context["status"]
+    return event
 
 
 def detect_new_result_events(
