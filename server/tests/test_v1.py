@@ -23,7 +23,7 @@ from http import HTTPStatus
 
 import pytest
 import requests
-from testflinger_common.enums import ServerRoles
+from testflinger_common.enums import JobState, ServerRoles
 
 from testflinger.api import v1
 from tests.utilities import get_access_token_header
@@ -962,14 +962,14 @@ def test_cancel_job_completed(mongo_app, agent_auth_header):
 
     # Set the job to cancelled and completed to ensure we get an error when
     # trying to cancel it in that state
-    for state in ["cancelled", "complete", "completed"]:
+    for state in [JobState.COMPLETED, JobState.CANCELLED]:
         data = {"job_state": state}
         output = app.post(result_url, json=data, headers=agent_auth_header)
         output = app.post(
             f"/v1/job/{job_id}/action", json={"action": "cancel"}
         )
         assert "The job is already completed or cancelled" == output.text
-        assert 400 == output.status_code
+        assert output.status_code == HTTPStatus.BAD_REQUEST
 
 
 def test_cancel_job_good(mongo_app):
@@ -1976,7 +1976,7 @@ def test_agent_job_id_cleared_on_job_completion(mongo_app, agent_auth_header):
     # Agent posts a terminal result
     result = app.post(
         f"/v1/result/{job_id}",
-        json={"job_state": "complete"},
+        json={"job_state": JobState.COMPLETED},
         headers=agent_auth_header,
     )
     assert result.status_code == HTTPStatus.OK

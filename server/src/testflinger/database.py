@@ -22,7 +22,7 @@ from typing import Any
 
 from flask_pymongo import PyMongo
 from gridfs import GridFS, errors
-from testflinger_common.enums import ServerRoles
+from testflinger_common.enums import JobState, ServerRoles
 
 # Constants for TTL indexes
 REFRESH_TOKEN_IDEL_EXPIRATION = 60 * 60 * 24 * 90  # 90 days
@@ -280,11 +280,12 @@ def cancel_job(job_id, client_id: str | None = None):
     if client_id is not None:
         update_fields["result_data.cancelled_by"] = client_id
     # Set the job status to cancelled
+    # TODO: Remove `completed` once backward compatibility is not needed
     response = mongo.db.jobs.update_one(
         {
             "job_id": job_id,
             "result_data.job_state": {
-                "$nin": ["cancelled", "complete", "completed"]
+                "$nin": [JobState.COMPLETED, JobState.CANCELLED, "completed"]
             },
         },
         {"$set": update_fields},
@@ -344,11 +345,12 @@ def get_jobs_on_queue(queue: str) -> list[dict]:
 
 def get_num_incomplete_jobs_on_queue(queue: str) -> int:
     """Get the number of incomplete jobs on a specific queue."""
+    # TODO: Remove "completed" once backward compatibility is not needed
     return mongo.db.jobs.count_documents(
         {
             "job_data.job_queue": queue,
             "result_data.job_state": {
-                "$nin": ["complete", "completed", "cancelled"]
+                "$nin": [JobState.COMPLETED, JobState.CANCELLED, "completed"]
             },
         }
     )
@@ -792,7 +794,7 @@ def add_job_results(job_id: str, json_data: dict):
 
     # Additionally, because the job_data may reflect that the job is now done,
     # we need to disassociate the agent from the job if the job is done:
-    terminal_states = {"complete", "completed", "cancelled"}
+    terminal_states = {JobState.COMPLETED, JobState.CANCELLED}
     if json_data.get("result_data.job_state") in terminal_states:
         clear_agent_job(job_id)
 

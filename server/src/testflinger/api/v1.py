@@ -28,7 +28,7 @@ from flask import current_app, g, jsonify, request, send_file
 from marshmallow import ValidationError
 from prometheus_client import Counter
 from requests.adapters import HTTPAdapter
-from testflinger_common.enums import LogType, ServerRoles, TestPhase
+from testflinger_common.enums import JobState, LogType, ServerRoles, TestPhase
 from urllib3.util.retry import Retry
 from werkzeug.routing import BaseConverter
 
@@ -400,7 +400,7 @@ def search_jobs(query_data):
 
     if "active" in states:
         query["result_data.job_state"] = {
-            "$nin": ["cancelled", "complete", "completed"]
+            "$nin": [JobState.COMPLETED, JobState.CANCELLED]
         }
     elif states:
         query["result_data.job_state"] = {"$in": states}

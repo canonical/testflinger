@@ -31,6 +31,7 @@ from markupsafe import Markup
 from pygments import highlight as pygments_highlight
 from pygments.formatters import HtmlFormatter
 from pygments.lexers import BashLexer, YamlLexer
+from testflinger_common.enums import JobState
 
 from testflinger import database
 from testflinger.api.schemas import Job
@@ -316,11 +317,12 @@ def queue_detail(queue_name):
         queue_data = {"name": queue_name, "description": "No description"}
 
     # Find all the jobs active jobs in this queue
+    # TODO: Remove `completed` once backward compatibility is not needed
     job_data = database.mongo.db.jobs.find(
         {
             "job_data.job_queue": queue_name,
             "result_data.job_state": {
-                "$nin": ["complete", "completed", "cancelled"]
+                "$nin": [JobState.COMPLETED, JobState.CANCELLED, "completed"]
             },
         }
     )
