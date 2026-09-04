@@ -20,7 +20,7 @@ from http import HTTPStatus
 from io import BytesIO
 
 import pytest
-from testflinger_common.enums import JobState, LogType, TestPhase
+from testflinger_common.enums import JobEvent, JobState, LogType, TestPhase
 
 
 def test_result_get_result_not_exists(mongo_app):
@@ -331,7 +331,7 @@ def test_result_status_exit_codes(mongo_app, agent_auth_header, exit_code):
     phase_completed = next(
         event
         for event in doc["events"]
-        if event["event_name"] == "job_phase_completed"
+        if event["event_name"] == JobEvent.JOB_PHASE_COMPLETED
     )
     assert str(exit_code) in phase_completed["message"]
 
@@ -360,13 +360,13 @@ def test_result_status_job_state_values(
     doc = mongo.jobs_events.find_one({"job_id": job_id})
     event_names = {event["event_name"] for event in doc["events"]}
     if job_state in {"complete", "completed"}:
-        assert "job_completed" in event_names
+        assert JobEvent.JOB_COMPLETED in event_names
     elif job_state in {phase.value for phase in TestPhase}:
-        assert {"job_started", "job_phase_started"} <= event_names
+        assert JobEvent.JOB_PHASE_STARTED in event_names
     else:
         # any other job_state values should not emit any lifecycle events
         # besides the initial JOB_SUBMITTED event that is always present.
-        assert event_names == {"job_submitted"}
+        assert event_names == {JobEvent.JOB_SUBMITTED}
 
 
 def test_result_status_all_phases(mongo_app, agent_auth_header):
@@ -392,7 +392,7 @@ def test_result_status_all_phases(mongo_app, agent_auth_header):
     # event per phase.
     doc = mongo.jobs_events.find_one({"job_id": job_id})
     event_names = [event["event_name"] for event in doc["events"]]
-    assert event_names.count("job_phase_completed") == len(TestPhase)
+    assert event_names.count(JobEvent.JOB_PHASE_COMPLETED) == len(TestPhase)
 
 
 # ---------------------------------------------------------------------------
@@ -501,9 +501,8 @@ def test_result_post_emits_only_start_events_once_per_phase(
 
     doc = mongo.jobs_events.find_one({"job_id": job_id})
     event_names = [event["event_name"] for event in doc["events"]]
-    assert event_names.count("job_submitted") == 1
-    assert event_names.count("job_started") == 1
-    assert event_names.count("job_phase_started") == 2
+    assert event_names.count(JobEvent.JOB_SUBMITTED) == 1
+    assert event_names.count(JobEvent.JOB_PHASE_STARTED) == 2
 
 
 def test_result_post_does_not_duplicate_phase_completed_on_retry(
@@ -528,7 +527,7 @@ def test_result_post_does_not_duplicate_phase_completed_on_retry(
 
     doc = mongo.jobs_events.find_one({"job_id": job_id})
     event_names = [event["event_name"] for event in doc["events"]]
-    assert event_names.count("job_phase_completed") == 1
+    assert event_names.count(JobEvent.JOB_PHASE_COMPLETED) == 1
 
 
 def test_result_post_no_events_for_device_info_only_payload(
@@ -550,4 +549,4 @@ def test_result_post_no_events_for_device_info_only_payload(
     doc = mongo.jobs_events.find_one({"job_id": job_id})
     # Only the job_submitted event from job creation should be present
     assert len(doc["events"]) == 1
-    assert doc["events"][0]["event_name"] == "job_submitted"
+    assert doc["events"][0]["event_name"] == JobEvent.JOB_SUBMITTED

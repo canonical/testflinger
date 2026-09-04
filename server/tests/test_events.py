@@ -18,25 +18,12 @@
 import pytest
 from testflinger_common.enums import JobEvent, JobState
 
-from testflinger.events import detect_new_result_events
+from testflinger.events import _MESSAGE_TEMPLATES, detect_new_result_events
 
 
 def _event_names(events: list[dict]) -> list[str]:
     """Extract event_name values from a list of event dicts."""
     return [event["event_name"] for event in events]
-
-
-def test_first_phase_transition_emits_job_started():
-    """Test transitioning from explicit "waiting" state emits JOB_STARTED."""
-    previous_data = {"job_state": JobState.WAITING}
-    new_data = {"job_state": JobState.SETUP}
-
-    events = detect_new_result_events(previous_data, new_data)
-
-    assert set(_event_names(events)) == {
-        JobEvent.JOB_STARTED,
-        JobEvent.JOB_PHASE_STARTED,
-    }
 
 
 def test_subsequent_phase_transition_emits_only_phase_started():
@@ -130,3 +117,9 @@ def test_empty_payload_emits_no_events():
     events = detect_new_result_events(previous_data, new_data)
 
     assert events == []
+
+
+def test_all_job_events_have_template():
+    """Test that all JobEvent values have a corresponding message template."""
+    for event in JobEvent:
+        assert event in _MESSAGE_TEMPLATES, f"Missing template for {event}"
