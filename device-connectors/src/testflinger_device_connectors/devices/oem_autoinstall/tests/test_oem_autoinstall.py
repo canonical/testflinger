@@ -238,6 +238,52 @@ class TestOemAutoinstall(unittest.TestCase):
         mock_run.assert_called_once()
         mock_copy_ssh_id.assert_not_called()
 
+    @patch.object(OemAutoinstall, "copy_ssh_id")
+    @patch("subprocess.run")
+    def test_prepare_storage_swallows_timeout(
+        self, mock_run, mock_copy_ssh_id
+    ):
+        """A hung/timed-out ssh call must not abort provisioning."""
+        device = OemAutoinstall(self.config_file.name, self.job_file.name)
+
+        mock_run.side_effect = subprocess.TimeoutExpired("cmd", 30)
+
+        device.prepare_storage_when_bootstrap()  # must not raise
+
+        mock_copy_ssh_id.assert_not_called()
+
+    @patch.object(OemAutoinstall, "copy_ssh_id")
+    @patch("subprocess.run")
+    def test_prepare_storage_swallows_format_failure(
+        self, mock_run, mock_copy_ssh_id
+    ):
+        """A failing prepare-storage.sh must not abort provisioning."""
+        device = OemAutoinstall(self.config_file.name, self.job_file.name)
+
+        # Detection succeeds, but the format command itself fails
+        mock_run.side_effect = [Mock(returncode=0), Mock(returncode=1)]
+
+        device.prepare_storage_when_bootstrap()  # must not raise
+
+        # Key restore is still attempted even if formatting failed
+        mock_copy_ssh_id.assert_called_once()
+
+    @patch.object(OemAutoinstall, "copy_ssh_id")
+    @patch("subprocess.run")
+    def test_prepare_storage_swallows_copy_ssh_id_failure(
+        self, mock_run, mock_copy_ssh_id
+    ):
+        """A failure while restoring the SSH key must not abort
+        provisioning.
+        """
+        device = OemAutoinstall(self.config_file.name, self.job_file.name)
+
+        mock_run.side_effect = [Mock(returncode=0), Mock(returncode=0)]
+        mock_copy_ssh_id.side_effect = subprocess.CalledProcessError(1, "cmd")
+
+        device.prepare_storage_when_bootstrap()  # must not raise
+
+
 
 if __name__ == "__main__":
     unittest.main()
