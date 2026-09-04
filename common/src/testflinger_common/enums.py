@@ -178,7 +178,6 @@ class JobEvent(TestflingerEvent):
 
     JOB_SUBMITTED = "job_submitted"
     JOB_ASSIGNED = "job_assigned"
-    JOB_STARTED = "job_started"
     JOB_PHASE_STARTED = "job_phase_started"
     JOB_PHASE_COMPLETED = "job_phase_completed"
     JOB_COMPLETED = "job_completed"

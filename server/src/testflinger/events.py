@@ -19,7 +19,6 @@ from datetime import datetime, timezone
 
 from testflinger_common.enums import (
     JobEvent,
-    JobState,
     TestflingerEvent,
     TestPhase,
 )
@@ -27,7 +26,6 @@ from testflinger_common.enums import (
 _MESSAGE_TEMPLATES = {
     JobEvent.JOB_SUBMITTED: "Job submitted by user {client_id} into queue {queue_name}.",  # noqa: E501
     JobEvent.JOB_ASSIGNED: "Job assigned to agent {agent_name}.",
-    JobEvent.JOB_STARTED: "Job started",
     JobEvent.JOB_PHASE_STARTED: "Phase {phase} started.",
     JobEvent.JOB_PHASE_COMPLETED: "Phase {phase} completed with exit code {status}",  # noqa: E501
     JobEvent.JOB_COMPLETED: "Job completed.",
@@ -157,20 +155,10 @@ def _build_job_lifecycle_events(
     ):
         return []
 
-    new_events = []
-    # Special handler for the first phase of a job
-    if previous_job_state in (None, JobState.WAITING):
-        new_events.append(
-            build_event(
-                event_type=JobEvent.JOB_STARTED,
-                phase=new_job_state,
-            )
-        )
     # All phase changes should log a phase started event
-    new_events.append(
+    return [
         build_event(
             event_type=JobEvent.JOB_PHASE_STARTED,
             phase=new_job_state,
         )
-    )
-    return new_events
+    ]
