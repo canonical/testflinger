@@ -190,10 +190,100 @@ class TestOemAutoinstall(unittest.TestCase):
         with patch.object(device, "run_deploy_script"):
             with patch.object(device, "check_device_booted"):
                 with patch.object(device, "copy_to_deploy_path"):
-                    device.provision()
+                    with patch.object(
+                        device, "prepare_storage_when_bootstrap"
+                    ) as mock_prepare_storage:
+                        device.provision()
+
+        mock_prepare_storage.assert_called_once_with()
 
         # Verify hardreset was called
         mock_check_call.assert_called()
+
+    @patch.object(OemAutoinstall, "copy_ssh_id")
+    @patch("subprocess.run")
+    def test_prepare_storage_when_in_bootstrap(
+        self, mock_run, mock_copy_ssh_id
+    ):
+        """Test prepare-storage runs and key is restored in bootstrap."""
+        device = OemAutoinstall(self.config_file.name, self.job_file.name)
+
+        # Detection succeeds (c3-cid-applier present -> bootstrap stage)
+        mock_run.side_effect = [Mock(returncode=0), Mock(returncode=0)]
+
+        device.prepare_storage_when_bootstrap()
+
+        # detection + prepare-storage
+        self.assertEqual(mock_run.call_count, 2)
+        prepare_args = mock_run.call_args_list[1][0][0]
+        self.assertIn(
+            "sudo -n /usr/bin/prepare-storage.sh --format-partitions",
+            prepare_args,
+        )
+        # Key is restored after remount
+        mock_copy_ssh_id.assert_called_once()
+
+    @patch.object(OemAutoinstall, "copy_ssh_id")
+    @patch("subprocess.run")
+    def test_prepare_storage_when_not_in_bootstrap(
+        self, mock_run, mock_copy_ssh_id
+    ):
+        """Test nothing happens when DUT is not in bootstrap stage."""
+        device = OemAutoinstall(self.config_file.name, self.job_file.name)
+
+        # Detection fails (c3-cid-applier absent -> not bootstrap stage)
+        mock_run.return_value = Mock(returncode=1)
+
+        device.prepare_storage_when_bootstrap()
+
+        # Only the detection call, no prepare-storage, no re-key
+        mock_run.assert_called_once()
+        mock_copy_ssh_id.assert_not_called()
+
+    @patch.object(OemAutoinstall, "copy_ssh_id")
+    @patch("subprocess.run")
+    def test_prepare_storage_swallows_timeout(
+        self, mock_run, mock_copy_ssh_id
+    ):
+        """A hung/timed-out ssh call must not abort provisioning."""
+        device = OemAutoinstall(self.config_file.name, self.job_file.name)
+
+        mock_run.side_effect = subprocess.TimeoutExpired("cmd", 30)
+
+        device.prepare_storage_when_bootstrap()  # must not raise
+
+        mock_copy_ssh_id.assert_not_called()
+
+    @patch.object(OemAutoinstall, "copy_ssh_id")
+    @patch("subprocess.run")
+    def test_prepare_storage_swallows_format_failure(
+        self, mock_run, mock_copy_ssh_id
+    ):
+        """A failing prepare-storage.sh must not abort provisioning."""
+        device = OemAutoinstall(self.config_file.name, self.job_file.name)
+
+        # Detection succeeds, but the format command itself fails
+        mock_run.side_effect = [Mock(returncode=0), Mock(returncode=1)]
+
+        device.prepare_storage_when_bootstrap()  # must not raise
+
+        # Key restore is still attempted even if formatting failed
+        mock_copy_ssh_id.assert_called_once()
+
+    @patch.object(OemAutoinstall, "copy_ssh_id")
+    @patch("subprocess.run")
+    def test_prepare_storage_swallows_copy_ssh_id_failure(
+        self, mock_run, mock_copy_ssh_id
+    ):
+        """A failure while restoring the SSH key must not abort
+        provisioning.
+        """
+        device = OemAutoinstall(self.config_file.name, self.job_file.name)
+
+        mock_run.side_effect = [Mock(returncode=0), Mock(returncode=0)]
+        mock_copy_ssh_id.side_effect = subprocess.CalledProcessError(1, "cmd")
+
+        device.prepare_storage_when_bootstrap()  # must not raise
 
 
 if __name__ == "__main__":

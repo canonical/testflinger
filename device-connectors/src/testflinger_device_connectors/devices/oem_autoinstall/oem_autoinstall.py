@@ -40,6 +40,17 @@ ATTACHMENTS_PROV_DIR = Path.cwd() / ATTACHMENTS_DIR / "provision"
 class OemAutoinstall:
     """Device Connector for OEM Script."""
 
+    SSH_OPTS = [
+        "-o",
+        "StrictHostKeyChecking=no",
+        "-o",
+        "UserKnownHostsFile=/dev/null",
+        "-o",
+        "BatchMode=yes",
+        "-o",
+        "ConnectTimeout=10",
+    ]
+
     def __init__(self, config, job_data):
         with open(config, encoding="utf-8") as configfile:
             self.config = yaml.safe_load(configfile)
@@ -93,8 +104,63 @@ class OemAutoinstall:
         if token_file is not None:
             token_file_path = "url_token"
             self.copy_to_deploy_path(token_file, token_file_path)
+
+        self.prepare_storage_when_bootstrap()
+
         self.run_deploy_script(image_url)
         self.check_device_booted()
+
+    def prepare_storage_when_bootstrap(self):
+        """Prepare the DUT storage when it is in bootstrap mode and
+        /home/ubuntu wasn't mounted.
+
+        This is a best-effort step: any failure is logged and swallowed
+        here so it never aborts the rest of provisioning.
+        """
+        try:
+            self._prepare_storage_when_bootstrap()
+        except (subprocess.SubprocessError, OSError, KeyError) as exc:
+            logger.warning(
+                "Skipping storage preparation, best-effort step failed: %s",
+                exc,
+            )
+
+    def _prepare_storage_when_bootstrap(self):
+        test_username = self.get_test_data_or_default(
+            "test_username", "ubuntu"
+        )
+        target = f"{test_username}@{self.config['device_ip']}"
+
+        # c3-cid-applier.py only exists in the OEM bootstrap environment.
+        detect_cmd = [
+            "ssh",
+            *self.SSH_OPTS,
+            target,
+            "test -x /usr/bin/c3-cid-applier.py",
+        ]
+        if subprocess.run(detect_cmd, check=False, timeout=30).returncode != 0:
+            # Not in bootstrap stage, nothing to do
+            return
+
+        logger.info("DUT is in bootstrap mode, preparing storage")
+        prepare_cmd = [
+            "ssh",
+            *self.SSH_OPTS,
+            target,
+            "sudo -n /usr/bin/prepare-storage.sh --format-partitions",
+        ]
+        proc = subprocess.run(
+            prepare_cmd,
+            check=False,
+            timeout=60 * 15,  # 15 minutes
+        )
+        if proc.returncode != 0:
+            logger.warning(
+                "prepare-storage.sh exited with code %s", proc.returncode
+            )
+
+        # re-add the keys after formatting
+        self.copy_ssh_id()
 
     def copy_to_deploy_path(self, source_path, dest_path):
         """Verify if attachment exists, then copy when
@@ -162,14 +228,7 @@ class OemAutoinstall:
 
         cmd = [
             "ssh",
-            "-o",
-            "StrictHostKeyChecking=no",
-            "-o",
-            "UserKnownHostsFile=/dev/null",
-            "-o",
-            "BatchMode=yes",
-            "-o",
-            "ConnectTimeout=10",
+            *self.SSH_OPTS,
             f"{test_username}@{self.config['device_ip']}",
             "true",
         ]
