@@ -117,7 +117,7 @@ def _role_group_key(method: str, path: str, roles: list) -> tuple:
 
     The order of role set is described by two dimensions:
     - whether AGENT is allowed,
-    - whether the lowest (widest-audience) human role is allowed. 
+    - whether the lowest (widest-audience) human role is allowed.
     
     This groups identical role sets together and keeps a semantic ordering.
     """
