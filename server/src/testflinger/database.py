@@ -776,7 +776,7 @@ def get_job_data(job_id: str) -> dict | None:
     )
 
 
-def search_jobs_by_pipeline(pipeline: list) -> list:
+def search_jobs_by_pipeline(pipeline: list[dict]) -> list[dict]:
     """Run an aggregation pipeline on the jobs collection.
 
     :param pipeline: MongoDB aggregation pipeline.
@@ -794,7 +794,7 @@ def get_advertised_queues() -> list[dict]:
     )
 
 
-def upsert_queue(name: str, description: str, timestamp) -> None:
+def upsert_queue(name: str, description: str, timestamp: datetime) -> None:
     """Insert or update an advertised queue entry.
 
     :param name: Queue name.
@@ -828,7 +828,7 @@ def set_queue_images(queue: str, image_data: dict) -> None:
     )
 
 
-def upsert_agent(agent_name: str, data: dict, log: list) -> None:
+def upsert_agent(agent_name: str, data: dict, log: list[str]) -> None:
     """Insert or update an agent record.
 
     :param agent_name: Name of the agent.
