@@ -1993,9 +1993,16 @@ def test_initial_job_state_changed_at(mongo_app):
     result = app.get(f"/v1/result/{job_id}").json
     assert result.get("job_state") == "waiting"
     assert "job_state_changed_at" in result
-    # Validate it is a parseable ISO 8601 datetime string
+    # The server stores a UTC-aware datetime; the wire value must round-trip
+    # to the same UTC instant. Assert on semantics (timezone-aware, UTC),
+    # not on the exact string form ("+00:00" vs "Z" vs ...).
+    # NOTE: on Python 3.10, datetime.fromisoformat does not accept the "Z"
+    # suffix; the server currently emits "+00:00", so this parses cleanly.
+    # If serialization ever changes to "Z", either bump the minimum Python
+    # to 3.11+ or normalize the suffix before parsing.
     changed_at = datetime.fromisoformat(result["job_state_changed_at"])
-    assert isinstance(changed_at, datetime)
+    assert changed_at.tzinfo is not None
+    assert changed_at.utcoffset() == timedelta(0)
 
 
 def test_job_state_changed_at_on_result_post(
