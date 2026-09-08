@@ -171,7 +171,7 @@ def agent_detail(agent_id):
         tzinfo=timezone.utc
     ) + timedelta(days=1)
 
-    agent_info = database.get_agent_document(agent_id)
+    agent_info = database.get_agent_info(agent_id)
     if not agent_info:
         response = make_response(
             render_template("agent_not_found.html", agent_id=agent_id)

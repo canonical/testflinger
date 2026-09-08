@@ -130,6 +130,32 @@ def test_agent_detail_no_provision_log(testapp):
     assert re.search(pattern, response)
 
 
+def test_agent_detail_renders_active_job(testapp):
+    """Test that an agent detail page displays its active job."""
+    mongo = mongomock.MongoClient()
+    mongo.db.agents.insert_one(
+        {
+            "name": "agent1",
+            "job_id": "job-1",
+            "updated_at": datetime.now(tz=timezone.utc),
+        }
+    )
+    mongo.db.jobs.insert_one(
+        {
+            "job_id": "job-1",
+            "submitted_by": "client-A",
+            "job_data": {"job_queue": "test"},
+            "result_data": {"job_state": "running"},
+        }
+    )
+
+    with patch("testflinger.database.mongo", mongo):
+        with testapp.test_request_context():
+            response = agent_detail("agent1")
+
+    assert 'href="/jobs/job-1"' in str(response)
+
+
 def test_agent_not_found(testapp):
     """
     Test that the agent_detail fails gracefully when
