@@ -33,7 +33,7 @@ docker-prune:
 serve: start && connect
     workshop exec dev -- just server::serve
 
-[doc('Start the server for exposed testing (OIDC disabled, ProxyFix enabled) and connect it to the host.')]
+[doc('Start the server for exposed testing (ProxyFix enabled; Dex/OIDC browser login may not work behind a reverse proxy/prefix) and connect it to the host.')]
 [group('server')]
 serve-exposed: start && connect
     workshop exec dev -- just server::serve-exposed
