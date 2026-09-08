@@ -14,27 +14,31 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 """
-Job State and Test Phase Enums
+Agent Mode, Agent State, Job State, and Test Phase Enums.
+
+Design notes
+------------
+``TestPhase`` is the canonical list of executable job phases.
+
+``AgentState`` and ``JobState`` are strict supersets of ``TestPhase`` —
+each includes every phase value plus its own additions.  They are built
+programmatically via ``_extend_phase`` so there is no duplicated list of
+phase names.
+
+``AgentMode`` is the server-commanded operating mode of an agent.  It is
+distinct from ``AgentState`` (what the agent is doing *within* a mode).
 """
 
 from strenum import StrEnum
 
 
-class JobState(StrEnum):
-    WAITING = "waiting"
-    SETUP = "setup"
-    PROVISION = "provision"
-    FIRMWARE_UPDATE = "firmware_update"
-    TEST = "test"
-    ALLOCATE = "allocate"
-    ALLOCATED = "allocated"
-    RESERVE = "reserve"
-    CLEANUP = "cleanup"
-    CANCELLED = "cancelled"
-    COMPLETED = "completed"
-
-
 class TestPhase(StrEnum):
+    """Executable phases that the agent iterates over when running a job.
+
+    This is the minimal set — only the phases the agent actually runs.
+    Use ``AgentState`` or ``JobState`` when you need the full lifecycle.
+    """
+
     __test__ = False
     """Prevents pytest from trying to run this class as a test."""
 
@@ -47,7 +51,71 @@ class TestPhase(StrEnum):
     CLEANUP = "cleanup"
 
 
+def _extend_phase(name: str, extras: dict[str, str], doc: str = "") -> StrEnum:
+    """Build a StrEnum that contains every TestPhase value plus *extras*.
+
+    :param name:   Class name for the new enum.
+    :param extras: Mapping of UPPER_NAME -> "string_value" for the
+                   additional members beyond the TestPhase set.
+    :param doc:    Optional docstring for the returned class.
+    :return:       A new StrEnum subclass.
+    """
+    members = {phase.name: phase.value for phase in TestPhase}
+    members.update(extras)
+    cls = StrEnum(name, members)  # type: ignore[call-overload]
+    cls.__test__ = False  # suppress pytest collection
+    if doc:
+        cls.__doc__ = doc
+    return cls
+
+
+class AgentMode(StrEnum):
+    """Server-commanded operating mode of an agent.
+
+    The mode is set by an admin (via the portal, CLI, or API) and read
+    by the agent on every poll.  The agent never sets its own mode except
+    to report a locally-detected fault (which becomes ``MAINTENANCE``).
+
+    ``OFFLINE`` and ``RESTART`` have no sub-state (``AgentState``).
+    ``ONLINE`` and ``MAINTENANCE`` always carry a sub-state.
+    """
+
+    ONLINE = "online"
+    MAINTENANCE = "maintenance"
+    OFFLINE = "offline"
+    RESTART = "restart"
+
+
+AgentState = _extend_phase(
+    "AgentState",
+    {"WAITING": "waiting"},
+    doc=(
+        "Current sub-state of an agent within its operating mode.\n\n"
+        "A strict superset of TestPhase — includes all phase values plus\n"
+        "WAITING (idle sub-state used by ONLINE and MAINTENANCE modes).\n\n"
+        "OFFLINE and RESTART modes carry no AgentState."
+    ),
+)
+
+JobState = _extend_phase(
+    "JobState",
+    {
+        "WAITING": "waiting",
+        "ALLOCATED": "allocated",
+        "CANCELLED": "cancelled",
+        "COMPLETED": "completed",
+    },
+    doc=(
+        "Lifecycle states of a job as recorded by the server.\n\n"
+        "A strict superset of TestPhase — includes all phase values plus\n"
+        "administrative and terminal states with no agent-side equivalent."
+    ),
+)
+
+
 class TestEvent(StrEnum):
+    """Event markers emitted by the agent during job execution."""
+
     __test__ = False
     """Prevents pytest from trying to run this class as a test."""
 
@@ -83,14 +151,6 @@ class TestEvent(StrEnum):
     NORMAL_EXIT = "normal_exit"
     JOB_START = "job_start"
     JOB_END = "job_end"
-
-
-class AgentState(StrEnum):
-    WAITING = "waiting"
-    OFFLINE = "offline"
-    MAINTENANCE = "maintenance"
-    RESTART = "restart"
-    UNKNOWN = "unknown"
 
 
 class LogType(StrEnum):
@@ -129,6 +189,7 @@ class ServerRoles(StrEnum):
     AGENT = "agent"
 
     def __str__(self):
+        """Return the string value of the role."""
         return self.value
 
     @classmethod
