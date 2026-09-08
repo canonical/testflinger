@@ -1,0 +1,115 @@
+{#--
+  agent_state_chip(agent, tooltip_id, is_admin=false)
+
+  Renders a coloured p-chip for an agent mode/state.
+
+  Display rules:
+    - mode=offline  → label "offline",             red chip, no sub-state
+    - mode=restart  → label "restart",             red chip, no sub-state
+    - mode=online   → label "online: <state>",     green chip
+    - mode=maintenance → label "maintenance: <state>", amber chip
+
+  When mode_changed_at is available the chip is wrapped in a tooltip
+  showing "mode since <datetime> UTC (<duration>)".
+
+  When is_admin is true the chip is a <button> that opens the shared state
+  modal (id "state-modal"); the agent-specific mode/comment/POST-action are
+  carried as data-* attributes and copied into the modal on click. Otherwise
+  it is a plain <span>. Pages using the admin chip must include
+  "_agent_state_modal.html" once.
+
+  tooltip_id must be unique per page (e.g. include agent.name).
+--#}
+{% macro agent_state_chip(agent, tooltip_id, is_admin=false) %}
+  {%- set mode = agent.get("mode") -%}
+  {%- if mode == "online" -%}
+    {%- set colour = "p-chip--positive" -%}
+    {%- set label = "online: " ~ (agent.get("state") or "waiting") -%}
+  {%- elif mode == "maintenance" -%}
+    {%- set colour = "p-chip--caution" -%}
+    {%- set label = "maintenance: " ~ (agent.get("state") or "waiting") -%}
+  {%- elif mode == "offline" -%}
+    {%- set colour = "p-chip--negative" -%}
+    {%- set label = "offline" -%}
+  {%- elif mode == "restart" -%}
+    {%- set colour = "p-chip--negative" -%}
+    {%- set label = "restart" -%}
+  {%- else -%}
+    {%- set colour = "p-chip" -%}
+    {%- set label = mode or "unknown" -%}
+  {%- endif -%}
+  {%- if agent.get("mode_changed_at") -%}
+    {%- set tooltip_text = label ~ " since "
+        ~ agent.mode_changed_at.strftime("%Y-%m-%d %H:%M:%S")
+        ~ " UTC (" ~ agent.mode_duration ~ ")" -%}
+  {%- else -%}
+    {%- set tooltip_text = "" -%}
+  {%- endif -%}
+  {% if tooltip_text %}<span class="p-tooltip--top-left" aria-describedby="{{ tooltip_id }}">{% endif %}
+    {% if is_admin %}
+      <button class="{{ colour }} agent-state-chip is-dense"
+              aria-label="Change agent mode"
+              aria-controls="state-modal"
+              data-agent="{{ agent.name }}"
+              data-mode="{{ agent.get('mode') or 'online' }}"
+              data-comment="{{ agent.comment or '' }}"
+              data-action="{{ url_for('testflinger.agent_state_update', agent_id=agent.name) }}">
+        <span class="p-chip__value">{{ label }}</span>
+        <i class="p-icon--edit" style="margin-left: 0.25rem;" aria-hidden="true"></i>
+      </button>
+    {% else %}
+      <span class="{{ colour }} agent-state-chip is-dense is-inline">
+        <span class="p-chip__value">{{ label }}</span>
+      </span>
+    {% endif %}
+    {% if tooltip_text %}
+      <span class="p-tooltip__message"
+            role="tooltip"
+            id="{{ tooltip_id }}"
+            style="white-space: nowrap">{{ tooltip_text }}</span>
+    </span>
+  {% endif %}
+{% endmacro %}
+{#--
+  job_state_chip(state, result_data=none)
+
+  Renders a coloured p-chip for a job state value using Vanilla framework
+  semantic chip classes (light backgrounds, dark text).
+
+  Visual categories:
+    waiting   – neutral grey  (p-chip)              queued, not yet picked up
+    active    – light blue    (p-chip--information)  any in-progress phase
+    completed – light green   (p-chip--positive)     ran to completion, test passed (or no test)
+              – light amber   (p-chip--caution)      ran to completion, test script failed
+              – light red     (p-chip--negative)     infrastructure failure (setup/provision/etc failed)
+    cancelled – light red     (p-chip--negative)     cancelled or aborted
+--#}
+{% macro job_state_chip(state, result_data=none) %}
+  {%- if state == 'waiting' -%}
+    {%- set colour = "p-chip" -%}
+  {%- elif state == 'completed' -%}
+    {%- if result_data and result_data.get('test_status') is not none and result_data.get('test_status') != 0 -%}
+      {#- Test ran but failed -#}
+      {%- set colour = "p-chip--caution" -%}
+    {%- elif result_data and (
+          (result_data.get('setup_status') is not none and result_data.get('setup_status') != 0) or
+          (result_data.get('provision_status') is not none and result_data.get('provision_status') != 0) or
+          (result_data.get('firmware_update_status') is not none and result_data.get('firmware_update_status') != 0)
+        ) -%}
+      {#- Infrastructure phase failed before test ran -#}
+      {%- set colour = "p-chip--negative" -%}
+    {%- else -%}
+      {#- All phases passed, or no test was specified -#}
+      {%- set colour = "p-chip--positive" -%}
+    {%- endif -%}
+  {%- elif state in ('cancelled', 'aborted') -%}
+    {%- set colour = "p-chip--negative" -%}
+  {%- else -%}
+    {#- Any in-progress phase: allocated, setup, provision, firmware_update,
+        test, allocate, reserve, cleanup -#}
+    {%- set colour = "p-chip--information" -%}
+  {%- endif -%}
+  <span class="{{ colour }} job-state-chip is-dense is-inline">
+    <span class="p-chip__value">{{ state }}</span>
+  </span>
+{% endmacro %}
