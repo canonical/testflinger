@@ -33,6 +33,11 @@ docker-prune:
 serve: start && connect
     workshop exec dev -- just server::serve
 
+[doc('Start the server for exposed testing (OIDC disabled, ProxyFix enabled) and connect it to the host.')]
+[group('server')]
+serve-exposed: start && connect
+    workshop exec dev -- just server::serve-exposed
+
 [doc('Disconnect the server from the host and tear it down within the workshop.')]
 [group('server')]
 teardown: disconnect
