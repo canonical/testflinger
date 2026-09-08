@@ -1,5 +1,18 @@
 name: dev
 base: ubuntu@24.04
+#
+# tunnel endpoints — the two sides are ASYMMETRIC. Do not "unify" them:
+#
+#   docker-ce SLOT endpoint  -> LXD proxy CONNECT target (dialed inside the
+#                               container's netns). Must be 127.0.0.1:PORT so
+#                               dockerd (userland-proxy=false) is reachable on
+#                               container loopback.
+#   system   PLUG endpoint   -> LXD proxy LISTEN address (on the HOST). Must be
+#                               0.0.0.0:PORT so external clients (e.g. neighbors
+#                               hitting 192.168.4.201:PORT) can reach it. Using
+#                               127.0.0.1 here makes the host bind loopback only
+#                               and external access silently fails.
+#
 sdks:
   - name: just
   - name: uv
@@ -9,21 +22,21 @@ sdks:
     slots:
       testflinger-server:
         interface: tunnel
-        endpoint: localhost:5000  # in the workshop
+        endpoint: 127.0.0.1:5000  # connect: in the workshop (container loopback)
       testflinger-metrics:
         interface: tunnel
-        endpoint: localhost:9090  # in the workshop
+        endpoint: 127.0.0.1:9090  # connect: in the workshop (container loopback)
       dex-server:
         interface: tunnel
-        endpoint: localhost:5556  # in the workshop
+        endpoint: 127.0.0.1:5556  # connect: in the workshop (container loopback)
   - name: system
     plugs:
       tcp5000:
         interface: tunnel
-        endpoint: localhost:5000  # on the host
+        endpoint: 0.0.0.0:5000  # listen: on the host, all interfaces (external access)
       tcp9090:
         interface: tunnel
-        endpoint: localhost:9090  # on the host
+        endpoint: 0.0.0.0:9090  # listen: on the host, all interfaces (external access)
       tcp5556:
         interface: tunnel
-        endpoint: localhost:5556  # on the host
+        endpoint: 0.0.0.0:5556  # listen: on the host, all interfaces (external access)
