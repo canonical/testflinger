@@ -104,6 +104,18 @@ main {
     overflow: visible !important;
 }
 
+/* Agent-state chips – colours come from Vanilla's semantic chip classes:
+   p-chip--positive (green), p-chip--caution (amber), p-chip--negative (red). */
+.agent-state-chip { margin-bottom: 0; }
+button.agent-state-chip { cursor: pointer; display: inline-flex; align-items: center; }
+/* edit icon: Vanilla positive/negative chips have dark text so icon needs no inversion */
+button.agent-state-chip .p-icon--edit { filter: none; }
+
+/* Job-state chips – colours come from Vanilla's semantic chip classes:
+   p-chip (neutral grey), p-chip--information (blue), p-chip--positive (green),
+   p-chip--caution (amber), p-chip--negative (red). */
+.job-state-chip { margin-bottom: 0; }
+
 /* Heading row with a trailing action button (e.g. copy job YAML) */
 .section-heading-bar {
     display: flex;
