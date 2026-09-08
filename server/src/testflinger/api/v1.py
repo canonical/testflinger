@@ -317,7 +317,7 @@ def job_get_id(job_id):
     """
     if not check_valid_uuid(job_id):
         abort(400, message="Invalid job_id specified")
-    response = database.get_job_data(job_id)
+    response = database.get_job_document(job_id)
     if not response:
         return {}, 204
     job_data = response.get("job_data")

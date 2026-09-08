@@ -765,18 +765,6 @@ def register_oidc_client(userinfo: dict) -> None:
     )
 
 
-def get_job_data(job_id: str) -> dict | None:
-    """Retrieve job data and submitter for a specific job ID.
-
-    :param job_id: UUID string of the job.
-    :returns: Dict with job_data and submitted_by, or None if not found.
-    """
-    return mongo.db.jobs.find_one(
-        {"job_id": job_id},
-        projection={"job_data": True, "submitted_by": True, "_id": False},
-    )
-
-
 def search_jobs_by_pipeline(pipeline: list[dict]) -> list[dict]:
     """Run an aggregation pipeline on the jobs collection.
 
@@ -883,8 +871,9 @@ def get_all_jobs_sorted() -> list[dict]:
 def get_job_document(job_id: str) -> dict | None:
     """Return the full stored job document for a given job ID.
 
-    Unlike get_job_data, this includes result and scheduling metadata for the
-    web job-detail view.
+    Includes the submitted job data, submitter, and results such as
+    ``result_data``, ``agent_id``, ``job_priority``, and timestamps.
+    Does NOT include logs.
 
     :param job_id: UUID string of the job.
     :returns: Full job document or None if not found.
