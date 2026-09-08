@@ -225,8 +225,8 @@ class TestflingerAgent:
         and requested by user.
         """
         logger.info("Restarting agent")
-        # Setting to offline to not process any job during restart.
-        self.set_agent_state(AgentState.OFFLINE, comment)
+        # Setting to RESTART so agent comes back online after restart.
+        self.set_agent_state(AgentState.RESTART, comment)
         sys.exit("Restart Requested")
 
     def offline_agent(self, comment: str = "") -> None:
