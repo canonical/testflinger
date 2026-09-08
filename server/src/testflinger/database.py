@@ -768,6 +768,7 @@ def register_oidc_client(userinfo: dict) -> None:
 def get_job_data(job_id: str) -> dict | None:
     """Retrieve job data and submitter for a specific job ID.
 
+    :param job_id: UUID string of the job.
     :returns: Dict with job_data and submitted_by, or None if not found.
     """
     return mongo.db.jobs.find_one(
@@ -809,7 +810,12 @@ def upsert_queue(name: str, description: str, timestamp: datetime) -> None:
 
 
 def get_queue_images(queue: str) -> dict | None:
-    """Return the images dict for a given queue, or None if not found."""
+    """Return the images data for a given queue.
+
+    :param queue: Name of the queue.
+    :returns: Dictionary containing the queue's images field, or None if the
+        queue does not exist.
+    """
     return mongo.db.queues.find_one(
         {"name": queue}, {"_id": False, "images": True}
     )
@@ -959,15 +965,6 @@ def get_job_results(job_id: str):
         {"job_id": job_id},
         {"result_data": True, "_id": False},
     )
-
-
-def get_job(job_id: str) -> dict | None:
-    """Retrieve the full job document for a specific job id.
-
-    :param job_id: UUID as a string for the job.
-    :returns: The full job document, or None if not found.
-    """
-    return mongo.db.jobs.find_one({"job_id": job_id}, {"_id": False})
 
 
 def add_job_results(job_id: str, json_data: dict):
