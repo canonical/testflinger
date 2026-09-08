@@ -18,12 +18,17 @@ import json
 import logging
 import os
 import time
+from pathlib import Path
 
 import requests
 
 from testflinger_device_connectors.devices import ProvisioningError
 
 logger = logging.getLogger(__name__)
+
+# Directory accesible by tf-test script to share job_list.json
+ATTACHMENTS_DIR = Path("attachments")
+DEFAULT_JOB_LIST_FILE = ATTACHMENTS_DIR / ".job-list.json"
 
 
 class Multi:
@@ -120,7 +125,12 @@ class Multi:
                     "device_info": device_info,
                 }
             )
-        with open("job_list.json", "w") as json_file:
+
+        # Pre-create the attachments dir so we can share the job_list file
+        # The tf-script tf-test mounts limited dirs so we need to make sure
+        # its accesible via `attachments` dir.
+        ATTACHMENTS_DIR.mkdir(parents=True, exist_ok=True)
+        with DEFAULT_JOB_LIST_FILE.open("w") as json_file:
             json.dump(job_list, json_file)
 
     def create_jobs(self):
