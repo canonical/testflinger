@@ -11,9 +11,9 @@ Read the top-level `.kb/agents.md` file before continuing below.
 
 # Directory
 
-- `testflinger_cli/` - CLI source: client, admin commands, auth, config, autocomplete, status line.
-- `tests/` - Unit tests.
-- `snapcraft.yaml` - Snap packaging definition.
-- `testflinger-completion` - Shell completion script.
-- `HACKING.md` - Developer setup notes.
-- `justfile` - Task runner (format/lint/test/check).
+- `testflinger_cli/` - CLI source: client, admin commands, auth, config, autocomplete, status line
+- `tests/` - Unit tests
+- `snapcraft.yaml` - Snap packaging definition
+- `testflinger-completion` - Shell completion script
+- `HACKING.md` - Developer setup notes
+- `justfile` - Task runner (format/lint/test/check)

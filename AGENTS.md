@@ -16,25 +16,25 @@ See `.kb/architecture.md` for the client-server, job-queue design and how the se
 
 # Directory
 
-- `agent/` - Per-machine test agent daemon.
-- `cli/` - Command-line client for job submission and status.
-- `common/` - Shared enums and utilities library.
-- `device-connectors/` - Device provisioning and test execution connectors.
-- `docs/` - Sphinx documentation site.
-- `.github/` - GitHub Actions and CI workflows.
-- `.workshop/` - Optional isolated local development environment.
-- `server/` - Flask REST API and web UI; job queue backend.
-- `justfile` - Root task runner entry point; delegates to per-component justfiles.
+- `agent/` - Per-machine test agent daemon
+- `cli/` - Command-line client for job submission and status
+- `common/` - Shared enums and utilities library
+- `device-connectors/` - Device provisioning and test execution connectors
+- `docs/` - Sphinx documentation site
+- `.github/` - GitHub Actions and CI workflows
+- `.workshop/` - Optional isolated local development environment
+- `server/` - Flask REST API and web UI; job queue backend
+- `justfile` - Root task runner entry point; delegates to per-component justfiles
 
 
 # Documents
 
-- `.kb/agents.md` - General rules for the knowledge base reading and writing.
-- `.kb/architecture.md` - How the server, agents, device connectors, CLI, and common library fit together.
-- `.kb/testing.md` - Cross-component developer workflow: `uv`, `just` recipes, and pre-commit setup.
-- `agent/AGENTS.md` - Agent daemon navigation.
-- `cli/AGENTS.md` - CLI navigation.
-- `common/AGENTS.md` - Shared-library navigation.
-- `device-connectors/AGENTS.md` - Device-connector navigation.
-- `docs/AGENTS.md` - Documentation-site navigation.
-- `server/AGENTS.md` - Server navigation.
+- `.kb/agents.md` - General rules for the knowledge base reading and writing
+- `.kb/architecture.md` - How the server, agents, device connectors, CLI, and common library fit together
+- `.kb/testing.md` - Cross-component developer workflow: `uv`, `just` recipes, and pre-commit setup
+- `agent/AGENTS.md` - Agent daemon navigation
+- `cli/AGENTS.md` - CLI navigation
+- `common/AGENTS.md` - Shared-library navigation
+- `device-connectors/AGENTS.md` - Device-connector navigation
+- `docs/AGENTS.md` - Documentation-site navigation
+- `server/AGENTS.md` - Server navigation

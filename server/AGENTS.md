@@ -11,14 +11,14 @@ Read the top-level `.kb/agents.md` file before continuing below.
 
 # Directory
 
-- `src/testflinger/` - Server source: `application.py` (Flask app), `api/` and `views.py` (routes), `database.py` (MongoDB), `oidc/` (SSO), `secrets/`, `owasp/` (security utilities).
-- `tests/` - Unit tests.
-- `schemas/` - OpenAPI specification.
-- `charm/` - Kubernetes charm for production deployment.
-- `terraform/` - Infrastructure-as-code for deployment.
-- `devel/` - Local development helpers (sample data, SSO test config).
-- `scripts/` - Utility scripts.
-- `docker-compose.yml` - Local containerized dev environment.
-- `Dockerfile` - Builds the OCI image consumed by the `charm/` for production deployment.
-- `app.py` - WSGI entry point.
-- `justfile` - Task runner (`just serve`, `just populate`, `just admin`, format/lint/test/check).
+- `src/testflinger/` - Server source: `application.py` (Flask app), `api/` and `views.py` (routes), `database.py` (MongoDB), `oidc/` (SSO), `secrets/`, `owasp/` (security utilities)
+- `tests/` - Unit tests
+- `schemas/` - OpenAPI specification
+- `charm/` - Kubernetes charm for production deployment
+- `terraform/` - Infrastructure-as-code for deployment
+- `devel/` - Local development helpers (sample data, SSO test config)
+- `scripts/` - Utility scripts
+- `docker-compose.yml` - Local containerized dev environment
+- `Dockerfile` - Builds the OCI image consumed by the `charm/` for production deployment
+- `app.py` - WSGI entry point
+- `justfile` - Task runner (`just serve`, `just populate`, `just admin`, format/lint/test/check)

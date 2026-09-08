@@ -11,6 +11,6 @@ Read the top-level `.kb/agents.md` file before continuing below.
 
 # Directory
 
-- `src/testflinger_common/` - Library source (enums, duration parsing).
-- `tests/` - Unit tests.
-- `justfile` - Task runner (format/lint/test/check).
+- `src/testflinger_common/` - Library source (enums, duration parsing)
+- `tests/` - Unit tests
+- `justfile` - Task runner (format/lint/test/check)
