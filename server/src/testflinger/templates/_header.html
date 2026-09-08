@@ -37,7 +37,7 @@
               <a class="p-navigation__link"
                  href="#user-dropdown"
                  aria-controls="user-dropdown">{{ session.user }}</a>
-              <ul class="p-navigation__dropdown--right"
+              <ul class="p-navigation__dropdown p-navigation__dropdown--right"
                   id="user-dropdown"
                   aria-hidden="true">
                 <li>
@@ -55,6 +55,33 @@
                 <i class="p-icon--user"></i>
               </a>
             </li>
+            {% if dev_auto_signin %}
+              <li class="p-navigation__item--dropdown-toggle" id="dev-signin-menu">
+                <a class="p-navigation__link"
+                   href="#dev-signin-dropdown"
+                   aria-controls="dev-signin-dropdown"
+                   id="auto-sign-in-button"
+                   title="Development-only shortcut: sign in as a well-known role-elevated identity. Enabled by TF_DEV_AUTO_SIGNIN.">
+                  Dev: Auto Sign In
+                  <i class="p-icon--warning"></i>
+                </a>
+                <ul class="p-navigation__dropdown p-navigation__dropdown--right"
+                    id="dev-signin-dropdown"
+                    aria-hidden="true">
+                  {% for identity in dev_signin_identities %}
+                    <li>
+                      <form method="post"
+                            action="{{ url_for('dev_signin.auto') }}"
+                            class="p-navigation__dropdown-item-form">
+                        <input type="hidden" name="email" value="{{ identity.email }}">
+                        <button type="submit"
+                                class="p-navigation__dropdown-item">{{ identity.label }}</button>
+                      </form>
+                    </li>
+                  {% endfor %}
+                </ul>
+              </li>
+            {% endif %}
           {% endif %}
         </ul>
       {% endif %}

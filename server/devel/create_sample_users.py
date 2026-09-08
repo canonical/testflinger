@@ -23,8 +23,8 @@ container.
     docker compose exec testflinger python3 devel/create_sample_users.py
 
 The inserted credential matches the defaults used by create_sample_data.py:
-    TESTFLINGER_CLIENT_ID : dev-admin
-    TESTFLINGER_SECRET_KEY: dev-secret-for-testing
+    TESTFLINGER_CLIENT_ID : testflinger-admin
+    TESTFLINGER_SECRET_KEY: testflinger
 
 Sample clients are also inserted with varied client_id/email combinations.
 Some emails are intentionally reused across different client IDs to reflect
@@ -37,12 +37,16 @@ import bcrypt
 from pymongo import MongoClient
 
 from testflinger.database import get_mongo_uri
-from sample_users import SAMPLE_CLIENTS
+from sample_users import (
+    SAMPLE_CLIENTS,
+    TESTFLINGER_ADMIN_ID,
+    TESTFLINGER_ADMIN_SECRET,
+)
 
 # testflinger-admin is both the OIDC identity (via Dex) and a credential-based
-# admin client used by create_sample_data.py.
-TESTFLINGER_ADMIN_ID = "testflinger-admin"
-TESTFLINGER_ADMIN_SECRET = "testflinger"
+# admin client used by create_sample_data.py. The credential values themselves
+# live in sample_users.py so create_sample_data.py can import the same source
+# of truth (see the import above).
 
 
 def _make_secret_hash(secret: str) -> str:
