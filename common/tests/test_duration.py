@@ -15,7 +15,8 @@
 """Tests for duration parsing utilities."""
 
 import pytest
-from testflinger_common.duration import parse_duration, DurationParseError
+
+from testflinger_common.duration import DurationParseError, parse_duration
 
 
 def test_parse_duration_integers():
