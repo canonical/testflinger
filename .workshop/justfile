@@ -41,16 +41,26 @@ teardown: disconnect
 [doc('Disconnect the server in the workshop from the host.')]
 [group('server')]
 disconnect:
-    -workshop disconnect dev/docker-ce:testflinger-server
-    -workshop disconnect dev/docker-ce:testflinger-metrics
-    -workshop disconnect dev/docker-ce:dex-server
+    -workshop disconnect dev/system:localhost-tcp5000
+    -workshop disconnect dev/system:localhost-tcp9090
+    -workshop disconnect dev/system:localhost-tcp5556
+    -workshop disconnect dev/system:expose-tcp5000
+    -workshop disconnect dev/system:expose-tcp9090
+    -workshop disconnect dev/system:expose-tcp5556
 
-[doc('Connect the server in the workshop to the host.')]
+[doc('Connect the server in the workshop to localhost only.')]
 [group('server')]
-connect:
-    workshop connect dev/system:tcp5000 dev/docker-ce:testflinger-server
-    workshop connect dev/system:tcp9090 dev/docker-ce:testflinger-metrics
-    workshop connect dev/system:tcp5556 dev/docker-ce:dex-server
+connect: disconnect
+    workshop connect dev/system:localhost-tcp5000 dev/docker-ce:testflinger-server
+    workshop connect dev/system:localhost-tcp9090 dev/docker-ce:testflinger-metrics
+    workshop connect dev/system:localhost-tcp5556 dev/docker-ce:dex-server
+
+[doc('Expose the server from the workshop on all host network interfaces for trusted-network demos.')]
+[group('server')]
+connect-expose: disconnect
+    workshop connect dev/system:expose-tcp5000 dev/docker-ce:testflinger-server
+    workshop connect dev/system:expose-tcp9090 dev/docker-ce:testflinger-metrics
+    workshop connect dev/system:expose-tcp5556 dev/docker-ce:dex-server
 
 [doc('Test the workshop operations.')]
 [confirm("Note that you may need to `just workshop disconnect` elsewhere. To continue enter 'y'.")]

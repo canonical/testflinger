@@ -7,11 +7,9 @@ base: ubuntu@24.04
 #                               container's netns). Must be 127.0.0.1:PORT so
 #                               dockerd (userland-proxy=false) is reachable on
 #                               container loopback.
-#   system   PLUG endpoint   -> LXD proxy LISTEN address (on the HOST). Must be
-#                               0.0.0.0:PORT so external clients (e.g. neighbors
-#                               hitting 192.168.4.201:PORT) can reach it. Using
-#                               127.0.0.1 here makes the host bind loopback only
-#                               and external access silently fails.
+#   system   PLUG endpoint   -> LXD proxy LISTEN address (on the HOST).
+#                               The local plugs bind 127.0.0.1; the expose plugs
+#                               bind 0.0.0.0 for trusted-network demos.
 #
 sdks:
   - name: just
@@ -31,12 +29,21 @@ sdks:
         endpoint: 127.0.0.1:5556  # connect: in the workshop (container loopback)
   - name: system
     plugs:
-      tcp5000:
+      localhost-tcp5000:
+        interface: tunnel
+        endpoint: 127.0.0.1:5000
+      localhost-tcp9090:
+        interface: tunnel
+        endpoint: 127.0.0.1:9090
+      localhost-tcp5556:
+        interface: tunnel
+        endpoint: 127.0.0.1:5556
+      expose-tcp5000:
         interface: tunnel
         endpoint: 0.0.0.0:5000  # listen: on the host, all interfaces (external access)
-      tcp9090:
+      expose-tcp9090:
         interface: tunnel
         endpoint: 0.0.0.0:9090  # listen: on the host, all interfaces (external access)
-      tcp5556:
+      expose-tcp5556:
         interface: tunnel
         endpoint: 0.0.0.0:5556  # listen: on the host, all interfaces (external access)
