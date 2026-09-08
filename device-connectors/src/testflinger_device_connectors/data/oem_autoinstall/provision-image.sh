@@ -351,8 +351,10 @@ $SSH "$TARGET_USER"@"$addr" -- sudo cp -r /home/"$TARGET_USER"/redeploy/cloud-co
 $SSH "$TARGET_USER"@"$addr" -- sudo cp /home/"$TARGET_USER"/redeploy/cloud-configs/grub/redeploy.cfg /home/"$TARGET_USER"/reset/boot/grub/grub.cfg
 $SSH "$TARGET_USER"@"$addr" -- sudo sed -i "s/RP_PARTUUID/${RESET_PARTUUID}/" /home/"$TARGET_USER"/reset/boot/grub/grub.cfg
 
+BOOT_ID_BEFORE=$($SSH "$TARGET_USER"@"$addr" -- cat /proc/sys/kernel/random/boot_id)
+
 # Reboot the target
-$SSH "$TARGET_USER"@"$addr" -- sudo reboot || true
+$SSH "$TARGET_USER"@"$addr" -- sudo systemctl reboot -i || true
 
 # Clear the known hosts
 if [ -f "$HOME/.ssh/known_hosts" ]; then
@@ -373,7 +375,14 @@ while :; do
         exit 1
     fi
 
-    if $SSH_WITH_PASS "$TARGET_USER"@"$addr" -- echo "Connection Success"; then
+    if BOOT_ID_AFTER=$($SSH_WITH_PASS "$TARGET_USER"@"$addr" -- cat /proc/sys/kernel/random/boot_id); then
+        if [ "$BOOT_ID_AFTER" = "$BOOT_ID_BEFORE" ]; then
+            echo "ERROR: DUT is reachable, but its boot ID is unchanged."
+            echo "ERROR: The DUT likely failed to reboot; check systemd inhibitors and DUT logs."
+            exit 1
+        fi
+
+        echo "Connection Success"
         echo "$addr is back online. Deployment is done."
         break
     fi
