@@ -42,3 +42,4 @@ services:
   testflinger:
     environment:
       ENABLE_PROXYFIX: "true"
+      TF_DEV_AUTO_SIGNIN: "1"
