@@ -349,11 +349,7 @@ class TestflingerClient:
             logger.info("Submitting job outcome for job: %s", job_id)
             with outcome_file.open() as f:
                 data = json.load(f)
-                # Only include status in posted results
-                # TODO: Remove pop once backward compatibility is not needed
-                data.pop("output", None)
-                data.pop("serial", None)
-                data["job_state"] = "complete"
+                data["job_state"] = "completed"
                 self.post_result(job_id, data)
             # Remove the outcome file so we don't retransmit
             outcome_file.unlink()

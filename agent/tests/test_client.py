@@ -155,7 +155,7 @@ class TestClient:
             status_code=HTTPStatus.OK,
         )
         client.transmit_job_outcome(tmp_path)
-        assert requests_mock.last_request.json() == {"job_state": "complete"}
+        assert requests_mock.last_request.json() == {"job_state": "completed"}
 
     def test_transmit_job_outcome_with_error(
         self, client, requests_mock, tmp_path, caplog
