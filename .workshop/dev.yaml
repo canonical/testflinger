@@ -27,3 +27,5 @@ sdks:
       tcp5556:
         interface: tunnel
         endpoint: localhost:5556  # on the host
+  # Must stay after docker-ce: setup-base hooks run in declaration order.
+  - name: project-docker-gc
