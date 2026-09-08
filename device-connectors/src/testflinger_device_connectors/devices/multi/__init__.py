@@ -16,7 +16,7 @@
 
 import json
 import logging
-import os
+from pathlib import Path
 
 import yaml
 
@@ -25,7 +25,10 @@ from testflinger_device_connectors.devices import (
     DefaultDevice,
     SerialLogger,
 )
-from testflinger_device_connectors.devices.multi.multi import Multi
+from testflinger_device_connectors.devices.multi.multi import (
+    DEFAULT_JOB_LIST_FILE,
+    Multi,
+)
 from testflinger_device_connectors.devices.multi.tfclient import TFClient
 
 logger = logging.getLogger(__name__)
@@ -95,15 +98,26 @@ class DeviceConnector(DefaultDevice):
         logger.info("END testrun")
         return exitcode
 
-    def get_job_list_data(self, job_list_file: str = "job_list.json") -> list:
-        """Read job_list.json and return the list data."""
-        if not os.path.exists(job_list_file):
+    def get_job_list_data(
+        self, job_list_file: Path = DEFAULT_JOB_LIST_FILE
+    ) -> list:
+        """Read .job_list.json and return the list data.
+
+        This file is created by the multi-device connector during
+        provisioning phase. The path to the file should be placed
+        on a directory accesible by the tf-test script which has limited
+        access to the filesystem.
+
+        :param job_list_file: Path to the job list file
+        :return: List of job data dictionaries
+        """
+        if not job_list_file.exists():
             logger.error(
-                "Unable to find multi-job data file, job_list.json not found",
+                "Unable to find multi-job data file at %s", job_list_file
             )
             return []
-        with open(job_list_file) as job_list_file:
-            job_list_data = json.load(job_list_file)
+        with job_list_file.open() as file:
+            job_list_data = json.load(file)
         return job_list_data
 
     def get_device_ip_dict(self):
