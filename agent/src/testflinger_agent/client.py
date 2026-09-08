@@ -308,7 +308,7 @@ class TestflingerClient:
 
     def get_agent_data(self, agent_id: str) -> dict:
         """Fetch data for the given agent."""
-        url = urljoin(self.server, f"/v1/agents/data/{agent_id}")
+        url = urljoin(self.server, f"/v2/agents/{agent_id}/data")
         try:
             response = self.session.get(url, timeout=30)
             response.raise_for_status()
@@ -451,8 +451,8 @@ class TestflingerClient:
         :param data:
             dict of various agent data points to send to the api server
         """
-        agent_data_uri = urljoin(self.server, "/v1/agents/data/")
-        agent_data_url = urljoin(agent_data_uri, self.config.get("agent_id"))
+        agent_id = self.config.get("agent_id")
+        agent_data_url = urljoin(self.server, f"/v2/agents/{agent_id}/data")
         try:
             self.session.post(agent_data_url, json=data, timeout=30)
         except requests.exceptions.RequestException as exc:

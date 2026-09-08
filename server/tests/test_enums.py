@@ -18,7 +18,13 @@
 from itertools import pairwise
 
 import pytest
-from testflinger_common.enums import ServerRoles
+from testflinger_common.enums import (
+    AgentMode,
+    AgentState,
+    JobState,
+    ServerRoles,
+    TestPhase,
+)
 
 
 class TestServerRoles:
@@ -66,3 +72,67 @@ class TestServerRoles:
     def test_role_ordering(self, sorted_roles):
         """Test that roles are ordered by privilege hierarchy."""
         assert sorted(ServerRoles) == sorted_roles
+
+
+class TestPhaseEnumInvariants:
+    """Enforce superset relationships: TestPhase, AgentState, JobState."""
+
+    def test_agent_state_is_superset_of_test_phase(self):
+        """AgentState must include every TestPhase value."""
+        assert {phase.value for phase in TestPhase} <= {
+            state.value for state in AgentState
+        }
+
+    def test_job_state_is_superset_of_test_phase(self):
+        """JobState must include every TestPhase value."""
+        assert {phase.value for phase in TestPhase} <= {
+            state.value for state in JobState
+        }
+
+    def test_agent_mode_values(self):
+        """AgentMode must contain exactly the four expected modes."""
+        assert set(AgentMode) == {
+            AgentMode.ONLINE,
+            AgentMode.MAINTENANCE,
+            AgentMode.OFFLINE,
+            AgentMode.RESTART,
+        }
+
+
+class TestAgentModeSubstate:
+    """Which modes are qualified by an AgentState, and which are not."""
+
+    @pytest.mark.parametrize("mode", [AgentMode.ONLINE, AgentMode.MAINTENANCE])
+    def test_modes_with_a_substate(self, mode):
+        """ONLINE and MAINTENANCE are qualified by a sub-state."""
+        assert mode.has_substate
+
+    @pytest.mark.parametrize("mode", [AgentMode.OFFLINE, AgentMode.RESTART])
+    def test_modes_without_a_substate(self, mode):
+        """OFFLINE and RESTART describe the agent completely."""
+        assert not mode.has_substate
+
+
+class TestAgentModeFromState:
+    """Inferring a mode from a bare agent state."""
+
+    @pytest.mark.parametrize(
+        "state",
+        [AgentMode.OFFLINE, AgentMode.RESTART, AgentMode.MAINTENANCE],
+    )
+    def test_state_that_names_a_mode(self, state):
+        """The three states that named a mode map to that mode."""
+        assert AgentMode.from_state(state) == AgentMode(state)
+
+    @pytest.mark.parametrize(
+        "state",
+        [AgentState.WAITING, AgentState.PROVISION, AgentState.TEST],
+    )
+    def test_state_of_a_working_agent(self, state):
+        """Any other state is something an agent does while online."""
+        assert AgentMode.from_state(state) == AgentMode.ONLINE
+
+    @pytest.mark.parametrize("state", [None, "", "unknown"])
+    def test_absent_or_unrecognised_state(self, state):
+        """A record that says nothing useful is assumed to be online."""
+        assert AgentMode.from_state(state) == AgentMode.ONLINE

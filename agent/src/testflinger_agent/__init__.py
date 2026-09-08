@@ -50,8 +50,8 @@ class ReqBufferHandler(logging.Handler):
         super().__init__()
         if not server.lower().startswith("http"):
             server = f"http://{server}"
-        uri = urljoin(server, "/v1/agents/data/")
-        self.url = urljoin(uri, agent)
+        uri = urljoin(server, "/v2/agents/")
+        self.url = urljoin(uri, agent + "/data")
         self.qdepth = 100  # messages
         self.reqbuffer = deque([], maxlen=self.qdepth)
         self.reqbuff_timer = None

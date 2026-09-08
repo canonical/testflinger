@@ -82,6 +82,13 @@
      - :octicon:`x-circle-fill;1em;sd-text-danger` :vh:`restricted`
      - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
      - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
+   * - ``POST``
+     - ``/v2/agents/{agent_name}/data``
+     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
+     - :octicon:`x-circle-fill;1em;sd-text-danger` :vh:`restricted`
+     - :octicon:`x-circle-fill;1em;sd-text-danger` :vh:`restricted`
+     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
+     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
    * - ``GET``
      - ``/v1/agents/data/{agent_name}``
      - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
@@ -105,6 +112,13 @@
      - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
    * - ``GET``
      - ``/v1/result/{job_id}/status``
+     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
+     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
+     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
+     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
+     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
+   * - ``GET``
+     - ``/v2/agents/{agent_name}/data``
      - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
      - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
      - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
@@ -245,6 +259,13 @@
      - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
    * - ``GET``
      - ``/v1/statistics/jobs/totals``
+     - :octicon:`x-circle-fill;1em;sd-text-danger` :vh:`restricted`
+     - :octicon:`x-circle-fill;1em;sd-text-danger` :vh:`restricted`
+     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
+     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
+     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
+   * - ``GET``
+     - ``/v2/agents/data``
      - :octicon:`x-circle-fill;1em;sd-text-danger` :vh:`restricted`
      - :octicon:`x-circle-fill;1em;sd-text-danger` :vh:`restricted`
      - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
