@@ -889,7 +889,7 @@ def get_job_document(job_id: str) -> dict | None:
     :param job_id: UUID string of the job.
     :returns: Full job document or None if not found.
     """
-    return mongo.db.jobs.find_one({"job_id": job_id})
+    return mongo.db.jobs.find_one({"job_id": job_id}, {"_id": False})
 
 
 def get_all_agent_queue_names() -> set[str]:
