@@ -15,6 +15,13 @@
 Sample user data for use in local testing and development.
 """
 
+# Well-known admin credential used by create_sample_users.py (to seed the
+# admin row) and by create_sample_data.py (as the default client_id/secret
+# when talking to the authenticated server). Keeping the constants in this
+# module means both scripts import from a single source of truth.
+TESTFLINGER_ADMIN_ID = "testflinger-admin"
+TESTFLINGER_ADMIN_SECRET = "testflinger"  # noqa: S105
+
 # Note this list of users is used both here and in create_sample_users. It is
 # located in this file due to import and execution environments with respect
 # to mongodb. While create_sample_users can import this file, the other
