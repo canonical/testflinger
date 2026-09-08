@@ -20,7 +20,6 @@ import json
 import logging
 import sys
 from http import HTTPStatus
-from string import Template
 
 from testflinger_cli import client
 from testflinger_cli.auth import require_role
@@ -98,7 +97,10 @@ class TestflingerAdminCLI:
         )
         parser.add_argument(
             "--comment",
-            help="Reason for modifying status (required for status offline)",
+            help=(
+                "Reason for modifying status "
+                "(required for status offline or maintenance)"
+            ),
         )
         self.main_cli._add_auth_args(parser)
 
@@ -166,43 +168,30 @@ class TestflingerAdminCLI:
 
     @require_role(ServerRoles.ADMIN)
     def set_agent_status(self):
-        """Modify agent status."""
-        # Override online for valid state in server
-        status_override = {"online": "waiting"}
-        status = status_override.get(
-            self.main_cli.args.status, self.main_cli.args.status
-        )
-        client_id = self.main_cli.auth.client_id
+        """Modify agent mode."""
+        mode = self.main_cli.args.status  # CLI arg name kept for compat
 
-        # Creating dictionary to define formmated comments
-        comment_templates = {
-            "waiting": Template(""),
-            "offline": Template("Set to offline by $user. Reason: $comment"),
-            "maintenance": Template(
-                "Set to offline by $user for lab-related task."
-            ),
-        }
-
-        # Exiting if no comment specified when changing agent status to offline
-        if status == "offline" and not self.main_cli.args.comment:
+        # Exiting if no comment specified when changing to a mode that
+        # requires one
+        if (
+            mode in ("offline", "maintenance")
+            and not self.main_cli.args.comment
+        ):
             sys.exit(
-                "Comment is required when setting agent status to offline."
+                f"Comment is required when setting agent status to {mode}."
             )
 
-        # Defining test phases
+        # Defining test phases (sub-states where agent is actively running
+        # a job)
         test_status = ["setup", "provision", "test", "allocate", "reserve"]
 
         for agent in self.main_cli.args.agents:
-            comment = comment_templates[status].substitute(
-                user=client_id,
-                comment=self.main_cli.args.comment,
-            )
+            comment = self.main_cli.args.comment or ""
 
-            # Get agent status, skip if agent doesn't exist
+            # Get agent data, skip if agent doesn't exist
             try:
-                agent_status = self.main_cli.client.get_agent_data(agent)[
-                    "state"
-                ]
+                agent_data = self.main_cli.client.get_agent_data(agent)
+                agent_state = agent_data.get("state", "")
             except client.HTTPError as exc:
                 if exc.status == HTTPStatus.NOT_FOUND:
                     print(f"Agent {agent} does not exist.")
@@ -213,21 +202,21 @@ class TestflingerAdminCLI:
                     )
                 continue
 
-            # Do not change to waiting if device is under test phase
-            if agent_status in test_status and status == "waiting":
+            # Do not change to online if device is under a test phase
+            if agent_state in test_status and mode == "online":
                 print(f"Could not modify {agent} in its current state")
                 continue
 
-            # Set the agent status
+            # Set the agent mode
             try:
-                self.main_cli.client.set_agent_status(agent, status, comment)
-                if agent_status in test_status:
+                self.main_cli.client.set_agent_status(agent, mode, comment)
+                if agent_state in test_status:
                     print(
                         f"Agent {agent} processing job. "
-                        f"Status {status} deferred until job completion"
+                        f"Mode {mode} deferred until job completion"
                     )
                 else:
-                    print(f"Agent {agent} status is now: {status}")
+                    print(f"Agent {agent} status is now: {mode}")
             except client.HTTPError as exc:
                 if exc.status == HTTPStatus.NOT_FOUND:
                     print(f"Agent {agent} does not exist.")
