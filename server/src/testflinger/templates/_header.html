@@ -74,8 +74,7 @@
                             action="{{ url_for('dev_signin.auto') }}"
                             class="p-navigation__dropdown-item-form">
                         <input type="hidden" name="email" value="{{ identity.email }}">
-                        <button type="submit"
-                                class="p-navigation__dropdown-item">{{ identity.label }}</button>
+                        <button type="submit" class="p-navigation__dropdown-item">{{ identity.label }}</button>
                       </form>
                     </li>
                   {% endfor %}

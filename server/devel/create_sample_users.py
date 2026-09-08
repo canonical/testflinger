@@ -39,14 +39,11 @@ from pymongo import MongoClient
 from testflinger.database import get_mongo_uri
 from sample_users import (
     SAMPLE_CLIENTS,
-    TESTFLINGER_ADMIN_ID,
-    TESTFLINGER_ADMIN_SECRET,
+    TESTFLINGER_ADMIN,
 )
 
 # testflinger-admin is both the OIDC identity (via Dex) and a credential-based
-# admin client used by create_sample_data.py. The credential values themselves
-# live in sample_users.py so create_sample_data.py can import the same source
-# of truth (see the import above).
+# admin client used by create_sample_data.py.
 
 
 def _make_secret_hash(secret: str) -> str:
@@ -58,18 +55,14 @@ def main():
     mongo_db = os.environ.get("MONGODB_DATABASE", "testflinger_db")
     db = MongoClient(host=mongo_uri)[mongo_db]
 
-    if not db.client_permissions.find_one({"client_id": TESTFLINGER_ADMIN_ID}):
-        db.client_permissions.insert_one(
-            {
-                "client_id": TESTFLINGER_ADMIN_ID,
-                "client_secret_hash": _make_secret_hash(TESTFLINGER_ADMIN_SECRET),
-                "role": "admin",
-                "max_priority": {"*": 100},
-                "allowed_queues": [],
-                "max_reservation_time": {},
-            }
+    admin_client_id = TESTFLINGER_ADMIN["client_id"]
+    if not db.client_permissions.find_one({"client_id": admin_client_id}):
+        admin_doc = {**TESTFLINGER_ADMIN}
+        admin_doc["client_secret_hash"] = _make_secret_hash(
+            admin_doc.pop("secret_key")
         )
-        print(f"Created admin credential '{TESTFLINGER_ADMIN_ID}'")
+        db.client_permissions.insert_one(admin_doc)
+        print(f"Created admin credential '{admin_client_id}'")
 
     for client in SAMPLE_CLIENTS:
         client_id = client["client_id"]
@@ -79,7 +72,9 @@ def main():
         secret_key = client["secret_key"]
         doc = {**client, "client_secret_hash": _make_secret_hash(secret_key)}
         db.client_permissions.insert_one(doc)
-        print(f"Created sample client '{client_id}' (email: {client['email']})")
+        print(
+            f"Created sample client '{client_id}' (email: {client['email']})"
+        )
 
 
 if __name__ == "__main__":

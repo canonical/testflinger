@@ -47,9 +47,9 @@ from http import HTTPStatus
 
 from apiflask import abort
 from flask import Blueprint, current_app, redirect, request, session, url_for
+from testflinger_common.enums import ServerRoles
 
 from testflinger import database
-from testflinger_common.enums import ServerRoles
 
 # ---------------------------------------------------------------------------
 # Well-known development identities, one per role. ``email`` is used both
