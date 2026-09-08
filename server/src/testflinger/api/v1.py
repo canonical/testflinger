@@ -834,7 +834,7 @@ def agents_post(agent_name, json_data):
     # extract log from data so we can push it instead of setting it
     log = json_data.pop("log", [])
 
-    database.upsert_agent(agent_name, json_data, log)
+    database.upsert_agent_document(agent_name, json_data, log)
 
     # Set a session cookie to identify the agent for future requests
     response = jsonify({"status": "OK"})

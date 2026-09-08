@@ -834,7 +834,7 @@ def set_queue_images(queue: str, image_data: dict) -> None:
     )
 
 
-def upsert_agent(agent_name: str, data: dict, log: list[str]) -> None:
+def upsert_agent_document(agent_name: str, data: dict, log: list[str]) -> None:
     """Insert or update an agent record.
 
     :param agent_name: Name of the agent.
@@ -846,46 +846,6 @@ def upsert_agent(agent_name: str, data: dict, log: list[str]) -> None:
         {"$set": data, "$push": {"log": {"$each": log, "$slice": -100}}},
         upsert=True,
     )
-
-
-def add_provision_log(agent_name: str, data: dict) -> None:
-    """Append a provision log entry for an agent.
-
-    :param agent_name: Name of the agent.
-    :param data: Provision log entry dict (must include 'updated_at').
-    """
-    mongo.db.provision_logs.update_one(
-        {"name": agent_name},
-        {
-            "$set": data,
-            "$push": {
-                "provision_log": {"$each": [data], "$slice": -100},
-            },
-        },
-        upsert=True,
-    )
-
-
-def get_agent_provision_streak(agent_name: str) -> dict | None:
-    """Return the provision streak fields for a given agent.
-
-    :param agent_name: Name of the agent.
-    :returns: Dict with provision_streak_type and provision_streak_count,
-        or None if the agent does not exist.
-    """
-    return mongo.db.agents.find_one(
-        {"name": agent_name},
-        {"provision_streak_type": 1, "provision_streak_count": 1},
-    )
-
-
-def update_agent_fields(agent_name: str, fields: dict) -> None:
-    """Update arbitrary fields on an agent document.
-
-    :param agent_name: Name of the agent.
-    :param fields: Dict of fields to set.
-    """
-    mongo.db.agents.update_one({"name": agent_name}, {"$set": fields})
 
 
 def get_waiting_jobs_in_queue(queue: str) -> list[dict]:
@@ -903,15 +863,6 @@ def get_waiting_jobs_in_queue(queue: str) -> list[dict]:
     )
 
 
-def get_agent_document(agent_id: str) -> dict | None:
-    """Return the full agent document (including log) for a given agent.
-
-    :param agent_id: Name of the agent.
-    :returns: Agent document or None if not found.
-    """
-    return mongo.db.agents.find_one({"name": agent_id})
-
-
 def get_queue_document(queue_name: str) -> dict | None:
     """Return a queue document by name.
 
@@ -922,12 +873,18 @@ def get_queue_document(queue_name: str) -> dict | None:
 
 
 def get_all_jobs_sorted() -> list[dict]:
-    """Return all job documents sorted by created_at descending."""
+    """Return full job documents sorted by creation time, newest first.
+
+    :returns: List of full job documents, sorted by created_at descending.
+    """
     return list(mongo.db.jobs.find(sort=[("created_at", -1)]))
 
 
 def get_job_document(job_id: str) -> dict | None:
-    """Return the full job document for a given job_id.
+    """Return the full stored job document for a given job ID.
+
+    Unlike get_job_data, this includes result and scheduling metadata for the
+    web job-detail view.
 
     :param job_id: UUID string of the job.
     :returns: Full job document or None if not found.
