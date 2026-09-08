@@ -13,8 +13,10 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import argparse
+import fcntl
 import logging
 import os
+import sys
 import time
 from collections import deque
 from logging.handlers import TimedRotatingFileHandler
@@ -32,6 +34,10 @@ from testflinger_agent.agent import TestflingerAgent
 from testflinger_agent.client import TestflingerClient
 
 logger = logging.getLogger(__name__)
+
+# Name of the advisory lock file held (via flock) inside a virtualenv
+# directory created by the Juju charm.
+VENV_LOCK_FILENAME = ".venv.lock"
 
 
 class ReqBufferTimer(Timer):
@@ -118,12 +124,38 @@ class ReqBufferFormatter(logging.Formatter):
         return {"log": records}
 
 
+def _acquire_venv_lock():
+    """Acquire and hold a shared lock on this process's own virtualenv.
+
+    Attempting to acquire the shared lock is best-effort. An agent should
+    be able to start up and operate without the lock. The lock only instructs
+    the Juju charm which virtualenvs are still in use by running agents.
+
+    :return: The open file descriptor holding the lock if any
+    """
+    try:
+        venv_root = Path(sys.executable).resolve().parent.parent
+        file_descriptor = os.open(venv_root / VENV_LOCK_FILENAME, os.O_RDWR)
+        fcntl.flock(file_descriptor, fcntl.LOCK_SH)
+    except OSError:
+        logger.warning(
+            "Could not acquire virtualenv lock; venv cleanup safety "
+            "checks may not detect this agent"
+        )
+        return None
+
+    # The file descriptor must remain open for the life of the agent process.
+    # It will be closed automatically when the process exits.
+    return file_descriptor
+
+
 def start_agent():
     args = parse_args()
     config = load_config(args.config)
     config["metrics_endpoint_port"] = args.metrics_port
     config["token_file"] = str(args.token_file)
     configure_logging(config)
+    _venv_lock_fd = _acquire_venv_lock()
     check_interval = config.get("polling_interval")
     client = TestflingerClient(config)
     agent = TestflingerAgent(client)
