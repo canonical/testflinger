@@ -143,16 +143,16 @@ class AgentHeartbeatHandler:
     def _send_heartbeat(self) -> None:
         """Send a heartbeat to the server if needed.
 
-        Heartbeat signal is current agent status and comment.
+        The heartbeat re-asserts the agent's current sub-state so the
+        server's ``state_changed_at`` timer does not expire.  The agent
+        owns the sub-state; the server owns the mode, so we only re-send
+        ``state`` (not ``mode`` or ``comment``).
         """
         if self.is_heartbeat_required():
-            comment = self._agent_data.get("comment", "")
-            if "state" in self._agent_data:
+            state = self._agent_data.get("state")
+            if state:
                 logger.info("Sending heartbeat to Testflinger server")
-                agent_state = self._agent_data["state"]
-                self.client.post_agent_data(
-                    {"state": agent_state, "comment": comment}
-                )
+                self.client.post_agent_data({"state": state})
 
     def is_heartbeat_required(self) -> bool:
         """Determine if heartbeat is required to send to server.
