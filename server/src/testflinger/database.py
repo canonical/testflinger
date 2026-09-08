@@ -790,14 +790,12 @@ def get_job(job_id: str) -> dict | None:
 
 def add_job_results(job_id: str, json_data: dict):
     """Add results to specified job id with "result_data" prepended."""
-    # Never allow a client to set the change timestamp directly.
-    json_data.pop("job_state_changed_at", None)
-
     # ``ResultPost`` validates ``job_state`` as a String (or absent) at the
-    # API boundary, but ``add_job_results`` is also called directly from
-    # other server code paths. Re-validate here so a non-string ``job_state``
-    # can never reach Mongo, where it would poison the $ne comparison and
-    # every downstream reader of ``result_data.job_state``.
+    # API boundary, but ``add_job_results`` may also called directly from
+    # other server code paths which do not benefit from schama validation.
+    # Re-validate here so a non-string ``job_state`` can never reach Mongo,
+    # where it would poison the $ne comparison and every downstream reader of
+    # ``result_data.job_state``.
     job_state = json_data.pop("job_state", None)
     if job_state is not None and not isinstance(job_state, str):
         raise TypeError(
