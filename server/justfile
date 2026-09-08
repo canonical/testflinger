@@ -73,7 +73,7 @@ check: lint format test check-schema
 serve:
     @docker compose up --build --detach testflinger
 
-[doc('Run the server for exposed testing: OIDC disabled, ProxyFix enabled. See docker-compose.expose.yml.')]
+[doc('Run the server for exposed testing: ProxyFix enabled (Dex/OIDC browser login may not work behind a reverse proxy/prefix). See docker-compose.expose.yml.')]
 [group('deploy')]
 serve-exposed:
     @docker compose -f docker-compose.yml -f docker-compose.expose.yml \
