@@ -45,6 +45,12 @@ lint: agent::lint agent::charm::lint cli::lint common::lint device-connectors::l
 test: agent::test agent::charm::test cli::test common::test device-connectors::test server::test server::charm::test
     @echo 'All done!'
 
+[doc('Remove tox environments for all projects (forces full reinstall on next run).')]
+[group('venv')]
+clean: agent::clean agent::charm::clean cli::clean common::clean device-connectors::clean server::clean server::charm::clean
+    @uv cache clean testflinger-common testflinger-device-connectors --force
+    @echo 'All done!'
+
 [doc('Run all checks.')]
 [group('test')]
 check: zizmor agent::check agent::charm::check cli::check common::check device-connectors::check server::check server::charm::check

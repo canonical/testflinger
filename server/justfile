@@ -68,6 +68,11 @@ test:
 check: lint format test check-schema
     @echo 'Server checks done!'
 
+[doc('Remove tox environments (forces full reinstall on next run).')]
+[group('venv')]
+clean:
+    @rm -rf .tox
+
 [doc('Run the server.')]
 [group('deploy')]
 serve:

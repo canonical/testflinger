@@ -66,6 +66,11 @@ test:
 check: lint format test
     @echo 'Agent charm checks done!'
 
+[doc('Remove tox environments (forces full reinstall on next run).')]
+[group('venv')]
+clean:
+    @rm -rf .tox
+
 [doc('Run integration tests.')]
 [group('test')]
 [positional-arguments]
