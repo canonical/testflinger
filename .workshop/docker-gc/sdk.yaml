@@ -1,0 +1,11 @@
+name: docker-gc
+base: ubuntu@24.04
+architecture: amd64
+type: regular
+title: docker-gc
+summary: Bound BuildKit layer cache
+description: |
+  Writes /etc/docker/daemon.json with a BuildKit garbage collection
+  policy and restarts docker so the builder self-trims. Project-local
+  solution for the testflinger dev workshop.
+license: GPL-3.0
