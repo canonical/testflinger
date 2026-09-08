@@ -61,3 +61,20 @@ check: lint format test
 [group('venv')]
 clean:
     @rm -rf .tox
+
+[doc('Start a device connector agent (fake_connector runs on the host; other connectors run in `dev`).')]
+[group('deploy')]
+start connector='fake_connector' server_url='http://localhost:5000':
+    #!/usr/bin/env bash
+    set -euxo pipefail
+    runtime_dir="devel/.testflinger"
+    config="$runtime_dir/{{connector}}-agent.conf"
+    token="$runtime_dir/{{connector}}-refresh-token"
+    install -D -m 600 "devel/{{connector}}-agent.conf" "$config"
+    sed -i "s|server_address: http://localhost:5000|server_address: {{server_url}}|" "$config"
+    uv run python devel/refresh-token-getter.py "{{server_url}}" "$token"
+    if [[ "{{connector}}" == fake_connector ]]; then
+        uv run --group test testflinger-agent -c "$config" --token-file "$token"
+    else
+        workshop exec dev -- uv run --project agent --group test testflinger-agent -c "/project/agent/$config" --token-file "/project/agent/$token"
+    fi

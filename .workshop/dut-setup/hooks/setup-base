@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+apt-get update
+DEBIAN_FRONTEND=noninteractive apt-get install --yes openssh-server
+systemctl enable --now ssh

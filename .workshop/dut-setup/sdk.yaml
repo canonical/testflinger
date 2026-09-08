@@ -1,0 +1,4 @@
+name: dut-setup
+hooks:
+  - setup-base
+  - setup-project

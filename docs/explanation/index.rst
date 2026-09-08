@@ -16,6 +16,7 @@ System components and functional features of Testflinger
 - :ref:`job-priority`
 - :ref:`queues`
 - :ref:`restricted-queues`
+- :doc:`Workshop-backed development DUTs <workshop-dut>`
 
 Security
 --------
@@ -33,6 +34,7 @@ Access control, credential management, and data protection mechanisms
 
     architecture
     agents
+    workshop-dut
     queues
     job-priority
     restricted-queues

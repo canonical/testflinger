@@ -54,6 +54,7 @@ Queues route jobs to compatible agents to provision and operate the devices unde
 * **Queues**: :doc:`Understand queues <explanation/queues>`
 * **Extended capabilities**: :doc:`Restricted queues <explanation/restricted-queues>` • :doc:`Set job priority <how-to/job-priority>` • :doc:`How priority works <explanation/job-priority>`
 * **Agents**: :doc:`List agents <how-to/list-agents>` • :doc:`Understand agents and agent hosts <explanation/agents>` • :doc:`Agent configuration <reference/testflinger-agent-conf>` • :doc:`Manage agents <how-to/administer-agent-hosts/manage-agents>`
+* **Development DUT**: :doc:`Workshop-backed development DUTs <explanation/workshop-dut>`
 * **Agent host administration**: :doc:`Deploy <how-to/administer-agent-hosts/deploy-testflinger-agent-host>` • :doc:`Maintain <how-to/administer-agent-hosts/maintain-testflinger-agent-host>`
 
 Device connectors

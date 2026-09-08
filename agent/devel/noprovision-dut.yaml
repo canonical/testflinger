@@ -1,0 +1,8 @@
+# Set this to a reachable DUT hostname when running device-dependent jobs. The
+# DUT SDK authorizes the generated development key for Workshop's default
+# `workshop` user.
+agent_name: workshop_noprovision
+device_ip: DUT_HOSTNAME
+reboot_script: []
+env:
+  DEVICE_IP: DUT_HOSTNAME
