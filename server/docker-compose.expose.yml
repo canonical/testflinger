@@ -4,7 +4,7 @@
 #   just serve-exposed            # from server/
 #   just workshop serve-exposed   # from the host (also connects the tunnels)
 #
-# One functional change from the default deployment:
+# Functional changes from the default deployment:
 #
 #   ENABLE_PROXYFIX. Makes Flask honour X-Forwarded-{For,Proto,Host,Prefix}
 #   (werkzeug ProxyFix, see src/testflinger/application.py). Without it every
@@ -21,7 +21,7 @@
 #
 #   Instead this variant enables TF_DEV_AUTO_SIGNIN, which adds an
 #   "Auto Sign In as ADMIN" link that bypasses Dex entirely and installs a
-#   session as the well-known dev admin identity (see dev_signin.py). This
+#   session as the well-known dev admin identity. This
 #   is what remote testers use.
 #
 #   The OIDC_* / WEB_SECRET_KEY env vars are inherited unchanged from the
