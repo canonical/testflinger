@@ -771,21 +771,152 @@ def register_oidc_client(userinfo: dict) -> None:
     )
 
 
+def search_jobs_by_pipeline(pipeline: list[dict]) -> list[dict]:
+    """Run an aggregation pipeline on the jobs collection.
+
+    :param pipeline: MongoDB aggregation pipeline.
+    :returns: List of matching job documents.
+    """
+    return list(mongo.db.jobs.aggregate(pipeline))
+
+
+def get_advertised_queues() -> list[dict]:
+    """Return all advertised queues with name and description."""
+    return list(
+        mongo.db.queues.find(
+            {}, projection={"_id": False, "name": True, "description": True}
+        )
+    )
+
+
+def upsert_queue(name: str, description: str, timestamp: datetime) -> None:
+    """Insert or update an advertised queue entry.
+
+    :param name: Queue name.
+    :param description: Queue description.
+    :param timestamp: Timestamp of the update.
+    """
+    mongo.db.queues.update_one(
+        {"name": name},
+        {"$set": {"description": description, "updated_at": timestamp}},
+        upsert=True,
+    )
+
+
+def get_queue_images(queue: str) -> dict | None:
+    """Return the images data for a given queue.
+
+    :param queue: Name of the queue.
+    :returns: Dictionary containing the queue's images field, or None if the
+        queue does not exist.
+    """
+    return mongo.db.queues.find_one(
+        {"name": queue}, {"_id": False, "images": True}
+    )
+
+
+def set_queue_images(queue: str, image_data: dict) -> None:
+    """Set the images for a given queue.
+
+    :param queue: Queue name.
+    :param image_data: Dict of image_name to provision_data mappings.
+    """
+    mongo.db.queues.update_one(
+        {"name": queue},
+        {"$set": {"images": image_data}},
+        upsert=True,
+    )
+
+
+def upsert_agent_document(agent_name: str, data: dict, log: list[str]) -> None:
+    """Insert or update an agent record.
+
+    :param agent_name: Name of the agent.
+    :param data: Agent data fields to set.
+    :param log: Log lines to push (kept to last 100).
+    """
+    mongo.db.agents.update_one(
+        {"name": agent_name},
+        {"$set": data, "$push": {"log": {"$each": log, "$slice": -100}}},
+        upsert=True,
+    )
+
+
+def get_waiting_jobs_in_queue(queue: str) -> list[dict]:
+    """Return waiting jobs in a queue sorted by priority descending.
+
+    :param queue: Queue name.
+    :returns: List of dicts with job_id field.
+    """
+    return list(
+        mongo.db.jobs.find(
+            {"job_data.job_queue": queue, "result_data.job_state": "waiting"},
+            {"job_id": 1},
+            sort=[("job_priority", -1)],
+        )
+    )
+
+
+def get_queue_document(queue_name: str) -> dict | None:
+    """Return a queue document by name.
+
+    :param queue_name: Name of the queue.
+    :returns: Queue document or None if not found.
+    """
+    return mongo.db.queues.find_one({"name": queue_name})
+
+
+def get_all_jobs_sorted() -> list[dict]:
+    """Return full job documents sorted by creation time, newest first.
+
+    :returns: List of full job documents, sorted by created_at descending.
+    """
+    return list(mongo.db.jobs.find(sort=[("created_at", -1)]))
+
+
+def get_job_document(job_id: str) -> dict | None:
+    """Return the full stored job document for a given job ID.
+
+    Includes the submitted job data, submitter, and results such as
+    ``result_data``, ``agent_id``, ``job_priority``, and timestamps.
+    Does NOT include logs.
+
+    :param job_id: UUID string of the job.
+    :returns: Full job document or None if not found.
+    """
+    return mongo.db.jobs.find_one({"job_id": job_id}, {"_id": False})
+
+
+def get_all_agent_queue_names() -> set[str]:
+    """Return a set of all queue names reported by agents."""
+    agent_data = mongo.db.agents.find({}, {"_id": 0, "queues": 1})
+    return {queue for agent in agent_data for queue in agent.get("queues", [])}
+
+
+def get_active_jobs_in_queue(queue_name: str) -> list[dict]:
+    """Return incomplete (active) jobs in a specified queue.
+
+    :param queue_name: Name of the queue.
+    :returns: List of job documents.
+    """
+    return list(
+        mongo.db.jobs.find(
+            {
+                "job_data.job_queue": queue_name,
+                "result_data.job_state": {
+                    "$nin": ["complete", "completed", "cancelled"]
+                },
+            }
+        )
+    )
+
+
 def get_job_results(job_id: str):
     """Retrieve results for a specific job id."""
     return mongo.db.jobs.find_one(
         {"job_id": job_id},
         {"result_data": True, "_id": False},
     )
-
-
-def get_job(job_id: str) -> dict | None:
-    """Retrieve the full job document for a specific job id.
-
-    :param job_id: UUID as a string for the job.
-    :returns: The full job document, or None if not found.
-    """
-    return mongo.db.jobs.find_one({"job_id": job_id}, {"_id": False})
 
 
 def add_job_results(job_id: str, json_data: dict):

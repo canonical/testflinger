@@ -130,6 +130,32 @@ def test_agent_detail_no_provision_log(testapp):
     assert re.search(pattern, response)
 
 
+def test_agent_detail_renders_active_job(testapp):
+    """Test that an agent detail page displays its active job."""
+    mongo = mongomock.MongoClient()
+    mongo.db.agents.insert_one(
+        {
+            "name": "agent1",
+            "job_id": "job-1",
+            "updated_at": datetime.now(tz=timezone.utc),
+        }
+    )
+    mongo.db.jobs.insert_one(
+        {
+            "job_id": "job-1",
+            "submitted_by": "client-A",
+            "job_data": {"job_queue": "test"},
+            "result_data": {"job_state": "running"},
+        }
+    )
+
+    with patch("testflinger.database.mongo", mongo):
+        with testapp.test_request_context():
+            response = agent_detail("agent1")
+
+    assert 'href="/jobs/job-1"' in str(response)
+
+
 def test_agent_not_found(testapp):
     """
     Test that the agent_detail fails gracefully when
@@ -474,6 +500,27 @@ def test_get_agents_active_job():
     assert by_name["agent1"]["job"]["submitted_by"] == "client-A"
     assert by_name["agent2"]["job"]["submitted_by"] == "client-B"
     assert by_name["agent3"].get("job") is None
+
+
+def test_agents_view_renders_active_job_and_submitter(testapp):
+    """Test the agents page uses the enriched agent query."""
+    mongo = mongomock.MongoClient()
+    mongo.db.agents.insert_one(
+        {
+            "name": "agent1",
+            "job_id": "job-1",
+            "state": "running",
+            "updated_at": datetime.now(timezone.utc),
+        }
+    )
+    mongo.db.jobs.insert_one({"job_id": "job-1", "submitted_by": "client-A"})
+
+    with patch("testflinger.database.mongo", mongo):
+        response = testapp.test_client().get("/agents")
+
+    assert response.status_code == HTTPStatus.OK
+    assert b"job-1" in response.data
+    assert b"client-A" in response.data
 
 
 def test_get_agents_no_jobs():
