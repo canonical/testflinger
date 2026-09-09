@@ -51,7 +51,9 @@ class TestPhase(StrEnum):
     CLEANUP = "cleanup"
 
 
-def _extend_phase(name: str, extras: dict[str, str], doc: str = "") -> StrEnum:
+def _extend_phase(
+    name: str, extras: dict[str, str], doc: str = ""
+) -> type[StrEnum]:
     """Build a StrEnum that contains every TestPhase value plus *extras*.
 
     :param name:   Class name for the new enum.
@@ -61,6 +63,11 @@ def _extend_phase(name: str, extras: dict[str, str], doc: str = "") -> StrEnum:
     :return:       A new StrEnum subclass.
     """
     members = {phase.name: phase.value for phase in TestPhase}
+    overlap = set(members) & set(extras)
+    if overlap:
+        raise ValueError(
+            f"extras contains existing TestPhase member(s): {sorted(overlap)}"
+        )
     members.update(extras)
     cls = StrEnum(name, members)  # type: ignore[call-overload]
     cls.__test__ = False  # suppress pytest collection
