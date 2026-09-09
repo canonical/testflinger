@@ -12,6 +12,7 @@ Testflinger manages time-shared access to a pool of target machines: clients sub
 
 - Keep deltas concise and limit unnecessary changes to improve the ability to review the changes.
 - Keep lines under 79 characters.
+- All code changes should be supported by Python 3.10.
 
 # Architecture
 
