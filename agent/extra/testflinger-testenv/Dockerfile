@@ -1,4 +1,4 @@
-ARG BASE_IMAGE=ubuntu:20.04
+ARG BASE_IMAGE=ubuntu:26.04
 FROM ${BASE_IMAGE}
 ENV container=docker
 RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y expect build-essential curl jq gettext git openssh-client pipx python3-dev python3-pip python3-psutil python3-requests python3-setuptools python3-venv software-properties-common sudo sshpass virtualenv wget 
