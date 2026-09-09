@@ -8,6 +8,10 @@ Read the top-level `.kb/agents.md` file before continuing below.
 
 Testflinger manages time-shared access to a pool of target machines: clients submit jobs to a server-side queue, and per-machine agents pick up and execute those jobs, provisioning and testing devices through device-specific connectors.
 
+# Important
+
+- Keep deltas concise and limit unnecessary changes to improve the ability to review the changes.
+- Keep lines under 79 characters.
 
 # Architecture
 
