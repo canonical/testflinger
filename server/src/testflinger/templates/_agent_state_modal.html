@@ -1,0 +1,84 @@
+{% from "_modal.html" import render_modal, render_modal_js %}
+{% if is_admin %}
+  {#--
+    Shared "Change Agent Mode" modal.
+
+    A single instance is rendered per page and reused for every agent. The
+    triggering chip button (see agent_state_chip in _macros.html) carries the
+    agent-specific values as data-* attributes; the script below copies them
+    into this modal before it opens:
+
+      data-agent   → modal title
+      data-mode    → selected option of #modal-mode
+      data-comment → value of #modal-comment
+      data-action  → form action (POST /agents/<name>/state)
+
+    The hidden `next` field sends the browser back to the current page after
+    a successful update (e.g. the agents list) instead of the agent detail
+    page. Its value is the same for every agent on the page.
+  --#}
+  {{ render_modal(modal_id     = "state-modal",
+    title        = "Change Agent Mode",
+    description  = "Select the new mode for the agent. All mode changes take effect on the agent's next poll. A comment is required for offline and maintenance modes.",
+    action       = "",
+  fields       = [
+  {
+  "type":     "select",
+  "id":       "modal-mode",
+  "name":     "mode",
+  "label":    "New Mode",
+  "required": true,
+  "options":  [
+  {"value": "online",      "label": "Online"},
+  {"value": "maintenance", "label": "Maintenance"},
+  {"value": "offline",     "label": "Offline"},
+  {"value": "restart",     "label": "Restart"},
+  ],
+  },
+  {
+  "type":        "textarea",
+  "id":          "modal-comment",
+  "name":        "comment",
+  "label":       "Comment (required for offline and maintenance)",
+  "placeholder": "Reason for mode change",
+  "rows":        3,
+  },
+  {
+  "type":  "hidden",
+  "id":    "modal-next",
+  "name":  "next",
+  "value": request.path,
+  },
+  ],
+  submit_label = "Confirm",
+  ) }}
+  {{ render_modal_js() }}
+  <script>
+  // Populate the shared state modal from the clicked agent chip's data-* attrs.
+  if (!window.__agentStateModalInit) {
+    window.__agentStateModalInit = true;
+    document.addEventListener('click', function (event) {
+      var chip = event.target.closest('button[aria-controls="state-modal"][data-agent]');
+      if (!chip) return;
+      var modal = document.getElementById('state-modal');
+      if (!modal) return;
+      var form = modal.querySelector('form');
+      if (form) {
+        form.setAttribute('action', chip.getAttribute('data-action') || '');
+      }
+      var title = document.getElementById('state-modal-title');
+      if (title) {
+        title.textContent = 'Change Mode \u2014 ' + (chip.getAttribute('data-agent') || '');
+      }
+      var mode = modal.querySelector('#modal-mode');
+      if (mode) {
+        mode.value = chip.getAttribute('data-mode') || 'online';
+      }
+      var comment = modal.querySelector('#modal-comment');
+      if (comment) {
+        comment.value = chip.getAttribute('data-comment') || '';
+      }
+    });
+  }
+  </script>
+{% endif %}
