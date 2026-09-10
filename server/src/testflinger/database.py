@@ -22,6 +22,7 @@ from typing import Any
 
 from flask_pymongo import PyMongo
 from gridfs import GridFS, errors
+from pymongo import ReturnDocument
 from testflinger_common.enums import ServerRoles
 
 # Constants for TTL indexes
@@ -919,19 +920,38 @@ def get_job_results(job_id: str):
     )
 
 
-def add_job_results(job_id: str, json_data: dict):
-    """Add results to specified job id with "result_data" prepended."""
-    # First, we need to prepend "result_data" to each key in the result_data
-    for key in list(json_data):
-        json_data[f"result_data.{key}"] = json_data.pop(key)
+def update_job_results(job_id: str, json_data: dict) -> dict:
+    """Update results for a job and return the previous `result_data`.
 
-    mongo.db.jobs.update_one({"job_id": job_id}, {"$set": json_data})
+    The previous `result_data` is returned to reliable detect any
+    state transitions this document update introduced.
+
+    :param job_id: The job ID to update results for.
+    :param json_data: The result data to store (not modified).
+    :return: The previous `result_data` dict, or an empty dict
+    """
+    # Prepend "result_data" to each key in the result data
+    set_data = {
+        f"result_data.{key}": value for key, value in json_data.items()
+    }
+
+    # find_one_and_update guarantees atomicity as it locks the document
+    # for the duration of the update. Returning the previous document
+    # allows us to properly detect unique events
+    previous_doc = mongo.db.jobs.find_one_and_update(
+        {"job_id": job_id},
+        {"$set": set_data},
+        projection={"result_data": True, "_id": False},
+        return_document=ReturnDocument.BEFORE,
+    )
 
     # Additionally, because the job_data may reflect that the job is now done,
     # we need to disassociate the agent from the job if the job is done:
     terminal_states = {"complete", "completed", "cancelled"}
-    if json_data.get("result_data.job_state") in terminal_states:
+    if json_data.get("job_state") in terminal_states:
         clear_agent_job(job_id)
+
+    return (previous_doc or {}).get("result_data", {})
 
 
 def job_exists(job_id: str) -> bool:

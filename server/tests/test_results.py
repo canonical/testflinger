@@ -309,7 +309,10 @@ def test_result_status_single_phase(mongo_app, agent_auth_header, phase):
 
 
 @pytest.mark.parametrize("exit_code", [0, 1, 2, 127, 255])
-def test_result_status_exit_codes(mongo_app, agent_auth_header, exit_code):
+@pytest.mark.parametrize("phase", TestPhase)
+def test_result_status_exit_codes(
+    mongo_app, agent_auth_header, exit_code, phase
+):
     """Status endpoint correctly surfaces various phase exit code values."""
     app, mongo = mongo_app
     newjob = app.post("/v1/job", json={"job_queue": "test"})
@@ -318,13 +321,13 @@ def test_result_status_exit_codes(mongo_app, agent_auth_header, exit_code):
     result_url = f"/v1/result/{job_id}"
     app.post(
         result_url,
-        json={"status": {TestPhase.TEST: exit_code}},
+        json={"status": {phase: exit_code}},
         headers=agent_auth_header,
     )
 
     response = app.get(f"{result_url}/status")
     assert response.status_code == HTTPStatus.OK
-    assert response.json.get("test_status") == exit_code
+    assert response.json.get(f"{phase}_status") == exit_code
 
     # The JOB_PHASE_COMPLETED event message should surface the exit code.
     doc = mongo.jobs_events.find_one({"job_id": job_id})

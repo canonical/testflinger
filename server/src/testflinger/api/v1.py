@@ -595,7 +595,7 @@ def result_post(job_id: str, json_data: dict) -> str:
     :param job_id: UUID as a string for the job
     :raises HTTPError: If the job_id is not a valid UUID
     """
-    if not check_valid_uuid(job_id):
+    if not check_valid_uuid(job_id) or not database.job_exists(job_id):
         abort(HTTPStatus.BAD_REQUEST, message="Invalid job_id specified")
 
     # fail if input payload is larger than the BSON size limit
@@ -604,13 +604,11 @@ def result_post(job_id: str, json_data: dict) -> str:
     if content_length and content_length >= 16 * 1024 * 1024:
         abort(HTTPStatus.REQUEST_ENTITY_TOO_LARGE, message="Payload too large")
 
-    # We need to get new events before json_data is mutated by add_job_results
-    previous_data = (database.get_job_results(job_id) or {}).get(
-        "result_data", {}
-    )
+    # update_job_results atomically returns the previous result_data, so
+    # event detection is based on the exact state this update transitioned
+    # from
+    previous_data = database.update_job_results(job_id, json_data)
     new_events = events.detect_new_result_events(previous_data, json_data)
-
-    database.add_job_results(job_id, json_data)
     for event in new_events:
         database.add_job_event(job_id=job_id, event=event)
     return "OK"

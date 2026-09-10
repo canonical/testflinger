@@ -26,8 +26,10 @@ def _event_names(events: list[dict]) -> list[str]:
     return [event["event_name"] for event in events]
 
 
-def test_subsequent_phase_transition_emits_only_phase_started():
-    """Test a phase-to-phase transition only emits JOB_PHASE_STARTED."""
+def test_phase_transitions_emits_only_phase_started():
+    """Test a phase transition without results emits only JOB_PHASE_STARTED."""
+    # Only using job_state changes to simulate a phase-to-phase transitions.
+    # Data without any results does not emit JOB_PHASE_COMPLETED events
     previous_data = {"job_state": JobState.SETUP}
     new_data = {"job_state": JobState.PROVISION}
 
@@ -84,11 +86,11 @@ def test_multiple_new_status_keys_emit_multiple_events():
     assert any(JobState.PROVISION.value in message for message in messages)
 
 
-@pytest.mark.parametrize("terminal_state", (JobState.COMPLETED, "completed"))
-def test_terminal_job_state_completed_emits_job_completed(terminal_state):
-    """Test a terminal job_state emits JOB_COMPLETED."""
+@pytest.mark.parametrize("completed_state", (JobState.COMPLETED, "completed"))
+def test_job_state_completed_emits_job_completed(completed_state):
+    """Test a completed job_state emits JOB_COMPLETED event."""
     previous_data = {"job_state": JobState.CLEANUP}
-    new_data = {"job_state": terminal_state}
+    new_data = {"job_state": completed_state}
 
     events = detect_new_result_events(previous_data, new_data)
 
