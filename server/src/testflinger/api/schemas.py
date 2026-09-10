@@ -402,6 +402,8 @@ class Job(Schema):
     job_queue = fields.String(required=True, validate=Length(min=1))
     global_timeout = fields.Integer(required=False)
     output_timeout = fields.Integer(required=False)
+    recovery_enabled = fields.Boolean(required=False)
+    recovery_timeout = fields.Integer(required=False)
     allocation_timeout = fields.Integer(required=False)
     provision_data = fields.Nested(
         ProvisionData, required=False, allow_none=True
