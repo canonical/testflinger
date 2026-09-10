@@ -65,7 +65,7 @@ GENERATED_FILE_NOTICE = (
 
 
 def _iter_spec_operations(spec: dict):
-    """Yield (method, path, operation) for every operation in an OpenAPI spec."""
+    """Yield (method, path, operation) for every operation in OpenAPI spec."""
     for path, path_item in spec.get("paths", {}).items():
         if not isinstance(path_item, dict):
             continue
@@ -101,7 +101,9 @@ def _validate_role_hierarchy(method: str, path: str, allowed: set) -> None:
     so it almost certainly signals a mistaken `@require_role` decorator
     rather than an intended permission set.
     """
-    for lower, higher in zip(HUMAN_ROLE_HIERARCHY, HUMAN_ROLE_HIERARCHY[1:], strict=False):
+    for lower, higher in zip(
+        HUMAN_ROLE_HIERARCHY, HUMAN_ROLE_HIERARCHY[1:], strict=False
+    ):
         if lower in allowed and higher not in allowed:
             hierarchy = " < ".join(r.value for r in HUMAN_ROLE_HIERARCHY)
             raise ValueError(
@@ -133,7 +135,7 @@ def _role_group_key(method: str, path: str, roles: list) -> tuple:
 
 
 def generate_roles_matrix(spec: dict) -> str:
-    """Render the "Endpoint permissions by role" list-table from an OpenAPI spec."""
+    """Render the "Endpoint permissions by role" table from OpenAPI spec."""
     matrix_rows = [
         (method, path, roles)
         for method, path, operation in _iter_spec_operations(spec)
