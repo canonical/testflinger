@@ -49,10 +49,10 @@ from devel.openapi_app import app
 
 def _get_endpoint_roles(view_func):
     """Extract @require_role roles from endpoint function wrapper.
-    
+
     The decorator stores _role_requirements on the wrapper for introspection.
     """
-    return getattr(view_func, '_role_requirements', [])
+    return getattr(view_func, "_role_requirements", [])
 
 
 def generate_schema() -> dict:
@@ -64,51 +64,54 @@ def generate_schema() -> dict:
 
 
 def _inject_role_metadata(spec: dict):
-    """Add x-permission-roles field to endpoint operations based on @require_role decorators.
-    
+    """
+    Add x-permission-roles field to endpoint operations based on
+    @require_role decorators.
+
     This is a documentation-only extension, not used during request processing.
     """
-    
     # Build mapping of (path, method) -> roles from Flask routes
     route_to_roles = {}
     for rule in app.url_map.iter_rules():
         view_func = app.view_functions.get(rule.endpoint)
         if view_func is None:
             continue
-        
+
         roles = _get_endpoint_roles(view_func)
         if not roles:
             continue
-        
+
         # Convert Flask route syntax to OpenAPI path syntax
         # Flask: /v1/job/<job_id> -> OpenAPI: /v1/job/{job_id}
         # Also handle typed converters like <log_type:log_type> -> {log_type}
-        openapi_path = re.sub(r'<(?:[^:>]+:)?([^>]+)>', r'{\1}', rule.rule)
-        
+        openapi_path = re.sub(r"<(?:[^:>]+:)?([^>]+)>", r"{\1}", rule.rule)
+
         # Get HTTP methods (exclude HEAD and OPTIONS)
-        methods = rule.methods - {'HEAD', 'OPTIONS'}
+        methods = rule.methods - {"HEAD", "OPTIONS"}
         for method in methods:
-            route_to_roles[(openapi_path, method.lower())] = [str(r) for r in roles]
-    
+            route_to_roles[(openapi_path, method.lower())] = [
+                str(r) for r in roles
+            ]
+
     # Inject metadata into spec path items
-    for path, path_item in spec.get('paths', {}).items():
+    for path, path_item in spec.get("paths", {}).items():
         if not isinstance(path_item, dict):
             continue
-        
-        for method in ('get', 'post', 'put', 'patch', 'delete'):
+
+        for method in ("get", "post", "put", "patch", "delete"):
             if method not in path_item:
                 continue
             if not isinstance(path_item[method], dict):
                 continue
-            
+
             key = (path, method)
             if key in route_to_roles:
-                path_item[method]['x-permission-roles'] = route_to_roles[key]
+                path_item[method]["x-permission-roles"] = route_to_roles[key]
 
 
 def normalize_json(data: dict) -> str:
     """Normalize JSON to compact form for comparison."""
-    return json.dumps(data, sort_keys=True, separators=(',', ':'))
+    return json.dumps(data, sort_keys=True, separators=(",", ":"))
 
 
 def diff_schemas(local_schema_path: Path) -> bool:
@@ -116,11 +119,8 @@ def diff_schemas(local_schema_path: Path) -> bool:
     Generate API schema from code and compare with the local schema file.
     Compare using compact JSON form for accuracy.
 
-    Args:
-        expected_path: Path to the expected schema file
-
-    Returns:
-        True if schemas match, False otherwise
+    :param local_schema_path: Path to the expected schema file.
+    :returns: True if schemas match, False otherwise.
     """
     generated = generate_schema()
 
@@ -145,15 +145,18 @@ def diff_schemas(local_schema_path: Path) -> bool:
             "To update the schema, run from server/ directory:",
             file=sys.stderr,
         )
-        print(f"  uvx --with tox-uv tox run -e schema", file=sys.stderr)
+        print("  uvx --with tox-uv tox run -e schema", file=sys.stderr)
         return False
 
     return True
 
 
 def main():
+    """Generate or validate the OpenAPI schema."""
     parser = argparse.ArgumentParser(
-        description="Generate or validate OpenAPI schema for Testflinger server"
+        description=(
+            "Generate or validate OpenAPI schema for Testflinger server"
+        )
     )
     parser.add_argument(
         "--output",
