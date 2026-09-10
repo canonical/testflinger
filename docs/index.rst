@@ -54,7 +54,7 @@ Queues route jobs to compatible agents to provision and operate the devices unde
 * **Queues**: :doc:`Understand queues <explanation/queues>`
 * **Extended capabilities**: :doc:`Restricted queues <explanation/restricted-queues>` • :doc:`Set job priority <how-to/job-priority>` • :doc:`How priority works <explanation/job-priority>`
 * **Agents**: :doc:`List agents <how-to/list-agents>` • :doc:`Understand agents and agent hosts <explanation/agents>` • :doc:`Agent configuration <reference/testflinger-agent-conf>` • :doc:`Manage agents <how-to/administer-agent-hosts/manage-agents>`
-* **Agent host administration**: :doc:`Deploy <how-to/administer-agent-hosts/deploy-testflinger-agent-host>` • :doc:`Maintain <how-to/administer-agent-hosts/maintain-testflinger-agent-host>` 
+* **Agent host administration**: :doc:`Deploy <how-to/administer-agent-hosts/deploy-testflinger-agent-host>` • :doc:`Maintain <how-to/administer-agent-hosts/maintain-testflinger-agent-host>`
 
 Device connectors
 ~~~~~~~~~~~~~~~~~
@@ -68,7 +68,7 @@ Server
 
 A Kubernetes application that stores data, serves the API, and coordinates the system.
 
-* **Understand**: :doc:`Architecture <explanation/architecture>` 
+* **Understand**: :doc:`Architecture <explanation/architecture>`
 * **Reference**: :doc:`Server configuration <reference/testflinger-server-conf>` • :doc:`REST API reference (OpenAPI) <reference/openapi>`
 * **Administration**: :doc:`Deploy <how-to/administer-server/deploy-testflinger-server>` • :doc:`Maintain <how-to/administer-server/maintain-testflinger-server>`
 
@@ -95,7 +95,7 @@ How Testflinger protects credentials and data, and how to handle secrets safely.
 How this documentation is organised
 -----------------------------------
 
-This documentation uses the `Diátaxis documentation structure <https://diataxis.fr/>`_ .
+This documentation uses the `Diátaxis documentation structure <https://diataxis.fr/>`_.
 
 * :doc:`Tutorial <tutorial/index>` takes you step-by-step through submitting your
   first job with Testflinger.
