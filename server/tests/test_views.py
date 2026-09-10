@@ -319,21 +319,46 @@ def test_job_detail_shows_activity_events(testapp):
             "job_id": job_id,
             "events": [
                 {
-                    "event_name": "job_started",
-                    "timestamp": datetime(
-                        2026, 1, 1, 12, 0, 0, tzinfo=timezone.utc
-                    ),
-                    "message": "Job started.",
-                    "detail": "",
-                    "status": 0,
-                },
-                {
                     "event_name": "job_submitted",
                     "timestamp": datetime(
                         2026, 1, 1, 11, 0, 0, tzinfo=timezone.utc
                     ),
-                    "message": "Job submitted.",
+                    "message": "Job submitted by user bob into queue queue1.",
                     "detail": "",
+                },
+                {
+                    "event_name": "job_phase_started",
+                    "timestamp": datetime(
+                        2026, 1, 1, 11, 15, 0, tzinfo=timezone.utc
+                    ),
+                    "message": "Phase setup started.",
+                    "detail": "",
+                },
+                {
+                    "event_name": "job_phase_completed",
+                    "timestamp": datetime(
+                        2026, 1, 1, 11, 30, 0, tzinfo=timezone.utc
+                    ),
+                    "message": "Phase setup completed with exit code 0",
+                    "detail": "",
+                    "status": 0,
+                },
+                {
+                    "event_name": "job_phase_started",
+                    "timestamp": datetime(
+                        2026, 1, 1, 12, 0, 0, tzinfo=timezone.utc
+                    ),
+                    "message": "Phase provision started.",
+                    "detail": "",
+                },
+                {
+                    "event_name": "job_phase_completed",
+                    "timestamp": datetime(
+                        2026, 1, 1, 12, 30, 0, tzinfo=timezone.utc
+                    ),
+                    "message": "Phase provision completed with exit code 1",
+                    "detail": "",
+                    "status": 1,
                 },
             ],
         }
@@ -344,10 +369,13 @@ def test_job_detail_shows_activity_events(testapp):
 
     html = str(response)
     assert "Activity" in html
-    assert "Job started." in html
-    assert "Job submitted." in html
+    assert "Phase setup started." in html
+    assert "Phase setup completed with exit code 0" in html
+    assert "Phase provision started." in html
+    assert "Phase provision completed with exit code 1" in html
     assert "2026-01-01 12:00:00" in html
     assert '<i class="p-icon--success" aria-label="Success"></i>' in html
+    assert '<i class="p-icon--error" aria-label="Error"></i>' in html
     assert '<i class="p-icon--information" aria-label="Info"></i>' in html
 
 
