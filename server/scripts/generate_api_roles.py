@@ -65,7 +65,11 @@ GENERATED_FILE_NOTICE = (
 
 
 def _iter_spec_operations(spec: dict):
-    """Yield (method, path, operation) for every operation in OpenAPI spec."""
+    """Yield ``(method, path, operation)`` for each operation in a spec.
+
+    :param spec: An OpenAPI specification dictionary.
+    :yields: A ``(method, path, operation)`` tuple per operation.
+    """
     for path, path_item in spec.get("paths", {}).items():
         if not isinstance(path_item, dict):
             continue
@@ -76,14 +80,23 @@ def _iter_spec_operations(spec: dict):
 
 
 def _role_cell(role: ServerRoles, allowed_roles: list) -> str:
-    """Render one role-matrix cell as an allowed/restricted octicon marker."""
+    """Render one role-matrix cell as an allowed/restricted marker.
+
+    :param role: The role the column represents.
+    :param allowed_roles: Role values permitted for the endpoint.
+    :returns: An RST octicon marker for the cell.
+    """
     if role.value in allowed_roles:
         return ":octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`"
     return ":octicon:`x-circle-fill;1em;sd-text-danger` :vh:`restricted`"
 
 
 def _render_list_table_row(cells: list) -> list:
-    """Render one `* - ...` list-table row, wrapping long cell text."""
+    """Render one ``* - ...`` list-table row, wrapping long cell text.
+
+    :param cells: Cell values for the row, in column order.
+    :returns: The RST lines that make up the row.
+    """
     lines = []
     for index, cell in enumerate(cells):
         prefix = "   * - " if index == 0 else "     - "
@@ -100,6 +113,11 @@ def _validate_role_hierarchy(method: str, path: str, allowed: set) -> None:
     role hierarchy (a MANAGER should have at least a CONTRIBUTOR's access),
     so it almost certainly signals a mistaken `@require_role` decorator
     rather than an intended permission set.
+
+    :param method: HTTP method of the endpoint.
+    :param path: Path of the endpoint.
+    :param allowed: Roles permitted for the endpoint.
+    :raises ValueError: If a lower role has permission but a higher does not.
     """
     for lower, higher in zip(
         HUMAN_ROLE_HIERARCHY, HUMAN_ROLE_HIERARCHY[1:], strict=False
@@ -122,6 +140,12 @@ def _role_group_key(method: str, path: str, roles: list) -> tuple:
     - whether the lowest (widest-audience) human role is allowed.
 
     This groups identical role sets together and keeps a semantic ordering.
+
+    :param method: HTTP method of the endpoint.
+    :param path: Path of the endpoint.
+    :param roles: Role values permitted for the endpoint.
+    :returns: A sort key that clusters equal role sets together.
+    :raises ValueError: If the role set is not upward-closed.
     """
     allowed = {ServerRoles(role) for role in roles}
     _validate_role_hierarchy(method, path, allowed)
@@ -135,7 +159,11 @@ def _role_group_key(method: str, path: str, roles: list) -> tuple:
 
 
 def generate_roles_matrix(spec: dict) -> str:
-    """Render the "Endpoint permissions by role" table from OpenAPI spec."""
+    """Render the "Endpoint permissions by role" table from a spec.
+
+    :param spec: An OpenAPI specification dictionary.
+    :returns: The RST list-table fragment as a string.
+    """
     matrix_rows = [
         (method, path, roles)
         for method, path, operation in _iter_spec_operations(spec)
@@ -168,8 +196,8 @@ def diff_roles_matrix(local_path: Path) -> bool:
     Generate the API roles matrix from code and compare with the committed
     include fragment.
 
-    :param local_path: Path to the expected RST include fragment
-    :returns: True if the fragment is up to date, False otherwise
+    :param local_path: Path to the expected RST include fragment.
+    :returns: True if the fragment is up to date, False otherwise.
     """
     generated = generate_roles_matrix(generate_schema())
 
