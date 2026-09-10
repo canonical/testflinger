@@ -106,8 +106,12 @@ class TestPhaseEnumInvariants:
             AgentMode.RESTART,
         }
 
-    def test_offline_and_restart_have_no_agent_state(self):
-        """OFFLINE and RESTART are not valid AgentState values."""
+    def test_agent_state_preserves_legacy_mode_values(self):
+        """AgentState retains values required by unmigrated agents."""
         state_values = {s.value for s in AgentState}
-        assert AgentMode.OFFLINE not in state_values
-        assert AgentMode.RESTART not in state_values
+        assert {
+            AgentMode.OFFLINE,
+            AgentMode.MAINTENANCE,
+            AgentMode.RESTART,
+            "unknown",
+        } <= state_values
