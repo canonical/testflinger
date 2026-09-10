@@ -33,7 +33,7 @@ that are permitted to call it.  The four roles are:
 ``ADMIN``
     Full access to all endpoints, including user/credential administration.
 
-Endpoints that require no authentication 
+Endpoints that require no authentication
 ----------------------------------------
 
 .. list-table:: Endpoints that require no authentication

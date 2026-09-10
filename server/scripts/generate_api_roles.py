@@ -101,7 +101,7 @@ def _validate_role_hierarchy(method: str, path: str, allowed: set) -> None:
     so it almost certainly signals a mistaken `@require_role` decorator
     rather than an intended permission set.
     """
-    for lower, higher in zip(HUMAN_ROLE_HIERARCHY, HUMAN_ROLE_HIERARCHY[1:]):
+    for lower, higher in zip(HUMAN_ROLE_HIERARCHY, HUMAN_ROLE_HIERARCHY[1:], strict=False):
         if lower in allowed and higher not in allowed:
             hierarchy = " < ".join(r.value for r in HUMAN_ROLE_HIERARCHY)
             raise ValueError(
@@ -118,7 +118,7 @@ def _role_group_key(method: str, path: str, roles: list) -> tuple:
     The order of role set is described by two dimensions:
     - whether AGENT is allowed,
     - whether the lowest (widest-audience) human role is allowed.
-    
+
     This groups identical role sets together and keeps a semantic ordering.
     """
     allowed = {ServerRoles(role) for role in roles}
@@ -166,11 +166,8 @@ def diff_roles_matrix(local_path: Path) -> bool:
     Generate the API roles matrix from code and compare with the committed
     include fragment.
 
-    Args:
-        local_path: Path to the expected RST include fragment
-
-    Returns:
-        True if the fragment is up to date, False otherwise
+    :param local_path: Path to the expected RST include fragment
+    :returns: True if the fragment is up to date, False otherwise
     """
     generated = generate_roles_matrix(generate_schema())
 
@@ -220,19 +217,23 @@ def main():
 
     args = parser.parse_args()
 
-    if args.diff:
-        if not diff_roles_matrix(args.diff):
-            sys.exit(1)
-        print(" API roles matrix is up to date")
-        sys.exit(0)
+    try:
+        if args.diff:
+            if not diff_roles_matrix(args.diff):
+                sys.exit(1)
+            print(" API roles matrix is up to date")
+            sys.exit(0)
 
-    if args.output:
-        matrix = generate_roles_matrix(generate_schema())
-        args.output.parent.mkdir(parents=True, exist_ok=True)
-        args.output.write_text(matrix)
-        print(f" API roles matrix written to: {args.output}")
-    else:
-        print(generate_roles_matrix(generate_schema()))
+        if args.output:
+            matrix = generate_roles_matrix(generate_schema())
+            args.output.parent.mkdir(parents=True, exist_ok=True)
+            args.output.write_text(matrix)
+            print(f" API roles matrix written to: {args.output}")
+        else:
+            print(generate_roles_matrix(generate_schema()))
+    except ValueError as error:
+        print(f"Error: {error}", file=sys.stderr)
+        sys.exit(1)
 
 
 if __name__ == "__main__":
