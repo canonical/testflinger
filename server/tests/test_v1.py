@@ -2145,7 +2145,7 @@ def test_client_supplied_job_state_changed_at_is_ignored(
     """A client cannot spoof job_state_changed_at via the result POST.
 
     The ``ResultPost`` schema rejects unknown fields at the API layer, and
-    ``add_job_results`` additionally strips the field before writing to the
+    ``update_job_results`` additionally strips the field before writing to the
     database as defense in depth.
     """
     app, mongo = mongo_app
@@ -2168,9 +2168,9 @@ def test_client_supplied_job_state_changed_at_is_ignored(
     # relying on wall-clock sleeps.
     mocker.patch("testflinger.database._now", side_effect=_AdvancingClock())
 
-    # Defense in depth: even if the field reaches add_job_results (e.g. via
+    # Defense in depth: even if the field reaches update_job_results (e.g. via
     # a future schema change), the server value must win.
-    database.add_job_results(
+    database.update_job_results(
         job_id,
         {
             "job_state": "provision",
@@ -2223,6 +2223,32 @@ def test_job_state_changed_at_updates_across_transitions(
         # Each transition must strictly advance the timestamp.
         assert current_ts > previous_ts
         previous_ts = current_ts
+
+
+def test_result_events_and_timestamp_on_repeated_post(
+    mongo_app, agent_auth_header, mocker
+):
+    """Repeated results preserve timestamps and do not duplicate events."""
+    app, mongo = mongo_app
+    job_id = app.post("/v1/job", json={"job_queue": "test"}).json["job_id"]
+    mocker.patch("testflinger.database._now", side_effect=_AdvancingClock())
+    payload = {"job_state": "provision", "status": {"setup": 0}}
+    for _ in range(2):
+        response = app.post(
+            f"/v1/result/{job_id}", json=payload, headers=agent_auth_header
+        )
+        assert response.status_code == HTTPStatus.OK
+        result = app.get(f"/v1/result/{job_id}").json
+        assert datetime.fromisoformat(result["job_state_changed_at"]) == (
+            datetime(2026, 1, 1, tzinfo=timezone.utc).replace(tzinfo=None)
+        )
+
+    event_names = [
+        event["event_name"]
+        for event in mongo.jobs_events.find_one({"job_id": job_id})["events"]
+    ]
+    assert event_names.count("job_phase_started") == 1
+    assert event_names.count("job_phase_completed") == 1
 
 
 def test_job_state_changed_at_on_pop_job(mongo_app, agent_auth_header):
@@ -2347,3 +2373,33 @@ def test_agent_job_id_not_cleared_for_nonterminal_state(
 
     agent_record = mongo.agents.find_one({"name": agent_name})
     assert agent_record.get("job_id") == job_id
+
+
+def test_get_job_events(mongo_app, agent_auth_header):
+    """Test that job events can be retrieved for a given job."""
+    app, _ = mongo_app
+    job_data = {"job_queue": "test"}
+
+    # Submitting a job automatically fires a job_submitted event
+    output = app.post("/v1/job", json=job_data)
+    assert output.status_code == HTTPStatus.OK
+    job_id = output.json.get("job_id")
+
+    # Post a result transitioning the job into its first phase, which fires
+    # job_started and job_phase_started events
+    output = app.post(
+        f"/v1/result/{job_id}",
+        json={"job_state": "setup"},
+        headers=agent_auth_header,
+    )
+    assert output.status_code == HTTPStatus.OK
+
+    output = app.get(f"/v1/events/job/{job_id}")
+    assert output.status_code == HTTPStatus.OK
+    assert output.json["job_id"] == job_id
+
+    event_names = {event["event_name"] for event in output.json["events"]}
+    assert event_names == {
+        "job_submitted",
+        "job_phase_started",
+    }

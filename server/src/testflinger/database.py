@@ -22,6 +22,7 @@ from typing import Any
 
 from flask_pymongo import PyMongo
 from gridfs import GridFS, errors
+from pymongo import ReturnDocument
 from testflinger_common.enums import ServerRoles
 
 # Constants for TTL indexes
@@ -138,6 +139,11 @@ def create_indexes():
         partialFilterExpression={"sub": {"$exists": True}},
     )
 
+    # Remove stale job events after defined expiration
+    mongo.db.jobs_events.create_index(
+        "updated_at", expireAfterSeconds=DEFAULT_EXPIRATION
+    )
+
     # Faster lookups for common queries
     mongo.db.refresh_tokens.create_index("refresh_token", unique=True)
     mongo.db.refresh_tokens.create_index("client_id")
@@ -145,6 +151,7 @@ def create_indexes():
     mongo.db.client_permissions.create_index("client_id", unique=True)
     mongo.db.client_permissions.create_index("sub", sparse=True)
     mongo.db.jobs.create_index("job_id")
+    mongo.db.jobs_events.create_index("job_id", unique=True)
     mongo.db.jobs.create_index(["result_data.job_state", "job_data.job_queue"])
     mongo.db.agents.create_index("queues")
 
@@ -927,55 +934,56 @@ def get_job_results(job_id: str):
     )
 
 
-def add_job_results(job_id: str, json_data: dict):
-    """Add results to specified job id with "result_data" prepended."""
-    # ``ResultPost`` validates ``job_state`` as a String (or absent) at the
-    # API boundary, but ``add_job_results`` may also called directly from
-    # other server code paths which do not benefit from schama validation.
-    # Re-validate here so a non-string ``job_state`` can never reach Mongo,
-    # where it would poison the $ne comparison and every downstream reader of
-    # ``result_data.job_state``.
-    job_state = json_data.pop("job_state", None)
+def update_job_results(job_id: str, json_data: dict) -> dict:
+    """Update results for a job and return the previous `result_data`.
+
+    State timestamps and event detection use the same atomic update.
+
+    :param job_id: The job ID to update results for.
+    :param json_data: The result data to store (not modified).
+    :return: The previous `result_data` dict, or an empty dict.
+    """
+    # Direct callers do not benefit from ResultPost schema validation.
+    job_state = json_data.get("job_state")
     if job_state is not None and not isinstance(job_state, str):
         raise TypeError(
             f"job_state must be a string, got {type(job_state).__name__}"
         )
     # Defense in depth: strip any client-supplied job_state_changed_at so the
     # server-managed timestamp always wins even if the API schema is relaxed.
-    json_data.pop("job_state_changed_at", None)
-
-    # Prepend "result_data." to each remaining sibling key.
+    # Pipeline values must be literal, including nested client data.
     set_fields = {
-        f"result_data.{key}": value for key, value in json_data.items()
+        f"result_data.{key}": {"$literal": value}
+        for key, value in json_data.items()
+        if key not in {"job_state", "job_state_changed_at"}
     }
 
     if job_state is not None:
-        # Write state, timestamp and any sibling fields in a single
-        # document-level update. MongoDB guarantees atomicity per document,
-        # so state and timestamp cannot diverge. The $ne filter ensures the
-        # timestamp is only bumped on a real transition ("no change, no
-        # update").
-        atomic_set = {
-            **set_fields,
-            "result_data.job_state": job_state,
-            "result_data.job_state_changed_at": _now(),
+        # Both expressions see the old document in this single $set stage.
+        set_fields["result_data.job_state_changed_at"] = {
+            "$cond": [
+                {
+                    "$ne": [
+                        {"$ifNull": ["$result_data.job_state", None]},
+                        {"$literal": job_state},
+                    ]
+                },
+                {"$literal": _now()},
+                "$result_data.job_state_changed_at",
+            ]
         }
-        result = mongo.db.jobs.update_one(
-            {
-                "job_id": job_id,
-                "result_data.job_state": {"$ne": job_state},
-            },
-            {"$set": atomic_set},
-        )
-        # If the state was already at `job_state`, the guarded write above
-        # matched nothing, but any sibling fields still need to be
-        # persisted. This second update is a separate operation (not part
-        # of the same atomic write); that is safe because sibling fields
-        # are not state-coupled.
-        if result.matched_count == 0 and set_fields:
-            mongo.db.jobs.update_one({"job_id": job_id}, {"$set": set_fields})
-    elif set_fields:
-        mongo.db.jobs.update_one({"job_id": job_id}, {"$set": set_fields})
+        set_fields["result_data.job_state"] = {"$literal": job_state}
+
+    if not set_fields:
+        return (get_job_results(job_id) or {}).get("result_data", {})
+
+    # Return the exact pre-image for event detection, even on repeated states.
+    previous_doc = mongo.db.jobs.find_one_and_update(
+        {"job_id": job_id},
+        [{"$set": set_fields}],
+        projection={"result_data": True, "_id": False},
+        return_document=ReturnDocument.BEFORE,
+    )
 
     # Additionally, because the job_data may reflect that the job is now done,
     # we need to disassociate the agent from the job if the job is done.
@@ -985,6 +993,8 @@ def add_job_results(job_id: str, json_data: dict):
     terminal_states = {"complete", "completed", "cancelled"}
     if job_state in terminal_states:
         clear_agent_job(job_id)
+
+    return (previous_doc or {}).get("result_data", {})
 
 
 def job_exists(job_id: str) -> bool:
@@ -1091,3 +1101,33 @@ def update_agent_provision_log(agent_name, json_data) -> bool:
         mongo.db.agents.update_one({"name": agent_name}, {"$set": agent})
         found = True
     return found
+
+
+def add_job_event(job_id: str, event: dict) -> None:
+    """Add an event to the job events collection.
+
+    Events are appended in natural insertion order (oldest first).
+
+    :param job_id: The ID of the job.
+    :param event: The event data to add.
+    """
+    mongo.db.jobs_events.update_one(
+        {"job_id": job_id},
+        {
+            "$push": {"events": event},
+            "$set": {"updated_at": datetime.now(timezone.utc)},
+        },
+        upsert=True,
+    )
+
+
+def get_job_events(job_id: str) -> list[dict]:
+    """Retrieve events for a specific job id.
+
+    :param job_id: The ID of the job.
+    :return: List of events for the job, or an empty list if none exist.
+    """
+    result = mongo.db.jobs_events.find_one(
+        {"job_id": job_id}, {"_id": False, "events": True}
+    )
+    return result.get("events", []) if result else []

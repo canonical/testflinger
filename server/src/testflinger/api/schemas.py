@@ -502,7 +502,7 @@ class ResultPost(Schema):
 
         Explicit ``unknown=RAISE`` (matches marshmallow's default) locks the
         contract so clients cannot smuggle server-managed fields like
-        ``job_state_changed_at``. See ``add_job_results`` for the
+        ``job_state_changed_at``. See ``update_job_results`` for the
         defense-in-depth strip.
         """
 
@@ -786,3 +786,20 @@ class ImagesIn(Schema):
                         f"Provision data for image '{image_name}' in queue"
                         f" '{queue}' must be a string"
                     )
+
+
+class Event(Schema):
+    """Event schema."""
+
+    event_name = fields.String(required=True)
+    timestamp = fields.DateTime(required=True)
+    message = fields.String(required=False)
+    detail = fields.String(required=False)
+    status = fields.Integer(required=False, allow_none=True)
+
+
+class JobEventsOut(Schema):
+    """Job Events output schema."""
+
+    job_id = fields.String(required=True)
+    events = fields.List(fields.Nested(Event), required=True)
