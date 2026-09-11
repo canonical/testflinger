@@ -21,9 +21,10 @@ Design notes
 ``TestPhase`` is the canonical list of executable job phases.
 
 ``AgentState`` and ``JobState`` are strict supersets of ``TestPhase`` —
-each includes every phase value plus its own additions.  They are built
+each includes every phase value plus its own additions. They are built
 programmatically via ``_extend_phase`` so there is no duplicated list of
-phase names.
+phase names. ``AgentState`` retains legacy mode-like values until the agent
+is migrated to ``AgentMode``.
 
 ``AgentMode`` is the server-commanded operating mode of an agent.  It is
 distinct from ``AgentState`` (what the agent is doing *within* a mode).
@@ -51,7 +52,9 @@ class TestPhase(StrEnum):
     CLEANUP = "cleanup"
 
 
-def _extend_phase(name: str, extras: dict[str, str], doc: str = "") -> StrEnum:
+def _extend_phase(
+    name: str, extras: dict[str, str], doc: str = ""
+) -> type[StrEnum]:
     """Build a StrEnum that contains every TestPhase value plus *extras*.
 
     :param name:   Class name for the new enum.
@@ -61,6 +64,11 @@ def _extend_phase(name: str, extras: dict[str, str], doc: str = "") -> StrEnum:
     :return:       A new StrEnum subclass.
     """
     members = {phase.name: phase.value for phase in TestPhase}
+    overlap = set(members) & set(extras)
+    if overlap:
+        raise ValueError(
+            f"extras contains existing TestPhase member(s): {sorted(overlap)}"
+        )
     members.update(extras)
     cls = StrEnum(name, members)  # type: ignore[call-overload]
     cls.__test__ = False  # suppress pytest collection
@@ -88,12 +96,18 @@ class AgentMode(StrEnum):
 
 AgentState = _extend_phase(
     "AgentState",
-    {"WAITING": "waiting"},
+    {
+        "WAITING": "waiting",
+        "OFFLINE": "offline",
+        "MAINTENANCE": "maintenance",
+        "RESTART": "restart",
+        "UNKNOWN": "unknown",
+    },
     doc=(
         "Current sub-state of an agent within its operating mode.\n\n"
         "A strict superset of TestPhase — includes all phase values plus\n"
-        "WAITING (idle sub-state used by ONLINE and MAINTENANCE modes).\n\n"
-        "OFFLINE and RESTART modes carry no AgentState."
+        "WAITING and legacy mode-like values used by agents that have not\n"
+        "yet migrated to AgentMode."
     ),
 )
 
