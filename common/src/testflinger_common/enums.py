@@ -167,3 +167,18 @@ class ServerRoles(StrEnum):
     def __ge__(self, other: "ServerRoles") -> bool:
         """Implement of "greater-than-or-equal" between ServerRoles."""
         return not self < other
+
+
+class TestflingerEvent(StrEnum):
+    """Base class for all Testflinger events."""
+
+
+class JobEvent(TestflingerEvent):
+    """Enum of all Job-related events."""
+
+    JOB_SUBMITTED = "job_submitted"
+    JOB_ASSIGNED = "job_assigned"
+    JOB_PHASE_STARTED = "job_phase_started"
+    JOB_PHASE_COMPLETED = "job_phase_completed"
+    JOB_COMPLETED = "job_completed"
+    JOB_CANCELLED = "job_cancelled"

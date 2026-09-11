@@ -1,0 +1,48 @@
+<h2 class="p-muted-heading">Activity</h2>
+<div class="p-tabs">
+  <div class="p-tabs__list" role="tablist" aria-label="Job activity tabs">
+    <div class="p-tabs__item">
+      <button class="p-tabs__link"
+              role="tab"
+              aria-selected="true"
+              aria-controls="events-panel"
+              id="events-tab">Events</button>
+    </div>
+  </div>
+  <div tabindex="0"
+       role="tabpanel"
+       id="events-panel"
+       aria-labelledby="events-tab">
+    {% if job.events %}
+      <table aria-label="Events table" class="p-table--mobile-card">
+        <thead>
+          <tr>
+            <th style="width: 150pt">Time</th>
+            <th>Event</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for event in job.events %}
+            <tr>
+              <td data-heading="Time">{{ event.timestamp.strftime("%Y-%m-%d %H:%M:%S") }}</td>
+              <td data-heading="Event">
+                {% if event.status is defined and event.status is not none %}
+                  {% if event.status == 0 %}
+                    <i class="p-icon--success" aria-label="Success"></i>
+                  {% else %}
+                    <i class="p-icon--error" aria-label="Error"></i>
+                  {% endif %}
+                {% else %}
+                  <i class="p-icon--information" aria-label="Info"></i>
+                {% endif %}
+                {{ event.message }}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p>No events available for this job.</p>
+    {% endif %}
+  </div>
+</div>
