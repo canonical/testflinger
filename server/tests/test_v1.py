@@ -840,6 +840,22 @@ def test_job_get_id_with_data(mongo_app):
         assert output.json[key] == value
 
 
+def test_job_get_id_includes_submitter(mongo_app):
+    """Test retrieving a job preserves its server-owned submitter metadata."""
+    app, _ = mongo_app
+    headers = get_access_token_header("test-client", ServerRoles.CONTRIBUTOR)
+    job_response = app.post(
+        "/v1/job", json={"job_queue": "test"}, headers=headers
+    )
+
+    response = app.get(
+        f"/v1/job/{job_response.json['job_id']}", headers=headers
+    )
+
+    assert response.status_code == HTTPStatus.OK
+    assert response.json["submitted_by"] == "test-client"
+
+
 def test_job_position(mongo_app, agent_auth_header):
     """Ensure initial job state is set to 'waiting'."""
     app, _ = mongo_app
@@ -2039,3 +2055,33 @@ def test_agent_job_id_not_cleared_for_nonterminal_state(
 
     agent_record = mongo.agents.find_one({"name": agent_name})
     assert agent_record.get("job_id") == job_id
+
+
+def test_get_job_events(mongo_app, agent_auth_header):
+    """Test that job events can be retrieved for a given job."""
+    app, _ = mongo_app
+    job_data = {"job_queue": "test"}
+
+    # Submitting a job automatically fires a job_submitted event
+    output = app.post("/v1/job", json=job_data)
+    assert output.status_code == HTTPStatus.OK
+    job_id = output.json.get("job_id")
+
+    # Post a result transitioning the job into its first phase, which fires
+    # job_started and job_phase_started events
+    output = app.post(
+        f"/v1/result/{job_id}",
+        json={"job_state": "setup"},
+        headers=agent_auth_header,
+    )
+    assert output.status_code == HTTPStatus.OK
+
+    output = app.get(f"/v1/events/job/{job_id}")
+    assert output.status_code == HTTPStatus.OK
+    assert output.json["job_id"] == job_id
+
+    event_names = {event["event_name"] for event in output.json["events"]}
+    assert event_names == {
+        "job_submitted",
+        "job_phase_started",
+    }
