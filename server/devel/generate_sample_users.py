@@ -96,6 +96,7 @@ def _write_dev_signin_identities(users: list[dict]) -> None:
         "# You should have received a copy of the GNU General Public License",
         "# along with this program.  If not, see <http://www.gnu.org/licenses/>.",
         '"""Generated development auto-sign-in identities."""',
+        "",
         "DEV_SIGNIN_IDENTITIES = [",
     ]
     for user in users:
