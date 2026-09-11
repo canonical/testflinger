@@ -79,23 +79,15 @@ class TestPhaseEnumInvariants:
 
     def test_agent_state_is_superset_of_test_phase(self):
         """AgentState must include every TestPhase value."""
-        phase_values = {p.value for p in TestPhase}
-        state_values = {s.value for s in AgentState}
-        missing = phase_values - state_values
-        assert not missing, (
-            f"AgentState is missing TestPhase values: {missing}. "
-            "Add them to AgentState and keep the two enums in sync."
-        )
+        assert {phase.value for phase in TestPhase} <= {
+            state.value for state in AgentState
+        }
 
     def test_job_state_is_superset_of_test_phase(self):
         """JobState must include every TestPhase value."""
-        phase_values = {p.value for p in TestPhase}
-        job_values = {s.value for s in JobState}
-        missing = phase_values - job_values
-        assert not missing, (
-            f"JobState is missing TestPhase values: {missing}. "
-            "Add them to JobState and keep the two enums in sync."
-        )
+        assert {phase.value for phase in TestPhase} <= {
+            state.value for state in JobState
+        }
 
     def test_agent_mode_values(self):
         """AgentMode must contain exactly the four expected modes."""
@@ -108,10 +100,9 @@ class TestPhaseEnumInvariants:
 
     def test_agent_state_preserves_legacy_mode_values(self):
         """AgentState retains values required by unmigrated agents."""
-        state_values = {s.value for s in AgentState}
         assert {
             AgentMode.OFFLINE,
             AgentMode.MAINTENANCE,
             AgentMode.RESTART,
             "unknown",
-        } <= state_values
+        } <= {state.value for state in AgentState}
