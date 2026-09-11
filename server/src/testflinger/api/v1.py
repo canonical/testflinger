@@ -31,6 +31,7 @@ from requests.adapters import HTTPAdapter
 from testflinger_common.enums import (
     AgentMode,
     AgentState,
+    JobEvent,
     LogType,
     ServerRoles,
     TestPhase,
@@ -38,7 +39,7 @@ from testflinger_common.enums import (
 from urllib3.util.retry import Retry
 from werkzeug.routing import BaseConverter
 
-from testflinger import database
+from testflinger import database, events
 from testflinger.api import auth, helpers, schemas
 from testflinger.api.auth import authenticate, require_role
 from testflinger.logs import LogFragment, MongoLogHandler
@@ -146,6 +147,15 @@ def job_post(json_data: dict) -> dict:
     # CAUTION! If you ever move this line, you may need to pass data as a copy
     # because it will get modified by submit_job and other things it calls
     database.add_job(job)
+
+    database.add_job_event(
+        job_id=job["job_id"],
+        event=events.build_event(
+            event_type=JobEvent.JOB_SUBMITTED,
+            client_id=g.client_id,
+            queue_name=job["job_data"]["job_queue"],
+        ),
+    )
     return jsonify(job_id=job.get("job_id"))
 
 
@@ -267,6 +277,14 @@ def job_get():
     job = database.pop_job(queue_list=queue_list, agent_name=agent_name)
     if not job:
         return jsonify({}), HTTPStatus.NO_CONTENT
+
+    database.add_job_event(
+        job_id=job["job_id"],
+        event=events.build_event(
+            event_type=JobEvent.JOB_ASSIGNED,
+            agent_name=agent_name,
+        ),
+    )
     if (secrets := retrieve_secrets(job)) is not None:
         job["test_data"]["secrets"] = secrets
     database.set_agent_job(agent_name, job["job_id"])
@@ -323,10 +341,7 @@ def job_get_id(job_id):
     """
     if not check_valid_uuid(job_id):
         abort(400, message="Invalid job_id specified")
-    response = database.mongo.db.jobs.find_one(
-        {"job_id": job_id},
-        projection={"job_data": True, "submitted_by": True, "_id": False},
-    )
+    response = database.get_job_document(job_id)
     if not response:
         return {}, 204
     job_data = response.get("job_data")
@@ -423,9 +438,9 @@ def search_jobs(query_data):
         },
     ]
 
-    jobs = database.mongo.db.jobs.aggregate(pipeline)
+    jobs = database.search_jobs_by_pipeline(pipeline)
 
-    return jsonify(list(jobs))
+    return jsonify(jobs)
 
 
 @v1.post("/result/<job_id>/artifact")
@@ -587,7 +602,7 @@ def result_post(job_id: str, json_data: dict) -> str:
     :param job_id: UUID as a string for the job
     :raises HTTPError: If the job_id is not a valid UUID
     """
-    if not check_valid_uuid(job_id):
+    if not check_valid_uuid(job_id) or not database.job_exists(job_id):
         abort(HTTPStatus.BAD_REQUEST, message="Invalid job_id specified")
 
     # fail if input payload is larger than the BSON size limit
@@ -596,7 +611,13 @@ def result_post(job_id: str, json_data: dict) -> str:
     if content_length and content_length >= 16 * 1024 * 1024:
         abort(HTTPStatus.REQUEST_ENTITY_TOO_LARGE, message="Payload too large")
 
-    database.add_job_results(job_id, json_data)
+    # update_job_results atomically returns the previous result_data, so
+    # event detection is based on the exact state this update transitioned
+    # from
+    previous_data = database.update_job_results(job_id, json_data)
+    new_events = events.detect_new_result_events(previous_data, json_data)
+    for event in new_events:
+        database.add_job_event(job_id=job_id, event=event)
     return "OK"
 
 
@@ -695,6 +716,15 @@ def _cancel_job(job_id):
             "The job is already completed or cancelled",
             HTTPStatus.BAD_REQUEST,
         )
+
+    # Only add an event if the cancellation is actually made
+    database.add_job_event(
+        job_id=job_id,
+        event=events.build_event(
+            event_type=JobEvent.JOB_CANCELLED,
+            client_id=g.client_id,
+        ),
+    )
     return "OK"
 
 
@@ -711,9 +741,7 @@ def queues_get():
         "other_queue": "A queue for something else"
     }
     """
-    all_queues = database.mongo.db.queues.find(
-        {}, projection={"_id": False, "name": True, "description": True}
-    )
+    all_queues = database.get_advertised_queues()
     queue_dict = {}
     # Create a dict of queues and descriptions
     for queue in all_queues:
@@ -733,11 +761,7 @@ def queues_post(json_data: dict):
     """
     timestamp = datetime.now(timezone.utc)
     for queue, description in json_data.items():
-        database.mongo.db.queues.update_one(
-            {"name": queue},
-            {"$set": {"description": description, "updated_at": timestamp}},
-            upsert=True,
-        )
+        database.upsert_queue(queue, description, timestamp)
     return "OK"
 
 
@@ -747,9 +771,7 @@ def queues_post(json_data: dict):
 @v1.doc(responses=schemas.images_out)
 def images_get(queue):
     """Get a dict of known images for a given queue."""
-    queue_data = database.mongo.db.queues.find_one(
-        {"name": queue}, {"_id": False, "images": True}
-    )
+    queue_data = database.get_queue_images(queue)
     if not queue_data:
         return jsonify({})
     # It's ok for this to just return an empty result if there are none found
@@ -776,11 +798,7 @@ def images_post(json_data: dict):
     """
     # We need to delete and recreate the images in case some were removed
     for queue, image_data in json_data.items():
-        database.mongo.db.queues.update_one(
-            {"name": queue},
-            {"$set": {"images": image_data}},
-            upsert=True,
-        )
+        database.set_queue_images(queue, image_data)
     return "OK"
 
 
@@ -1165,11 +1183,7 @@ def job_position_get(job_id):
     except (AttributeError, TypeError):
         return f"Invalid json returned for id: {job_id}\n", 400
     # Get all jobs with job_queue=queue and return only the _id
-    jobs = database.mongo.db.jobs.find(
-        {"job_data.job_queue": queue, "result_data.job_state": "waiting"},
-        {"job_id": 1},
-        sort=[("job_priority", -1)],
-    )
+    jobs = database.get_waiting_jobs_in_queue(queue)
     # Create a dict mapping job_id (as a string) to the position in the queue
     jobs_id_position = {job.get("job_id"): pos for pos, job in enumerate(jobs)}
     if job_id in jobs_id_position:
@@ -1757,3 +1771,19 @@ def secrets_delete(client_id, path):
         abort(HTTPStatus.INTERNAL_SERVER_ERROR, message=str(error))
 
     return "OK"
+
+
+@v1.get("/events/job/<job_id>")
+@authenticate
+@require_role(*ServerRoles)
+@v1.output(schemas.JobEventsOut)
+def get_job_events(job_id):
+    """Get all available events associated with a specific job_id.
+
+    :param job_id: UUID as a string for the job
+    """
+    if not check_valid_uuid(job_id) or not database.job_exists(job_id):
+        abort(HTTPStatus.NOT_FOUND, message="Job not found")
+
+    job_events = database.get_job_events(job_id)
+    return jsonify({"job_id": job_id, "events": job_events})

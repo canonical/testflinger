@@ -37,3 +37,12 @@ repos:
         pass_filenames: false
         additional_dependencies:
           - just
+      - id: roles-docs
+        name: Check API roles reference
+        entry: just check-roles-docs
+        language: rust
+        exclude: ^charm/
+        types: [python]
+        pass_filenames: false
+        additional_dependencies:
+          - just

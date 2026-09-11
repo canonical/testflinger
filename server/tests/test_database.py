@@ -15,7 +15,9 @@
 #
 """Unit tests for testflinger database functions."""
 
+import datetime
 from unittest.mock import patch
+from uuid import uuid4
 
 import mongomock
 import pytest
@@ -23,6 +25,7 @@ from mongomock.gridfs import enable_gridfs_integration
 
 from testflinger.database import (
     DEFAULT_EXPIRATION,
+    add_job_event,
     create_indexes,
     retrieve_file,
     save_file,
@@ -107,3 +110,64 @@ def test_create_indexes_gridfs_collections(mock_mongo):
     assert chunks_ttl.get("expireAfterSeconds") == DEFAULT_EXPIRATION
     assert files_ttl is not None
     assert files_ttl.get("expireAfterSeconds") == DEFAULT_EXPIRATION
+
+
+def _make_event(
+    event: str, message: str, timestamp: datetime.datetime
+) -> dict:
+    """Build a minimal event dict as produced by events.build_event.
+    This is using a string for the event_name instead of the enum for
+    test simplicity.
+    """
+    return {
+        "event_name": event,
+        "timestamp": timestamp,
+        "message": message,
+        "detail": "",
+    }
+
+
+@patch("testflinger.database.mongo", new_callable=mongomock.MongoClient)
+def test_add_job_event(mock_mongo):
+    """Test add_job_event stores the event in the jobs_events collection."""
+    timestamp = datetime.datetime.now(datetime.timezone.utc)
+    event = _make_event("job_submitted", "Job submitted", timestamp)
+    job_id = str(uuid4())
+    add_job_event(job_id=job_id, event=event)
+
+    doc = mock_mongo.db.jobs_events.find_one({"job_id": job_id})
+    assert doc is not None
+    assert len(doc["events"]) == 1
+    stored_data = doc["events"][0]
+    assert stored_data["event_name"] == "job_submitted"
+    assert stored_data["message"] == "Job submitted"
+    # updated_at must be set for the TTL index
+    assert "updated_at" in doc
+
+
+@patch("testflinger.database.mongo", new_callable=mongomock.MongoClient)
+def test_new_job_events_preserve_insertion_order(mock_mongo):
+    """Test new events are appended in insertion (oldest-first) order."""
+    job_id = str(uuid4())
+    timestamp = datetime.datetime(
+        2026, 1, 1, 12, 0, tzinfo=datetime.timezone.utc
+    )
+    # timestamp is fixed for test simplicity and for validating insertion order
+    events = [
+        _make_event("job_submitted", "Job submitted", timestamp),
+        _make_event("job_started", "Job started", timestamp),
+        _make_event("job_completed", "Job completed", timestamp),
+    ]
+
+    for event in events:
+        add_job_event(job_id=job_id, event=event)
+
+    doc = mock_mongo.db.jobs_events.find_one({"job_id": job_id})
+    stored_events = doc["events"]
+    assert len(stored_events) == 3
+    # strip tz info before comparison as mongomock stores datetime in naive UTC
+    normalized_expected = [
+        {**evt, "timestamp": evt["timestamp"].replace(tzinfo=None)}
+        for evt in events
+    ]
+    assert stored_events == normalized_expected
