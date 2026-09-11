@@ -245,6 +245,10 @@
           "message": {
             "type": "string"
           },
+          "status": {
+            "nullable": true,
+            "type": "integer"
+          },
           "timestamp": {
             "format": "date-time",
             "type": "string"
