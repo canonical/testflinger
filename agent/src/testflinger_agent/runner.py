@@ -56,6 +56,11 @@ class CommandRunner:
         self.cwd = cwd
         self.env = os.environ.copy()
         self.events = defaultdict(list)
+        self.output_timeout = None
+        self.recovery_enabled = False
+        self.recovery_timeout = 5 * 60
+        self.recovery_command = self.env.get("REBOOT_SCRIPT", "")
+        self.under_recovery_period = False
         if env:
             self.env.update(
                 {k: str(v) for k, v in env.items() if isinstance(v, str)}
@@ -91,10 +96,16 @@ class CommandRunner:
                 return event, detail
         return None, ""
 
+    def reset_recover(self):
+        if self.under_recovery_period:
+            self.under_recovery_period = False
+            self.output_timeout_checker.reset(self.output_timeout)
+
     def check_and_post_output(self):
         raw_output = self.process.stdout.read()
         if not raw_output:
             return
+        self.reset_recover()
         self.post_event(RunnerEvents.OUTPUT_RECEIVED)
 
         output = raw_output.decode(sys.stdout.encoding, errors="replace")
@@ -119,6 +130,28 @@ class CommandRunner:
         if self.process is not None:
             self.process.kill()
 
+    def try_recover(self, stop_event: TestEvent):
+        if stop_event != TestEvent.OUTPUT_TIMEOUT:
+            return False
+        if not self.recovery_enabled or not self.recovery_command:
+            return False
+        if self.under_recovery_period:
+            return False
+
+        self.post_output(
+            f"\nRunning recovery command: {self.recovery_command}\n"
+        )
+        subprocess.run(
+            self.recovery_command,
+            cwd=self.cwd,
+            env=self.env,
+            shell=True,
+            check=False,
+        )
+        self.under_recovery_period = True
+        self.output_timeout_checker.reset(self.recovery_timeout)
+        return True
+
     def run(self, cmd: str) -> Tuple[int, Optional[TestEvent], str]:
         # Ensure that the process is None before starting
         self.process = None
@@ -142,6 +175,8 @@ class CommandRunner:
             stop_event, stop_reason = self.check_stop_conditions()
             if stop_event is not None:
                 self.post_output(f"\n{stop_reason}\n")
+                if self.try_recover(stop_event):
+                    continue
                 self.cleanup()
                 break
 

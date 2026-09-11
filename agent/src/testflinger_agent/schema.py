@@ -43,6 +43,8 @@ SCHEMA_V1 = {
     voluptuous.Optional("provision_type"): str,
     voluptuous.Optional("global_timeout"): int,
     voluptuous.Optional("output_timeout"): int,
+    voluptuous.Optional("recovery_enabled", default=False): bool,
+    voluptuous.Optional("recovery_timeout", default=5 * 60): int,
     voluptuous.Optional("advertised_queues"): dict,
     voluptuous.Optional("advertised_images"): dict,
     # only the last `output_bytes` of the log will be included

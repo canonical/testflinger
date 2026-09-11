@@ -64,3 +64,9 @@ class OutputTimeoutChecker:
     def update(self):
         """Update the last output time to the current time."""
         self.last_output_time = time.time()
+
+    def reset(self, timeout: Optional[int] = None):
+        """Reset the timeout window, optionally changing the timeout."""
+        if timeout is not None:
+            self.timeout = timeout
+        self.last_output_time = time.time()
