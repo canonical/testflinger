@@ -29,17 +29,14 @@ revisit. It also sidesteps reverse-proxy query-string mangling of the
 DO NOT enable in production. There is no credential check on the route; the
 env var is the only gate.
 
-Shortcuts are provided for every role -- including contributor -- because
-almost every non-public view requires an authenticated session, and there
-is currently no "logged in but no role" state that would let us exercise
-the contributor code paths without a real session. Going through the full
-Dex login flow for every contributor test is friction we don't need in
-local dev, so ``carol`` and ``dave`` sit alongside the elevated shortcuts.
+Shortcuts are provided for at least one identity of every role because almost
+every non-public view requires an authenticated session, and there is
+currently no "logged in but no role" state that would let us exercise the
+contributor code paths without a real session.
 
-Each identity's email must match a ``staticPasswords`` entry in
-``devel/dex-config.yaml`` so that the same email works via both the Dex login
-path and the dev shortcut (permissions are keyed on ``session["user_email"]``
-via ``get_client_permissions``).
+``devel/generate_sample_users.py`` derives both these identities and Dex's
+``staticPasswords`` entries from ``devel/sample_users.py``. The stable Dex
+subject lets both login paths update the same permissions record.
 """
 
 import os
@@ -50,39 +47,7 @@ from flask import Blueprint, current_app, redirect, request, session, url_for
 from testflinger_common.enums import ServerRoles
 
 from testflinger import database
-
-# ---------------------------------------------------------------------------
-# Well-known development identities, one per role. ``email`` is used both
-# as the session ``user_email`` and as the ``client_id`` key when upserting
-# ``client_permissions`` (matching how ``register_oidc_client`` maps OIDC
-# users to permission rows).
-# ---------------------------------------------------------------------------
-DEV_SIGNIN_IDENTITIES = [
-    {
-        "email": "alice@example.com",
-        "name": "alice",
-        "role": ServerRoles.ADMIN,
-        "label": "alice (admin)",
-    },
-    {
-        "email": "bob@example.com",
-        "name": "bob",
-        "role": ServerRoles.MANAGER,
-        "label": "bob (manager)",
-    },
-    {
-        "email": "carol@example.com",
-        "name": "carol",
-        "role": ServerRoles.CONTRIBUTOR,
-        "label": "carol (contributor)",
-    },
-    {
-        "email": "dave@example.com",
-        "name": "dave",
-        "role": ServerRoles.CONTRIBUTOR,
-        "label": "dave (contributor)",
-    },
-]
+from testflinger.dev_signin_identities import DEV_SIGNIN_IDENTITIES
 
 DEV_AUTO_SIGNIN_ENV_VAR = "TF_DEV_AUTO_SIGNIN"
 
@@ -107,7 +72,7 @@ def auto():
     """Sign the current session in as one of the well-known dev identities.
 
     Validates the requested email against ``DEV_SIGNIN_IDENTITIES``, upserts
-    a ``client_permissions`` row for that email with the entry's role
+    a ``client_permissions`` row for that OIDC subject with the entry's role
     (unconditionally overwriting any prior role, so the picker is
     predictable), then establishes the session.
 
@@ -121,9 +86,16 @@ def auto():
 
     # Unconditionally set the role for this identity so the picker is
     # predictable: "whatever you clicked last is your current role".
-    database.create_or_update_client_permissions(
-        identity["email"],
-        {"client_id": identity["email"], "role": str(identity["role"])},
+    database.mongo.db.client_permissions.update_one(
+        {"sub": identity["sub"]},
+        {
+            "$set": {
+                "client_id": identity["email"],
+                "sub": identity["sub"],
+                "role": str(ServerRoles(identity["role"])),
+            }
+        },
+        upsert=True,
     )
 
     session["user"] = identity["name"]

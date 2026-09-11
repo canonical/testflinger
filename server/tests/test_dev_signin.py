@@ -147,6 +147,7 @@ def test_dev_signin_establishes_identity_session_and_role(
     assert response.location == "/"
     assert database.get_client_permissions(identity["email"]) == {
         "client_id": identity["email"],
+        "sub": identity["sub"],
         "role": str(identity["role"]),
     }
     with client.session_transaction() as session:
@@ -155,11 +156,15 @@ def test_dev_signin_establishes_identity_session_and_role(
 
 
 def test_dev_signin_overwrites_existing_identity_role(monkeypatch):
-    """The selected shortcut deterministically restores its declared role."""
+    """The shortcut updates the existing OIDC identity's declared role."""
     identity = DEV_SIGNIN_IDENTITIES[0]
     app = _make_app(monkeypatch, dev_signin_env="1", oidc=True)
     database.mongo.db.client_permissions.insert_one(
-        {"client_id": identity["email"], "role": "contributor"}
+        {
+            "client_id": identity["email"],
+            "sub": identity["sub"],
+            "role": "contributor",
+        }
     )
 
     response = app.test_client().post(
@@ -167,6 +172,7 @@ def test_dev_signin_overwrites_existing_identity_role(monkeypatch):
     )
 
     assert response.status_code == HTTPStatus.FOUND
+    assert database.mongo.db.client_permissions.count_documents({}) == 1
     assert database.get_client_permissions(identity["email"])["role"] == str(
         identity["role"]
     )
