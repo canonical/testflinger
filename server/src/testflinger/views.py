@@ -260,6 +260,7 @@ def job_detail(job_id):
 
     job_data["agent_name"] = job_data.get("result_data", {}).get("agent_id")
     job_yaml = build_job_yaml(job_data.get("job_data", {}))
+    job_data["events"] = database.get_job_events(job_id)
     return render_template("job_detail.html", job=job_data, job_yaml=job_yaml)
 
 

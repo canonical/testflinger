@@ -78,6 +78,12 @@
      - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
      - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
    * - ``GET``
+     - ``/v1/events/job/{job_id}``
+     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
+     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
+     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
+     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
+   * - ``GET``
      - ``/v1/result/{job_id}``
      - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
      - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`

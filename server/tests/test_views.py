@@ -302,6 +302,103 @@ def test_job_results_mongo_logs(testapp):
     assert "Exit Status:</span> 1" in html
 
 
+def test_job_detail_shows_activity_events(testapp):
+    """Test that job_detail renders stored events in the Activity section."""
+    mongo = mongomock.MongoClient()
+    job_id = str(uuid.uuid4())
+    mongo.db.jobs.insert_one(
+        {
+            "job_id": job_id,
+            "created_at": datetime.now(timezone.utc),
+            "job_data": {"job_queue": "queue1"},
+            "result_data": {"job_state": "complete"},
+        }
+    )
+    mongo.db.jobs_events.insert_one(
+        {
+            "job_id": job_id,
+            "events": [
+                {
+                    "event_name": "job_submitted",
+                    "timestamp": datetime(
+                        2026, 1, 1, 11, 0, 0, tzinfo=timezone.utc
+                    ),
+                    "message": "Job submitted by user bob into queue queue1.",
+                    "detail": "",
+                },
+                {
+                    "event_name": "job_phase_started",
+                    "timestamp": datetime(
+                        2026, 1, 1, 11, 15, 0, tzinfo=timezone.utc
+                    ),
+                    "message": "Phase setup started.",
+                    "detail": "",
+                },
+                {
+                    "event_name": "job_phase_completed",
+                    "timestamp": datetime(
+                        2026, 1, 1, 11, 30, 0, tzinfo=timezone.utc
+                    ),
+                    "message": "Phase setup completed with exit code 0",
+                    "detail": "",
+                    "status": 0,
+                },
+                {
+                    "event_name": "job_phase_started",
+                    "timestamp": datetime(
+                        2026, 1, 1, 12, 0, 0, tzinfo=timezone.utc
+                    ),
+                    "message": "Phase provision started.",
+                    "detail": "",
+                },
+                {
+                    "event_name": "job_phase_completed",
+                    "timestamp": datetime(
+                        2026, 1, 1, 12, 30, 0, tzinfo=timezone.utc
+                    ),
+                    "message": "Phase provision completed with exit code 1",
+                    "detail": "",
+                    "status": 1,
+                },
+            ],
+        }
+    )
+    with patch("testflinger.database.mongo", mongo):
+        with testapp.test_request_context():
+            response = job_detail(job_id)
+
+    html = str(response)
+    assert "Activity" in html
+    assert "Phase setup started." in html
+    assert "Phase setup completed with exit code 0" in html
+    assert "Phase provision started." in html
+    assert "Phase provision completed with exit code 1" in html
+    assert "2026-01-01 12:00:00" in html
+    assert '<i class="p-icon--success" aria-label="Success"></i>' in html
+    assert '<i class="p-icon--error" aria-label="Error"></i>' in html
+    assert '<i class="p-icon--information" aria-label="Info"></i>' in html
+
+
+def test_job_detail_no_events_shows_placeholder(testapp):
+    """Test that the Activity section shows a placeholder with no events."""
+    mongo = mongomock.MongoClient()
+    job_id = str(uuid.uuid4())
+    mongo.db.jobs.insert_one(
+        {
+            "job_id": job_id,
+            "created_at": datetime.now(timezone.utc),
+            "job_data": {"job_queue": "queue1"},
+            "result_data": {"job_state": "complete"},
+        }
+    )
+    with patch("testflinger.database.mongo", mongo):
+        with testapp.test_request_context():
+            response = job_detail(job_id)
+
+    html = str(response)
+    assert "No events available for this job." in html
+
+
 def test_build_job_yaml():
     """build_job_yaml produces a submittable, ordered job definition."""
     job_data = {
