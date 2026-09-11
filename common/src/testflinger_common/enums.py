@@ -167,6 +167,23 @@ class TestEvent(StrEnum):
     JOB_END = "job_end"
 
 
+class AgentMode(StrEnum):
+    """Server-commanded operating mode of an agent."""
+
+    ONLINE = "online"
+    MAINTENANCE = "maintenance"
+    OFFLINE = "offline"
+    RESTART = "restart"
+
+
+class AgentState(StrEnum):
+    WAITING = "waiting"
+    OFFLINE = "offline"
+    MAINTENANCE = "maintenance"
+    RESTART = "restart"
+    UNKNOWN = "unknown"
+
+
 class LogType(StrEnum):
     """
     Enum of different output types
