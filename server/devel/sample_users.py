@@ -15,40 +15,36 @@
 Sample user data for use in local testing and development.
 """
 
-# Well-known admin credential used by create_sample_users.py (to seed the
-# admin row) and by create_sample_data.py (as the default client_id/secret
-# when talking to the authenticated server).
-TESTFLINGER_ADMIN = {
-    "client_id": "testflinger-admin",
-    "role": "admin",
-    "max_priority": {"*": 100},
-    "allowed_queues": [],
-    "max_reservation_time": {},
-    "secret_key": "testflinger",  # noqa: S105
-}
-TESTFLINGER_ADMIN_ID = TESTFLINGER_ADMIN["client_id"]
-TESTFLINGER_ADMIN_SECRET = TESTFLINGER_ADMIN["secret_key"]
-
-# Note this list of users is used both here and in create_sample_users. It is
-# located in this file due to import and execution environments with respect
-# to mongodb. While create_sample_users can import this file, the other
-# direction is not possible.
-# Sample credential-based clients with client_id and email fields.
-# alice@example.com is reused across two client IDs to demonstrate that a
-# single contact email can be associated with multiple service accounts.
-# All other client IDs have unique emails.
+# This is the single handwritten source for local accounts. Entries with a
+# dex_user_id are rendered into dex-config.yaml. Entries with dev_auto_signin
+# are also rendered into testflinger.dev_signin_identities.
 SAMPLE_CLIENTS = [
     {
-        "client_id": "alice@example.com",
+        "client_id": "testflinger-admin",
+        "email": "testflinger@example.com",
+        "name": "testflinger-admin",
+        "dex_user_id": "1001",
+        "dev_auto_signin": True,
+        "role": "admin",
+        "max_priority": {"*": 100},
+        "allowed_queues": [],
+        "max_reservation_time": {},
+        "secret_key": "testflinger",  # noqa: S105
+    },
+    {
+        "client_id": "alice-sample-client",
         "email": "alice@example.com",
-        "role": "contributor",
+        "name": "alice",
+        "dex_user_id": "1003",
+        "dev_auto_signin": True,
+        "role": "admin",
         "allowed_queues": [],
         "max_reservation_time": {},
         "secret_key": "testflinger",
     },
     {
         "client_id": "ci-bot-kernel",
-        "email": "alice@example.com",  # same contact as previous
+        "email": "alice@example.com",
         "role": "contributor",
         "allowed_queues": [],
         "max_reservation_time": {},
@@ -57,7 +53,10 @@ SAMPLE_CLIENTS = [
     {
         "client_id": "ci-bot-snapd",
         "email": "bob@example.com",
-        "role": "contributor",
+        "name": "bob",
+        "dex_user_id": "1004",
+        "dev_auto_signin": True,
+        "role": "manager",
         "allowed_queues": [],
         "max_reservation_time": {},
         "secret_key": "testflinger",
@@ -65,6 +64,9 @@ SAMPLE_CLIENTS = [
     {
         "client_id": "qa-runner-x86",
         "email": "carol@example.com",
+        "name": "carol",
+        "dex_user_id": "1005",
+        "dev_auto_signin": True,
         "role": "contributor",
         "allowed_queues": [],
         "max_reservation_time": {},
@@ -73,9 +75,18 @@ SAMPLE_CLIENTS = [
     {
         "client_id": "infra-agent-arm",
         "email": "dave@example.com",
-        "role": "admin",
+        "role": "contributor",
         "allowed_queues": [],
         "max_reservation_time": {},
         "secret_key": "testflinger",
     },
 ]
+
+# Existing callers use these defaults to create sample data.
+TESTFLINGER_ADMIN = next(
+    client
+    for client in SAMPLE_CLIENTS
+    if client["client_id"] == "testflinger-admin"
+)
+TESTFLINGER_ADMIN_ID = TESTFLINGER_ADMIN["client_id"]
+TESTFLINGER_ADMIN_SECRET = TESTFLINGER_ADMIN["secret_key"]

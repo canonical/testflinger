@@ -135,10 +135,17 @@ main {
     margin: 0;
 }
 .p-navigation__dropdown-item-form button.p-navigation__dropdown-item {
+    appearance: none;
     background: none;
     border: 0;
     width: 100%;
     text-align: left;
     font: inherit;
     cursor: pointer;
+}
+.p-navigation__dropdown-item-form button.p-navigation__dropdown-item:hover,
+.p-navigation__dropdown-item-form button.p-navigation__dropdown-item:focus,
+.p-navigation__dropdown-item-form button.p-navigation__dropdown-item:active {
+    background-color: #f7f7f7;
+    color: #333;
 }
