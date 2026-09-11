@@ -29,41 +29,82 @@ also exploratory testing by human operators is desired.
 In this documentation
 ---------------------
 
-.. grid:: 1 1 2 2
 
-   .. grid-item-card:: Tutorial
-      :link: /tutorial/index
-      :link-type: doc
+First steps
+~~~~~~~~~~~
 
-      **Get started** - a hands-on introduction to Testflinger for new users
+Install the client, run your first job, and learn the core workflow.
 
-   .. grid-item-card:: How-to guides
-      :link: /how-to/index
-      :link-type: doc
+* **Get started**: :doc:`Tutorial <tutorial/index>` • :doc:`Install the CLI <how-to/install-cli>` • :doc:`CLI configuration <reference/cli-config>` • :doc:`Change server <how-to/change-server>`
 
-      **Step-by-step guides** - covering key operations and common tasks
+Jobs
+~~~~
 
-.. grid:: 1 1 2 2
+The core unit of work: how a job is described, run, and used to reserve a machine.
 
-   .. grid-item-card:: Reference
-      :link: /reference/index
-      :link-type: doc
+* **Understand**: :doc:`Job schema <reference/job-schema>` • :doc:`Test phases <reference/test-phases>`
+* **Run and manage**: :doc:`Submit a job <how-to/submit-job>` • :doc:`Retrieve results <how-to/retrieve-logs>` • :doc:`Cancel <how-to/cancel-job>` • :doc:`Search <how-to/search-job>`
+* **Reserve a machine**: :doc:`Reserve a machine <how-to/reserve-job>` • :doc:`Extended reservation <explanation/extended-reservation>`
 
-      **Technical information** - specifications, APIs, architecture
+Queues, agents, and agent hosts
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-   .. grid-item-card:: Explanation
-      :link: /explanation/index
-      :link-type: doc
+Queues route jobs to compatible agents to provision and operate the devices under test, and report the results. Agents run on agent hosts, which are VMs deployed with Juju.
 
-      **Discussion and clarification** of key concepts
+* **Queues**: :doc:`Understand queues <explanation/queues>`
+* **Extended capabilities**: :doc:`Restricted queues <explanation/restricted-queues>` • :doc:`Set job priority <how-to/job-priority>` • :doc:`How priority works <explanation/job-priority>`
+* **Agents**: :doc:`List agents <how-to/list-agents>` • :doc:`Understand agents and agent hosts <explanation/agents>` • :doc:`Agent configuration <reference/testflinger-agent-conf>` • :doc:`Manage agents <how-to/administer-agent-hosts/manage-agents>`
+* **Agent host administration**: :doc:`Deploy <how-to/administer-agent-hosts/deploy-testflinger-agent-host>` • :doc:`Maintain <how-to/administer-agent-hosts/maintain-testflinger-agent-host>`
 
-.. grid:: 1 1 2 2
+Device connectors
+~~~~~~~~~~~~~~~~~
 
-   .. grid-item-card:: Testflinger Agent Hosts Administration
-      :link: /how-to/administer-agent-hosts/index
-      :link-type: doc
+Agents invoke device connectors to provision and operate devices under test (DUT). Each connector supports a particular provisioning type.
 
-      **Administration** tasks and best practices for operators of Testflinger Agent Hosts
+* **Device connectors**: :doc:`Connector types <reference/device-connector-types>` • :doc:`Connector configuration <reference/device-connector-conf>` • :doc:`MAAS storage <reference/maas_storage>`
+
+Server
+~~~~~~
+
+A Kubernetes application that stores data, serves the API, and coordinates the system.
+
+* **Understand**: :doc:`Architecture <explanation/architecture>`
+* **Reference**: :doc:`Server configuration <reference/testflinger-server-conf>` • :doc:`REST API reference (OpenAPI) <reference/openapi>`
+* **Administration**: :doc:`Deploy <how-to/administer-server/deploy-testflinger-server>` • :doc:`Maintain <how-to/administer-server/maintain-testflinger-server>`
+
+Access and permissions
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+Prove client identity and control what each client is allowed to do.
+
+* **Authentication**: :doc:`Authenticate with the CLI <how-to/authentication>` • :doc:`How authentication works <explanation/authentication>`
+* **Single sign-on (OIDC)**: :doc:`OIDC authentication <explanation/oidc-auth>` • :ref:`Enable OIDC <howto-enable-oidc>` • :doc:`OIDC configuration <reference/juju-oidc-config>`
+* **Authorisation**: :doc:`API roles <reference/api-roles>` • :doc:`Manage client permissions <how-to/manage-client-permissions>` • :doc:`Create admin credentials <how-to/create-admin-user>`
+
+Security
+~~~~~~~~
+
+How Testflinger protects credentials and data, and how to handle secrets safely.
+
+* **Trust model**: :doc:`Security overview <explanation/security>`
+* **Secrets**: :doc:`Use secrets <how-to/use-secrets>` • :doc:`Secrets concepts <explanation/secrets>` • :doc:`Secrets reference <reference/secrets>`
+
+
+---------
+
+How this documentation is organised
+-----------------------------------
+
+This documentation uses the `Diátaxis documentation structure <https://diataxis.fr/>`_.
+
+* :doc:`Tutorial <tutorial/index>` takes you step-by-step through submitting your
+  first job with Testflinger.
+* :doc:`How-to guides <how-to/index>` provide instructions for specific tasks
+  like submitting jobs, reserving machines, and administering a deployment.
+* :doc:`Reference <reference/index>` provides technical specifications: job
+  schemas, configuration files, and the REST API.
+* :doc:`Explanation <explanation/index>` provides conceptual context about
+  architecture, queues, security, and reservation.
 
 ---------
 
@@ -76,7 +117,7 @@ constructive feedback.
 
 * This project follows the `Ubuntu Code of Conduct`_
 * This project is `hosted on GitHub <canonical/testflinger_>`_ - contributions are welcome
-* This project is governed by the Ubuntu `Security reporting and disclosure policy`_ 
+* This project is governed by the Ubuntu `Security reporting and disclosure policy`_
 * :ref:`Interested in using Testflinger for your project? Get in touch! <home>`
 
 
