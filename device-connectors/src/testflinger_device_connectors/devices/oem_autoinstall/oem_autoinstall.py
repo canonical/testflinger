@@ -40,6 +40,17 @@ ATTACHMENTS_PROV_DIR = Path.cwd() / ATTACHMENTS_DIR / "provision"
 class OemAutoinstall:
     """Device Connector for OEM Script."""
 
+    SSH_OPTS = [
+        "-o",
+        "StrictHostKeyChecking=no",
+        "-o",
+        "UserKnownHostsFile=/dev/null",
+        "-o",
+        "BatchMode=yes",
+        "-o",
+        "ConnectTimeout=10",
+    ]
+
     def __init__(self, config, job_data):
         with open(config, encoding="utf-8") as configfile:
             self.config = yaml.safe_load(configfile)
@@ -93,8 +104,206 @@ class OemAutoinstall:
         if token_file is not None:
             token_file_path = "url_token"
             self.copy_to_deploy_path(token_file, token_file_path)
+
+        self.prepare_storage_when_bootstrap()
+
         self.run_deploy_script(image_url)
         self.check_device_booted()
+
+    def prepare_storage_when_bootstrap(self):
+        """Prepare the DUT storage when it is in bootstrap mode and
+        the test user's home wasn't mounted.
+
+        This is a best-effort step: any failure is logged and swallowed
+        here so it never aborts the rest of provisioning.
+        """
+        try:
+            self._prepare_storage_when_bootstrap()
+        except (subprocess.SubprocessError, OSError, KeyError) as exc:
+            logger.warning(
+                "Skipping storage preparation, best-effort step failed: %s",
+                exc,
+            )
+
+    def _prepare_storage_when_bootstrap(self):
+        test_username = self.get_test_data_or_default(
+            "test_username", "ubuntu"
+        )
+        target = f"{test_username}@{self.config['device_ip']}"
+        mountpoint = f"/home/{test_username}"
+
+        # c3-cid-applier.py only exists in the OEM bootstrap environment.
+        detect_proc = self._run_storage_ssh(
+            target, "test -x /usr/bin/c3-cid-applier.py"
+        )
+        if detect_proc.returncode != 0:
+            # Not in bootstrap stage, nothing to do
+            return
+
+        if self._is_expected_storage_mounted(target, mountpoint):
+            return
+
+        storage_partition = self._find_existing_storage_partition(target)
+        if storage_partition is not None:
+            logger.info(
+                "Mounting existing DUT storage partition %s",
+                storage_partition,
+            )
+            self.copy_ssh_id(force=True)
+            if self._mount_existing_storage(
+                target, storage_partition, mountpoint, test_username
+            ):
+                logger.info("Existing DUT storage mounted successfully")
+                return
+
+        logger.info(
+            "DUT is in bootstrap mode without storage partition. Formatting..."
+        )
+        proc = self._run_storage_ssh(
+            target,
+            "sudo -n /usr/bin/prepare-storage.sh --format-partitions",
+            timeout=60 * 15,  # 15 minutes
+        )
+        if proc.returncode != 0:
+            logger.warning(
+                "prepare-storage.sh exited with code %s", proc.returncode
+            )
+
+        # Formatting replaces the user's home, including its authorized keys.
+        self.copy_ssh_id()
+
+    def _run_storage_ssh(
+        self, target, remote_command, timeout=30, capture_output=False
+    ):
+        cmd = ["ssh", *self.SSH_OPTS, target, remote_command]
+        proc = subprocess.run(
+            cmd,
+            check=False,
+            capture_output=capture_output,
+            text=capture_output,
+            timeout=timeout,
+        )
+        if proc.returncode == 255:
+            raise subprocess.CalledProcessError(
+                255,
+                cmd,
+                stderr=proc.stderr if capture_output else None,
+            )
+        return proc
+
+    def _is_expected_storage_mounted(self, target, mountpoint):
+        proc = self._run_storage_ssh(
+            target,
+            (
+                f"source=$(findmnt -rn -M {mountpoint} -o SOURCE) && "
+                f'[ "$(findmnt -rn -M {mountpoint} -o FSTYPE)" = ext4 ] '
+                "&& "
+                f"findmnt -rn -M {mountpoint} -O rw >/dev/null && "
+                '[ "$(lsblk -dnro PARTN "$source")" = 3 ] && '
+                f"[ -w {mountpoint} ]"
+            ),
+        )
+        return proc.returncode == 0
+
+    def _find_existing_storage_partition(self, target):
+        proc = self._run_storage_ssh(
+            target,
+            (
+                "rows=$(lsblk -pnro "
+                "PATH,TYPE,FSTYPE,PARTN,MOUNTPOINT) || exit 2; "
+                "for candidate in $(printf '%s\\n' \"$rows\" | "
+                'awk \'$2 == "part" && $3 == "ext4" && '
+                '$4 == "3" && NF == 4 {print $1}\'); do '
+                'parent_name=$(lsblk -dnro PKNAME "$candidate") || exit 2; '
+                '[ -n "$parent_name" ] || continue; '
+                "parent=/dev/$parent_name; "
+                'removable=$(lsblk -dnro RM "$parent") || exit 2; '
+                '[ "$removable" = 0 ] || continue; '
+                'transport=$(lsblk -dnro TRAN "$parent") || exit 2; '
+                '[ "$transport" != usb ] || continue; '
+                "printf '%s\\n' \"$candidate\"; "
+                "done"
+            ),
+            capture_output=True,
+        )
+        if proc.returncode != 0:
+            raise subprocess.CalledProcessError(
+                proc.returncode,
+                proc.args,
+                output=proc.stdout,
+                stderr=proc.stderr,
+            )
+
+        candidates = [
+            line.strip()
+            for line in proc.stdout.splitlines()
+            if line.strip().startswith("/dev/")
+        ]
+        if len(candidates) == 1:
+            return candidates[0]
+        if len(candidates) > 1:
+            logger.warning(
+                "Found multiple existing DUT storage partitions; "
+                "refusing to mount an ambiguous candidate"
+            )
+        return None
+
+    def _mount_existing_storage(
+        self, target, storage_partition, mountpoint, test_username
+    ):
+        ssh_dir = f"{mountpoint}/.ssh"
+        authorized_keys = f"{ssh_dir}/authorized_keys"
+        mount_proc = self._run_storage_ssh(
+            target,
+            (
+                "key_file=$(mktemp) || exit 1; "
+                "trap 'rm -f \"$key_file\"' EXIT; "
+                f'cp {authorized_keys} "$key_file" || '
+                "exit 1; "
+                f"if sudo -n mount -t ext4 -o rw {storage_partition} "
+                f"{mountpoint}; then "
+                f"if sudo -n chown {test_username}:{test_username} "
+                f"{mountpoint} && "
+                f"sudo -n install -d -m 700 "
+                f"-o {test_username} -g {test_username} "
+                f"{ssh_dir} && "
+                f"sudo -n touch {authorized_keys} && "
+                f'sudo -n tee -a {authorized_keys} < "$key_file" '
+                ">/dev/null && "
+                f"sudo -n chown {test_username}:{test_username} "
+                f"{authorized_keys} && "
+                f"sudo -n chmod 600 {authorized_keys}; then "
+                "exit 0; "
+                "fi; "
+                f"sudo -n umount {mountpoint} || exit 2; "
+                "fi; "
+                "exit 1"
+            ),
+        )
+        if mount_proc.returncode == 2:
+            raise subprocess.CalledProcessError(2, mount_proc.args)
+        if mount_proc.returncode != 0:
+            logger.warning(
+                "Failed to mount existing DUT storage partition %s; "
+                "falling back to storage preparation",
+                storage_partition,
+            )
+            return False
+        if self._is_expected_storage_mounted(target, mountpoint):
+            return True
+
+        logger.warning(
+            "Mounted DUT storage did not pass validation; unmounting it "
+            "before storage preparation"
+        )
+        umount_proc = self._run_storage_ssh(
+            target, f"sudo -n umount {mountpoint}"
+        )
+        if umount_proc.returncode != 0:
+            raise subprocess.CalledProcessError(
+                umount_proc.returncode, umount_proc.args
+            )
+        return False
 
     def copy_to_deploy_path(self, source_path, dest_path):
         """Verify if attachment exists, then copy when
@@ -162,14 +371,7 @@ class OemAutoinstall:
 
         cmd = [
             "ssh",
-            "-o",
-            "StrictHostKeyChecking=no",
-            "-o",
-            "UserKnownHostsFile=/dev/null",
-            "-o",
-            "BatchMode=yes",
-            "-o",
-            "ConnectTimeout=10",
+            *self.SSH_OPTS,
             f"{test_username}@{self.config['device_ip']}",
             "true",
         ]
@@ -189,8 +391,8 @@ class OemAutoinstall:
         except AttributeError:
             return default_value
 
-    def copy_ssh_id(self):
-        """Copy the ssh id to the device."""
+    def copy_ssh_id(self, force=False):
+        """Copy the ssh id to the device with an optional force flag."""
         test_username = self.get_test_data_or_default(
             "test_username", "ubuntu"
         )
@@ -203,12 +405,18 @@ class OemAutoinstall:
             "-p",
             test_password,
             "ssh-copy-id",
-            "-o",
-            "StrictHostKeyChecking=no",
-            "-o",
-            "UserKnownHostsFile=/dev/null",
-            f"{test_username}@{self.config['device_ip']}",
         ]
+        if force:
+            cmd.append("-f")
+        cmd.extend(
+            [
+                "-o",
+                "StrictHostKeyChecking=no",
+                "-o",
+                "UserKnownHostsFile=/dev/null",
+                f"{test_username}@{self.config['device_ip']}",
+            ]
+        )
         subprocess.check_output(cmd, stderr=subprocess.STDOUT, timeout=60)
 
     def hardreset(self):
