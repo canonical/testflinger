@@ -20,6 +20,17 @@ schema:
 check-schema:
     @uvx tox run -e check-schema
 
+[doc('Generate the API roles reference page.')]
+[group('project')]
+roles-docs:
+    @uvx tox run -e roles-docs
+
+[doc('Check the API roles reference page.')]
+[group('project')]
+[group('test')]
+check-roles-docs:
+    @uvx tox run -e check-roles-docs
+
 [doc('Add a dependency (uv add ...).')]
 [group('venv')]
 [positional-arguments]
@@ -65,7 +76,7 @@ test:
 
 [doc('Run all checks.')]
 [group('test')]
-check: lint format test check-schema
+check: lint format test check-schema check-roles-docs
     @echo 'Server checks done!'
 
 [doc('Run the server.')]

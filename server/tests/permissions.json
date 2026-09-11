@@ -88,5 +88,8 @@
   "/v1/secrets/<client_id>/<path>": {
     "DELETE": ["CONTRIBUTOR", "MANAGER", "ADMIN"],
     "PUT": ["CONTRIBUTOR", "MANAGER", "ADMIN"]
+  },
+  "/v1/events/job/<job_id>": {
+    "GET": ["AGENT", "CONTRIBUTOR", "MANAGER", "ADMIN"]
   }
 }
