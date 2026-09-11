@@ -127,3 +127,16 @@ main {
     margin-bottom: 0.5rem;
     white-space: nowrap;
 }
+
+.p-navigation__dropdown-item-form {
+    margin: 0;
+}
+form button.p-navigation__dropdown-item {
+    appearance: none;
+    background: none;
+    border: 0;
+    width: 100%;
+    text-align: left;
+    font: inherit;
+    cursor: pointer;
+}

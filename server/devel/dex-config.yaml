@@ -31,10 +31,6 @@ staticPasswords:
     hash: "$2a$10$FWI.y.8Zpa9PhTTcV6GDIuxPzrwYJoiVCimgCA427HoyR5FR50mBu"
     username: "carol"
     userID: "1005"
-  - email: "dave@example.com"
-    hash: "$2a$10$FWI.y.8Zpa9PhTTcV6GDIuxPzrwYJoiVCimgCA427HoyR5FR50mBu"
-    username: "dave"
-    userID: "1006"
 oauth2:
   grantTypes:
     - "authorization_code"
