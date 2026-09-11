@@ -277,7 +277,12 @@ class TestOemAutoinstall(unittest.TestCase):
             mount_command.index("cp "), mount_command.index("mount ")
         )
         self.assertLess(
-            mount_command.index("mount "), mount_command.index("tee -a")
+            mount_command.index("mount "),
+            mount_command.index("chown ubuntu:ubuntu /home/ubuntu"),
+        )
+        self.assertLess(
+            mount_command.index("chown ubuntu:ubuntu /home/ubuntu"),
+            mount_command.index("tee -a"),
         )
         self.assertFalse(
             any(
@@ -317,6 +322,7 @@ class TestOemAutoinstall(unittest.TestCase):
         )
         mount_command = remote_commands[3]
         self.assertIn("/dev/nvme0n1p3 /home/oem", mount_command)
+        self.assertIn("chown oem:oem /home/oem", mount_command)
         self.assertIn("-o oem -g oem /home/oem/.ssh", mount_command)
         self.assertIn(
             "chown oem:oem /home/oem/.ssh/authorized_keys", mount_command
