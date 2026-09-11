@@ -157,8 +157,7 @@ class OemAutoinstall:
                 return
 
         logger.info(
-            "DUT is in bootstrap mode without storage partition. "
-            "Formatting..."
+            "DUT is in bootstrap mode without storage partition. Formatting..."
         )
         proc = self._run_storage_ssh(
             target,
