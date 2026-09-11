@@ -654,8 +654,8 @@
             "type": "string"
           },
           "job_state_changed_at": {
-            "type": "string",
-            "format": "date-time"
+            "format": "date-time",
+            "type": "string"
           },
           "provision_output": {
             "type": "string"

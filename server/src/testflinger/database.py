@@ -33,6 +33,16 @@ ACCOUNT_DELETE_EXPIRATION = 60 * 60 * 24 * 90  # 90 days
 mongo = PyMongo()
 
 
+def _now() -> datetime:
+    """Return the current UTC time.
+
+    A thin seam so tests can script ``job_state_changed_at`` timestamps
+    without patching the ``datetime`` class wholesale. Production behavior
+    is identical to ``datetime.now(timezone.utc)``.
+    """
+    return datetime.now(timezone.utc)
+
+
 def get_mongo_uri():
     """Create mongodb uri from environment variables."""
     mongo_user = os.environ.get("MONGODB_USERNAME")
@@ -234,9 +244,7 @@ def pop_job(queue_list: list[str], agent_name: str) -> dict | None:
             {
                 "$set": {
                     "result_data.job_state": "running",
-                    "result_data.job_state_changed_at": datetime.now(
-                        timezone.utc
-                    ),
+                    "result_data.job_state_changed_at": _now(),
                     "result_data.agent_id": agent_name,
                 }
             },
@@ -281,7 +289,7 @@ def cancel_job(job_id, client_id: str | None = None):
     modifications = 0
     update_fields = {
         "result_data.job_state": "cancelled",
-        "result_data.job_state_changed_at": datetime.now(timezone.utc),
+        "result_data.job_state_changed_at": _now(),
     }
     if client_id is not None:
         update_fields["result_data.cancelled_by"] = client_id
@@ -932,6 +940,9 @@ def add_job_results(job_id: str, json_data: dict):
         raise TypeError(
             f"job_state must be a string, got {type(job_state).__name__}"
         )
+    # Defense in depth: strip any client-supplied job_state_changed_at so the
+    # server-managed timestamp always wins even if the API schema is relaxed.
+    json_data.pop("job_state_changed_at", None)
 
     # Prepend "result_data." to each remaining sibling key.
     set_fields = {
@@ -947,7 +958,7 @@ def add_job_results(job_id: str, json_data: dict):
         atomic_set = {
             **set_fields,
             "result_data.job_state": job_state,
-            "result_data.job_state_changed_at": datetime.now(timezone.utc),
+            "result_data.job_state_changed_at": _now(),
         }
         result = mongo.db.jobs.update_one(
             {

@@ -31,10 +31,12 @@ from tests.utilities import get_access_token_header
 
 
 class _AdvancingClock:
-    """Test double for ``datetime`` exposing a scripted ``now()``.
+    """Scripted UTC clock for patching ``testflinger.database._now``.
 
-    Each call to ``now()`` returns a strictly-increasing UTC-aware datetime
-    so tests can assert on timestamp progression without ``time.sleep``.
+    Each call returns a strictly-increasing naive UTC datetime, matching the
+    codebase convention that timestamps are UTC-by-convention (no tzinfo on
+    the wire, no tzinfo on read from Mongo). Tests can assert on timestamp
+    progression without ``time.sleep``.
     """
 
     def __init__(
@@ -42,20 +44,21 @@ class _AdvancingClock:
         start: datetime | None = None,
         step: timedelta = timedelta(seconds=1),
     ):
-        self._current = start or datetime(2026, 1, 1, tzinfo=timezone.utc)
+        self._current = start or datetime(2026, 1, 1)
         self._step = step
 
-    def now(self, tz):
-        """Return the next scripted timestamp.
+    def __call__(self) -> datetime:
+        """Return the next scripted timestamp as a naive UTC datetime.
 
-        Requires ``tz`` (no default) and asserts it is UTC. Production code
-        under test always calls ``datetime.now(timezone.utc)``; a default or
-        silently-accepted non-UTC ``tz`` would mask misuse, so both cases
-        raise loudly here.
+        Callable so it can be used directly as ``side_effect`` when patching
+        ``testflinger.database._now``. If constructed with a tz-aware start,
+        tzinfo is dropped so callers observe the same naive shape they see
+        in production (datetimes read back from Mongo).
         """
-        assert tz is timezone.utc, f"expected timezone.utc, got {tz!r}"
         value = self._current
         self._current = value + self._step
+        if value.tzinfo is not None:
+            value = value.replace(tzinfo=None)
         return value
 
 
@@ -2009,16 +2012,14 @@ def test_initial_job_state_changed_at(mongo_app):
     result = app.get(f"/v1/result/{job_id}").json
     assert result.get("job_state") == "waiting"
     assert "job_state_changed_at" in result
-    # The server stores a UTC-aware datetime; the wire value must round-trip
-    # to the same UTC instant. Assert on semantics (timezone-aware, UTC),
-    # not on the exact string form ("+00:00" vs "Z" vs ...).
-    # NOTE: on Python 3.10, datetime.fromisoformat does not accept the "Z"
-    # suffix; the server currently emits "+00:00", so this parses cleanly.
-    # If serialization ever changes to "Z", either bump the minimum Python
-    # to 3.11+ or normalize the suffix before parsing.
+    # Testflinger stores all timestamps as UTC by convention and emits them
+    # as naive ISO strings; consumers are expected to interpret them as UTC.
+    # Assert the value round-trips cleanly through ``fromisoformat`` (i.e.
+    # is a syntactically valid ISO datetime) without prescribing a wire-format
+    # timezone suffix.
     changed_at = datetime.fromisoformat(result["job_state_changed_at"])
-    assert changed_at.tzinfo is not None
-    assert changed_at.utcoffset() == timedelta(0)
+    assert isinstance(changed_at, datetime)
+    assert changed_at.tzinfo is None
 
 
 def test_job_state_changed_at_on_result_post(
@@ -2039,8 +2040,10 @@ def test_job_state_changed_at_on_result_post(
     # Scripted clock so the post-transition timestamp is strictly later
     # than the creation timestamp regardless of wall-clock resolution.
     mocker.patch(
-        "testflinger.database.datetime",
-        _AdvancingClock(start=initial_changed_at + timedelta(seconds=1)),
+        "testflinger.database._now",
+        side_effect=_AdvancingClock(
+            start=initial_changed_at + timedelta(seconds=1)
+        ),
     )
 
     # Post a new job_state
@@ -2149,9 +2152,8 @@ def test_client_supplied_job_state_changed_at_is_ignored(
     output = app.post("/v1/job", json={"job_queue": "test"})
     job_id = output.json.get("job_id")
     initial_result = app.get(f"/v1/result/{job_id}").json
-    # Use ``+00:00`` rather than ``Z``: Python 3.10's ``fromisoformat`` does
-    # not accept the ``Z`` suffix, and this project currently supports 3.10.
-    spoofed = "1970-01-01T00:00:00+00:00"
+    # Naive ISO string: testflinger emits UTC timestamps without a tz suffix.
+    spoofed = "1970-01-01T00:00:00"
 
     # API-level rejection: schema validation must refuse unknown fields.
     rejected = app.post(
@@ -2164,7 +2166,9 @@ def test_client_supplied_job_state_changed_at_is_ignored(
     # Deterministically advance the clock the database module observes so
     # any subsequent write lands at a distinct, later timestamp without
     # relying on wall-clock sleeps.
-    mocker.patch("testflinger.database.datetime", _AdvancingClock())
+    mocker.patch(
+        "testflinger.database._now", side_effect=_AdvancingClock()
+    )
 
     # Defense in depth: even if the field reaches add_job_results (e.g. via
     # a future schema change), the server value must win.
@@ -2205,8 +2209,8 @@ def test_job_state_changed_at_updates_across_transitions(
     # regardless of wall-clock resolution. Anchor well past the wall-clock
     # timestamp captured on job creation so ordering assertions hold.
     mocker.patch(
-        "testflinger.database.datetime",
-        _AdvancingClock(start=previous_ts + timedelta(seconds=1)),
+        "testflinger.database._now",
+        side_effect=_AdvancingClock(start=previous_ts + timedelta(seconds=1)),
     )
 
     for state in ("provision", "test", "complete"):
