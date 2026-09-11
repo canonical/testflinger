@@ -128,13 +128,10 @@ main {
     white-space: nowrap;
 }
 
-/* Dev-only auto sign-in dropdown items are <button> in a POST <form> so the
-   action is not GET-safe. Reset button chrome so they render as regular
-   Vanilla dropdown items. */
 .p-navigation__dropdown-item-form {
     margin: 0;
 }
-.p-navigation__dropdown-item-form button.p-navigation__dropdown-item {
+form button.p-navigation__dropdown-item {
     appearance: none;
     background: none;
     border: 0;
@@ -142,10 +139,4 @@ main {
     text-align: left;
     font: inherit;
     cursor: pointer;
-}
-.p-navigation__dropdown-item-form button.p-navigation__dropdown-item:hover,
-.p-navigation__dropdown-item-form button.p-navigation__dropdown-item:focus,
-.p-navigation__dropdown-item-form button.p-navigation__dropdown-item:active {
-    background-color: #f7f7f7;
-    color: #333;
 }

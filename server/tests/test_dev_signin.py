@@ -51,6 +51,18 @@ def _make_app(monkeypatch, *, dev_signin_env=None, oidc=False):
     return application.create_flask_app(TestingConfig)
 
 
+def _assert_disabled_dev_signin_post(app):
+    """Assert the menu's POST cannot establish a session when disabled."""
+    client = app.test_client()
+    response = client.post(
+        "/auth/dev-signin", data={"email": "alice@example.com"}
+    )
+
+    assert response.status_code == HTTPStatus.NOT_FOUND
+    assert database.mongo.db.client_permissions.count_documents({}) == 0
+    assert "Set-Cookie" not in response.headers
+
+
 def test_dev_signin_route_not_registered_by_default(monkeypatch):
     """No env var, no OIDC: route must not exist."""
     app = _make_app(monkeypatch)
@@ -63,6 +75,7 @@ def test_dev_signin_route_not_registered_by_default(monkeypatch):
         "/auth/dev-signin?email=alice@example.com"
     )
     assert response.status_code == HTTPStatus.NOT_FOUND
+    _assert_disabled_dev_signin_post(app)
 
 
 def test_dev_signin_route_not_registered_without_oidc(monkeypatch):
@@ -76,6 +89,7 @@ def test_dev_signin_route_not_registered_without_oidc(monkeypatch):
         "/auth/dev-signin?email=alice@example.com"
     )
     assert response.status_code == HTTPStatus.NOT_FOUND
+    _assert_disabled_dev_signin_post(app)
 
 
 @pytest.mark.parametrize("env_value", ["", "0", "true", "yes", "TRUE"])
@@ -91,6 +105,7 @@ def test_dev_signin_route_not_registered_for_non_one_values(
         "/auth/dev-signin?email=alice@example.com"
     )
     assert response.status_code == HTTPStatus.NOT_FOUND
+    _assert_disabled_dev_signin_post(app)
 
 
 def test_dev_signin_context_processor_reports_disabled(monkeypatch):
