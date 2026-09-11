@@ -19,7 +19,7 @@ import subprocess
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import Mock, patch
+from unittest.mock import Mock, call, patch
 
 import pytest
 import yaml
@@ -208,20 +208,217 @@ class TestOemAutoinstall(unittest.TestCase):
         """Test prepare-storage runs and key is restored in bootstrap."""
         device = OemAutoinstall(self.config_file.name, self.job_file.name)
 
-        # Detection succeeds (c3-cid-applier present -> bootstrap stage)
-        mock_run.side_effect = [Mock(returncode=0), Mock(returncode=0)]
+        mock_run.side_effect = [
+            Mock(returncode=0),  # Bootstrap detection succeeds
+            Mock(returncode=1),  # Expected storage is not mounted
+            Mock(returncode=0, stdout=""),  # No existing storage candidate
+            Mock(returncode=0),  # Storage preparation succeeds
+        ]
 
         device.prepare_storage_when_bootstrap()
 
-        # detection + prepare-storage
-        self.assertEqual(mock_run.call_count, 2)
-        prepare_args = mock_run.call_args_list[1][0][0]
+        self.assertEqual(mock_run.call_count, 4)
+        prepare_args = mock_run.call_args_list[3][0][0]
         self.assertIn(
             "sudo -n /usr/bin/prepare-storage.sh --format-partitions",
             prepare_args,
         )
-        # Key is restored after remount
         mock_copy_ssh_id.assert_called_once()
+
+    @patch.object(OemAutoinstall, "copy_ssh_id")
+    @patch("subprocess.run")
+    def test_prepare_storage_skipped_when_already_mounted(
+        self, mock_run, mock_copy_ssh_id
+    ):
+        """Test preparation is skipped for expected mounted storage."""
+        device = OemAutoinstall(self.config_file.name, self.job_file.name)
+        mock_run.side_effect = [Mock(returncode=0), Mock(returncode=0)]
+
+        with patch(
+            "testflinger_device_connectors.devices.oem_autoinstall."
+            "oem_autoinstall.logger.info"
+        ) as mock_log_info:
+            device.prepare_storage_when_bootstrap()
+
+        self.assertEqual(mock_run.call_count, 2)
+        mount_check_args = mock_run.call_args_list[1][0][0]
+        self.assertIn("findmnt -rn -M /home/ubuntu", mount_check_args[-1])
+        self.assertIn("lsblk -dnro PARTN", mount_check_args[-1])
+        mock_log_info.assert_not_called()
+        mock_copy_ssh_id.assert_not_called()
+
+    @patch.object(OemAutoinstall, "copy_ssh_id")
+    @patch("subprocess.run")
+    def test_existing_storage_is_mounted_before_formatting(
+        self, mock_run, mock_copy_ssh_id
+    ):
+        """Test an existing prepared partition is mounted and reused."""
+        device = OemAutoinstall(self.config_file.name, self.job_file.name)
+        mock_run.side_effect = [
+            Mock(returncode=0),
+            Mock(returncode=1),
+            Mock(returncode=0, stdout="/dev/nvme0n1p3\n"),
+            Mock(returncode=0),
+            Mock(returncode=0),
+        ]
+
+        device.prepare_storage_when_bootstrap()
+
+        remote_commands = [call[0][0][-1] for call in mock_run.call_args_list]
+        self.assertTrue(
+            any(
+                "sudo -n mount -t ext4 -o rw "
+                "/dev/nvme0n1p3 /home/ubuntu" in command
+                for command in remote_commands
+            )
+        )
+        mount_command = remote_commands[3]
+        self.assertLess(
+            mount_command.index("cp "), mount_command.index("mount ")
+        )
+        self.assertLess(
+            mount_command.index("mount "), mount_command.index("tee -a")
+        )
+        self.assertFalse(
+            any(
+                "--format-partitions" in command for command in remote_commands
+            )
+        )
+        mock_copy_ssh_id.assert_called_once_with(force=True)
+
+    @patch.object(OemAutoinstall, "copy_ssh_id")
+    @patch("subprocess.run")
+    def test_storage_uses_configured_test_username(
+        self, mock_run, mock_copy_ssh_id
+    ):
+        """Test storage paths and ownership use the configured test user."""
+        device = OemAutoinstall(self.config_file.name, self.job_file.name)
+        device.job_data["test_data"]["test_username"] = "oem"
+        mock_run.side_effect = [
+            Mock(returncode=0),
+            Mock(returncode=1),
+            Mock(returncode=0, stdout="/dev/nvme0n1p3\n"),
+            Mock(returncode=0),
+            Mock(returncode=0),
+        ]
+
+        device.prepare_storage_when_bootstrap()
+
+        ssh_commands = [call[0][0] for call in mock_run.call_args_list]
+        self.assertTrue(
+            all("oem@192.168.1.100" in command for command in ssh_commands)
+        )
+        remote_commands = [command[-1] for command in ssh_commands]
+        self.assertTrue(
+            any(
+                "findmnt -rn -M /home/oem" in command
+                for command in remote_commands
+            )
+        )
+        mount_command = remote_commands[3]
+        self.assertIn("/dev/nvme0n1p3 /home/oem", mount_command)
+        self.assertIn("-o oem -g oem /home/oem/.ssh", mount_command)
+        self.assertIn(
+            "chown oem:oem /home/oem/.ssh/authorized_keys", mount_command
+        )
+        mock_copy_ssh_id.assert_called_once_with(force=True)
+
+    @patch.object(OemAutoinstall, "copy_ssh_id")
+    @patch("subprocess.run")
+    def test_failed_mount_validation_unmounts_before_formatting(
+        self, mock_run, mock_copy_ssh_id
+    ):
+        """Test invalid mounted storage is unmounted before formatting."""
+        device = OemAutoinstall(self.config_file.name, self.job_file.name)
+        mock_run.side_effect = [
+            Mock(returncode=0),
+            Mock(returncode=1),
+            Mock(returncode=0, stdout="/dev/nvme0n1p3\n"),
+            Mock(returncode=0),
+            Mock(returncode=1),
+            Mock(returncode=0),
+            Mock(returncode=0),
+        ]
+
+        device.prepare_storage_when_bootstrap()
+
+        remote_commands = [call[0][0][-1] for call in mock_run.call_args_list]
+        umount_index = next(
+            index
+            for index, command in enumerate(remote_commands)
+            if command == "sudo -n umount /home/ubuntu"
+        )
+        format_index = next(
+            index
+            for index, command in enumerate(remote_commands)
+            if "--format-partitions" in command
+        )
+        self.assertLess(umount_index, format_index)
+        self.assertEqual(
+            mock_copy_ssh_id.call_args_list,
+            [call(force=True), call()],
+        )
+
+    @patch.object(OemAutoinstall, "copy_ssh_id")
+    @patch("subprocess.run")
+    def test_failed_unmount_does_not_format(self, mock_run, mock_copy_ssh_id):
+        """Test a failed rollback cannot format mounted storage."""
+        device = OemAutoinstall(self.config_file.name, self.job_file.name)
+        mock_run.side_effect = [
+            Mock(returncode=0),
+            Mock(returncode=1),
+            Mock(returncode=0, stdout="/dev/nvme0n1p3\n"),
+            Mock(returncode=0),
+            Mock(returncode=1),
+            Mock(returncode=1),
+        ]
+
+        device.prepare_storage_when_bootstrap()
+
+        remote_commands = [call[0][0][-1] for call in mock_run.call_args_list]
+        self.assertFalse(
+            any(
+                "--format-partitions" in command for command in remote_commands
+            )
+        )
+        mock_copy_ssh_id.assert_called_once_with(force=True)
+
+    @patch.object(OemAutoinstall, "copy_ssh_id")
+    @patch("subprocess.run")
+    def test_storage_inspection_failure_does_not_format(
+        self, mock_run, mock_copy_ssh_id
+    ):
+        """Test an inspection error cannot authorize formatting."""
+        device = OemAutoinstall(self.config_file.name, self.job_file.name)
+        mock_run.side_effect = [
+            Mock(returncode=0),
+            Mock(returncode=1),
+            Mock(returncode=2, stdout="", stderr="lsblk failed"),
+        ]
+
+        device.prepare_storage_when_bootstrap()
+
+        remote_commands = [call[0][0][-1] for call in mock_run.call_args_list]
+        self.assertFalse(
+            any(
+                "--format-partitions" in command for command in remote_commands
+            )
+        )
+        mock_copy_ssh_id.assert_not_called()
+
+    @patch.object(OemAutoinstall, "copy_ssh_id")
+    @patch("subprocess.run")
+    def test_ssh_failure_does_not_format(self, mock_run, mock_copy_ssh_id):
+        """Test an SSH transport failure cannot authorize formatting."""
+        device = OemAutoinstall(self.config_file.name, self.job_file.name)
+        mock_run.return_value = Mock(returncode=255)
+
+        device.prepare_storage_when_bootstrap()
+
+        mock_run.assert_called_once()
+        remote_command = mock_run.call_args[0][0][-1]
+        self.assertNotIn("--format-partitions", remote_command)
+        mock_copy_ssh_id.assert_not_called()
 
     @patch.object(OemAutoinstall, "copy_ssh_id")
     @patch("subprocess.run")
@@ -262,12 +459,15 @@ class TestOemAutoinstall(unittest.TestCase):
         """A failing prepare-storage.sh must not abort provisioning."""
         device = OemAutoinstall(self.config_file.name, self.job_file.name)
 
-        # Detection succeeds, but the format command itself fails
-        mock_run.side_effect = [Mock(returncode=0), Mock(returncode=1)]
+        mock_run.side_effect = [
+            Mock(returncode=0),
+            Mock(returncode=1),
+            Mock(returncode=0, stdout=""),
+            Mock(returncode=1),
+        ]
 
         device.prepare_storage_when_bootstrap()  # must not raise
 
-        # Key restore is still attempted even if formatting failed
         mock_copy_ssh_id.assert_called_once()
 
     @patch.object(OemAutoinstall, "copy_ssh_id")
@@ -280,7 +480,12 @@ class TestOemAutoinstall(unittest.TestCase):
         """
         device = OemAutoinstall(self.config_file.name, self.job_file.name)
 
-        mock_run.side_effect = [Mock(returncode=0), Mock(returncode=0)]
+        mock_run.side_effect = [
+            Mock(returncode=0),
+            Mock(returncode=1),
+            Mock(returncode=0, stdout=""),
+            Mock(returncode=0),
+        ]
         mock_copy_ssh_id.side_effect = subprocess.CalledProcessError(1, "cmd")
 
         device.prepare_storage_when_bootstrap()  # must not raise
