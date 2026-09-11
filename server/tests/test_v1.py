@@ -44,7 +44,7 @@ class _AdvancingClock:
         start: datetime | None = None,
         step: timedelta = timedelta(seconds=1),
     ):
-        self._current = start or datetime(2026, 1, 1)
+        self._current = start or datetime(2026, 1, 1, tzinfo=timezone.utc)
         self._step = step
 
     def __call__(self) -> datetime:
@@ -2166,9 +2166,7 @@ def test_client_supplied_job_state_changed_at_is_ignored(
     # Deterministically advance the clock the database module observes so
     # any subsequent write lands at a distinct, later timestamp without
     # relying on wall-clock sleeps.
-    mocker.patch(
-        "testflinger.database._now", side_effect=_AdvancingClock()
-    )
+    mocker.patch("testflinger.database._now", side_effect=_AdvancingClock())
 
     # Defense in depth: even if the field reaches add_job_results (e.g. via
     # a future schema change), the server value must win.
