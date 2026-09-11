@@ -22,6 +22,7 @@ from typing import Any
 
 from flask_pymongo import PyMongo
 from gridfs import GridFS, errors
+from pymongo import ReturnDocument
 from testflinger_common.enums import ServerRoles
 
 # Constants for TTL indexes
@@ -128,6 +129,11 @@ def create_indexes():
         partialFilterExpression={"sub": {"$exists": True}},
     )
 
+    # Remove stale job events after defined expiration
+    mongo.db.jobs_events.create_index(
+        "updated_at", expireAfterSeconds=DEFAULT_EXPIRATION
+    )
+
     # Faster lookups for common queries
     mongo.db.refresh_tokens.create_index("refresh_token", unique=True)
     mongo.db.refresh_tokens.create_index("client_id")
@@ -135,6 +141,7 @@ def create_indexes():
     mongo.db.client_permissions.create_index("client_id", unique=True)
     mongo.db.client_permissions.create_index("sub", sparse=True)
     mongo.db.jobs.create_index("job_id")
+    mongo.db.jobs_events.create_index("job_id", unique=True)
     mongo.db.jobs.create_index(["result_data.job_state", "job_data.job_queue"])
     mongo.db.agents.create_index("queues")
 
@@ -913,19 +920,38 @@ def get_job_results(job_id: str):
     )
 
 
-def add_job_results(job_id: str, json_data: dict):
-    """Add results to specified job id with "result_data" prepended."""
-    # First, we need to prepend "result_data" to each key in the result_data
-    for key in list(json_data):
-        json_data[f"result_data.{key}"] = json_data.pop(key)
+def update_job_results(job_id: str, json_data: dict) -> dict:
+    """Update results for a job and return the previous `result_data`.
 
-    mongo.db.jobs.update_one({"job_id": job_id}, {"$set": json_data})
+    The previous `result_data` is returned to reliable detect any
+    state transitions this document update introduced.
+
+    :param job_id: The job ID to update results for.
+    :param json_data: The result data to store (not modified).
+    :return: The previous `result_data` dict, or an empty dict
+    """
+    # Prepend "result_data" to each key in the result data
+    set_data = {
+        f"result_data.{key}": value for key, value in json_data.items()
+    }
+
+    # find_one_and_update guarantees atomicity as it locks the document
+    # for the duration of the update. Returning the previous document
+    # allows us to properly detect unique events
+    previous_doc = mongo.db.jobs.find_one_and_update(
+        {"job_id": job_id},
+        {"$set": set_data},
+        projection={"result_data": True, "_id": False},
+        return_document=ReturnDocument.BEFORE,
+    )
 
     # Additionally, because the job_data may reflect that the job is now done,
     # we need to disassociate the agent from the job if the job is done:
     terminal_states = {"complete", "completed", "cancelled"}
-    if json_data.get("result_data.job_state") in terminal_states:
+    if json_data.get("job_state") in terminal_states:
         clear_agent_job(job_id)
+
+    return (previous_doc or {}).get("result_data", {})
 
 
 def job_exists(job_id: str) -> bool:
@@ -1032,3 +1058,21 @@ def update_agent_provision_log(agent_name, json_data) -> bool:
         mongo.db.agents.update_one({"name": agent_name}, {"$set": agent})
         found = True
     return found
+
+
+def add_job_event(job_id: str, event: dict) -> None:
+    """Add an event to the job events collection.
+
+    Events are appended in natural insertion order (oldest first).
+
+    :param job_id: The ID of the job.
+    :param event: The event data to add.
+    """
+    mongo.db.jobs_events.update_one(
+        {"job_id": job_id},
+        {
+            "$push": {"events": event},
+            "$set": {"updated_at": datetime.now(timezone.utc)},
+        },
+        upsert=True,
+    )
