@@ -622,11 +622,13 @@ def result_post(job_id: str, json_data: dict) -> str:
 @v1.output(schemas.ResultStatus)
 @v1.doc(responses=schemas.result_empty)
 def result_status_get(job_id: str):
-    """Return job state and phase exit codes for a specified job_id.
+    """Return job state, state-change timestamp and phase exit codes.
 
     This is a lightweight alternative to GET /result/<job_id> that omits
-    log data (output and serial).  Use this when only the job state or
-    phase statuses are needed.
+    log data (output and serial). Use this when only the job state,
+    its last change time, or phase statuses are needed. The optional
+    job_state_changed_at timestamp uses UTC by convention and is absent
+    for older jobs that have not recorded a state change.
 
     :param job_id: UUID as a string for the job
     :raises HTTPError: If the job_id is not a valid UUID
@@ -647,6 +649,10 @@ def result_status_get(job_id: str):
     }
     if job_state := result_data.get("job_state"):
         status_response["job_state"] = job_state
+    if "job_state_changed_at" in result_data:
+        status_response["job_state_changed_at"] = result_data[
+            "job_state_changed_at"
+        ]
     return status_response
 
 

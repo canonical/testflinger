@@ -458,7 +458,7 @@ class JobSearchResponse(Schema):
 
 
 class ResultStatus(Schema):
-    """Result Status schema - job state and phase exit codes only, no logs."""
+    """Job state, state-change timestamp and phase exit codes, without logs."""
 
     setup_status = fields.Integer(required=False)
     provision_status = fields.Integer(required=False)
@@ -468,6 +468,7 @@ class ResultStatus(Schema):
     reserve_status = fields.Integer(required=False)
     cleanup_status = fields.Integer(required=False)
     job_state = fields.String(required=False)
+    job_state_changed_at = fields.DateTime(required=False)
 
 
 class ResultGet(ResultStatus):
@@ -490,7 +491,6 @@ class ResultGet(ResultStatus):
 
     device_info = fields.Dict(required=False)
     job_state = fields.String(required=False)
-    job_state_changed_at = fields.DateTime(required=False)
     cancelled_by = fields.String(load_default=None)
 
 
