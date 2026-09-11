@@ -18,15 +18,48 @@
 import json
 import os
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from http import HTTPStatus
 
 import pytest
 import requests
 from testflinger_common.enums import ServerRoles
 
+from testflinger import database
 from testflinger.api import v1
 from tests.utilities import get_access_token_header
+
+
+class _AdvancingClock:
+    """Scripted UTC clock for patching ``testflinger.database._now``.
+
+    Each call returns a strictly-increasing naive UTC datetime, matching the
+    codebase convention that timestamps are UTC-by-convention (no tzinfo on
+    the wire, no tzinfo on read from Mongo). Tests can assert on timestamp
+    progression without ``time.sleep``.
+    """
+
+    def __init__(
+        self,
+        start: datetime | None = None,
+        step: timedelta = timedelta(seconds=1),
+    ):
+        self._current = start or datetime(2026, 1, 1, tzinfo=timezone.utc)
+        self._step = step
+
+    def __call__(self) -> datetime:
+        """Return the next scripted timestamp as a naive UTC datetime.
+
+        Callable so it can be used directly as ``side_effect`` when patching
+        ``testflinger.database._now``. If constructed with a tz-aware start,
+        tzinfo is dropped so callers observe the same naive shape they see
+        in production (datetimes read back from Mongo).
+        """
+        value = self._current
+        self._current = value + self._step
+        if value.tzinfo is not None:
+            value = value.replace(tzinfo=None)
+        return value
 
 
 def test_home(mongo_app):
@@ -1967,6 +2000,291 @@ def test_job_get_no_auth_headers(mongo_app):
 
     output = app.get("/v1/job?queue=test")
     assert output.status_code == HTTPStatus.FORBIDDEN  # AGENT role expected
+
+
+def test_initial_job_state_changed_at(mongo_app):
+    """Ensure job_state_changed_at is set when a job is created (waiting)."""
+    app, _ = mongo_app
+    job_data = {"job_queue": "test"}
+    output = app.post("/v1/job", json=job_data)
+    job_id = output.json.get("job_id")
+
+    result = app.get(f"/v1/result/{job_id}").json
+    assert result.get("job_state") == "waiting"
+    assert "job_state_changed_at" in result
+    # Testflinger stores all timestamps as UTC by convention and emits them
+    # as naive ISO strings; consumers are expected to interpret them as UTC.
+    # Assert the value round-trips cleanly through ``fromisoformat`` (i.e.
+    # is a syntactically valid ISO datetime) without prescribing a wire-format
+    # timezone suffix.
+    changed_at = datetime.fromisoformat(result["job_state_changed_at"])
+    assert isinstance(changed_at, datetime)
+    assert changed_at.tzinfo is None
+
+
+def test_job_state_changed_at_on_result_post(
+    mongo_app, agent_auth_header, mocker
+):
+    """Ensure job_state_changed_at is updated when job_state is posted."""
+    app, _ = mongo_app
+    job_data = {"job_queue": "test"}
+    output = app.post("/v1/job", json=job_data)
+    job_id = output.json.get("job_id")
+
+    # Record the initial timestamp
+    initial_result = app.get(f"/v1/result/{job_id}").json
+    initial_changed_at = datetime.fromisoformat(
+        initial_result["job_state_changed_at"]
+    )
+
+    # Scripted clock so the post-transition timestamp is strictly later
+    # than the creation timestamp regardless of wall-clock resolution.
+    mocker.patch(
+        "testflinger.database._now",
+        side_effect=_AdvancingClock(
+            start=initial_changed_at + timedelta(seconds=1)
+        ),
+    )
+
+    # Post a new job_state
+    app.post(
+        f"/v1/result/{job_id}",
+        json={"job_state": "provision"},
+        headers=agent_auth_header,
+    )
+
+    updated_result = app.get(f"/v1/result/{job_id}").json
+    assert updated_result.get("job_state") == "provision"
+    assert "job_state_changed_at" in updated_result
+    # Timestamp must be a valid ISO datetime
+    updated_changed_at = datetime.fromisoformat(
+        updated_result["job_state_changed_at"]
+    )
+    assert isinstance(updated_changed_at, datetime)
+    # A real transition must strictly advance the timestamp.
+    assert updated_changed_at > initial_changed_at
+
+
+def test_job_state_changed_at_not_updated_without_state(
+    mongo_app, agent_auth_header
+):
+    """Ensure job_state_changed_at is NOT updated when job_state is absent."""
+    app, _ = mongo_app
+    job_data = {"job_queue": "test"}
+    output = app.post("/v1/job", json=job_data)
+    job_id = output.json.get("job_id")
+
+    initial_result = app.get(f"/v1/result/{job_id}").json
+    initial_changed_at = initial_result["job_state_changed_at"]
+
+    # Post a result without job_state
+    app.post(
+        f"/v1/result/{job_id}",
+        json={"device_info": {"serial": "abc123"}},
+        headers=agent_auth_header,
+    )
+
+    updated_result = app.get(f"/v1/result/{job_id}").json
+    assert updated_result["job_state_changed_at"] == initial_changed_at
+
+
+def test_job_state_changed_at_not_updated_without_state_change(
+    mongo_app, agent_auth_header
+):
+    """Ensure job_state_changed_at is not updated for the current state."""
+    app, _ = mongo_app
+    output = app.post("/v1/job", json={"job_queue": "test"})
+    job_id = output.json.get("job_id")
+    initial_result = app.get(f"/v1/result/{job_id}").json
+
+    app.post(
+        f"/v1/result/{job_id}",
+        json={"job_state": "waiting"},
+        headers=agent_auth_header,
+    )
+
+    updated_result = app.get(f"/v1/result/{job_id}").json
+    assert (
+        updated_result["job_state_changed_at"]
+        == initial_result["job_state_changed_at"]
+    )
+
+
+def test_other_result_fields_persist_when_state_unchanged(
+    mongo_app, agent_auth_header
+):
+    """Non-state result fields must be written when state is unchanged."""
+    app, _ = mongo_app
+    output = app.post("/v1/job", json={"job_queue": "test"})
+    job_id = output.json.get("job_id")
+    initial_result = app.get(f"/v1/result/{job_id}").json
+
+    # Post a redundant state along with other result_data fields.
+    app.post(
+        f"/v1/result/{job_id}",
+        json={
+            "job_state": "waiting",
+            "device_info": {"serial": "abc123"},
+        },
+        headers=agent_auth_header,
+    )
+
+    updated_result = app.get(f"/v1/result/{job_id}").json
+    # Timestamp must remain unchanged (no state transition).
+    assert (
+        updated_result["job_state_changed_at"]
+        == initial_result["job_state_changed_at"]
+    )
+    # But the sibling result_data field must have been written.
+    assert updated_result.get("device_info") == {"serial": "abc123"}
+
+
+def test_client_supplied_job_state_changed_at_is_ignored(
+    mongo_app, agent_auth_header, mocker
+):
+    """A client cannot spoof job_state_changed_at via the result POST.
+
+    The ``ResultPost`` schema rejects unknown fields at the API layer, and
+    ``update_job_results`` additionally strips the field before writing to the
+    database as defense in depth.
+    """
+    app, mongo = mongo_app
+    output = app.post("/v1/job", json={"job_queue": "test"})
+    job_id = output.json.get("job_id")
+    initial_result = app.get(f"/v1/result/{job_id}").json
+    # Naive ISO string: testflinger emits UTC timestamps without a tz suffix.
+    spoofed = "1970-01-01T00:00:00"
+
+    # API-level rejection: schema validation must refuse unknown fields.
+    rejected = app.post(
+        f"/v1/result/{job_id}",
+        json={"job_state_changed_at": spoofed},
+        headers=agent_auth_header,
+    )
+    assert rejected.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+
+    # Deterministically advance the clock the database module observes so
+    # any subsequent write lands at a distinct, later timestamp without
+    # relying on wall-clock sleeps.
+    mocker.patch("testflinger.database._now", side_effect=_AdvancingClock())
+
+    # Defense in depth: even if the field reaches update_job_results (e.g. via
+    # a future schema change), the server value must win.
+    database.update_job_results(
+        job_id,
+        {
+            "job_state": "provision",
+            "job_state_changed_at": spoofed,
+        },
+    )
+    stored = mongo.jobs.find_one({"job_id": job_id})["result_data"]
+    assert stored["job_state"] == "provision"
+    assert isinstance(stored["job_state_changed_at"], datetime)
+    # The spoofed 1970 value must not have been persisted.
+    assert stored["job_state_changed_at"].year > 1970
+    # And the API response must not surface the spoofed value.
+    result = app.get(f"/v1/result/{job_id}").json
+    assert result["job_state_changed_at"] != spoofed
+    assert (
+        result["job_state_changed_at"]
+        != initial_result["job_state_changed_at"]
+    )
+
+
+def test_job_state_changed_at_updates_across_transitions(
+    mongo_app, agent_auth_header, mocker
+):
+    """Every real state transition must bump job_state_changed_at."""
+    app, _ = mongo_app
+    output = app.post("/v1/job", json={"job_queue": "test"})
+    job_id = output.json.get("job_id")
+
+    previous_ts = datetime.fromisoformat(
+        app.get(f"/v1/result/{job_id}").json["job_state_changed_at"]
+    )
+
+    # Scripted clock so each transition lands at a strictly later time
+    # regardless of wall-clock resolution. Anchor well past the wall-clock
+    # timestamp captured on job creation so ordering assertions hold.
+    mocker.patch(
+        "testflinger.database._now",
+        side_effect=_AdvancingClock(start=previous_ts + timedelta(seconds=1)),
+    )
+
+    for state in ("provision", "test", "complete"):
+        app.post(
+            f"/v1/result/{job_id}",
+            json={"job_state": state},
+            headers=agent_auth_header,
+        )
+        current = app.get(f"/v1/result/{job_id}").json
+        assert current["job_state"] == state
+        current_ts = datetime.fromisoformat(current["job_state_changed_at"])
+        # Each transition must strictly advance the timestamp.
+        assert current_ts > previous_ts
+        previous_ts = current_ts
+
+
+def test_result_events_and_timestamp_on_repeated_post(
+    mongo_app, agent_auth_header, mocker
+):
+    """Repeated results preserve timestamps and do not duplicate events."""
+    app, mongo = mongo_app
+    job_id = app.post("/v1/job", json={"job_queue": "test"}).json["job_id"]
+    mocker.patch("testflinger.database._now", side_effect=_AdvancingClock())
+    payload = {"job_state": "provision", "status": {"setup": 0}}
+    for _ in range(2):
+        response = app.post(
+            f"/v1/result/{job_id}", json=payload, headers=agent_auth_header
+        )
+        assert response.status_code == HTTPStatus.OK
+        result = app.get(f"/v1/result/{job_id}").json
+        assert datetime.fromisoformat(result["job_state_changed_at"]) == (
+            datetime(2026, 1, 1, tzinfo=timezone.utc).replace(tzinfo=None)
+        )
+
+    event_names = [
+        event["event_name"]
+        for event in mongo.jobs_events.find_one({"job_id": job_id})["events"]
+    ]
+    assert event_names.count("job_phase_started") == 1
+    assert event_names.count("job_phase_completed") == 1
+
+
+def test_job_state_changed_at_on_pop_job(mongo_app, agent_auth_header):
+    """Ensure job_state_changed_at is set when an agent picks up a job."""
+    app, mongo = mongo_app
+    job_data = {"job_queue": "test"}
+    output = app.post("/v1/job", json=job_data)
+    job_id = output.json.get("job_id")
+
+    # Register the agent and pop the job
+    app.post(
+        "/v1/agents/data/agent1",
+        json={"state": "waiting", "queues": ["test"], "location": "here"},
+        headers=agent_auth_header,
+    )
+    app.get("/v1/job?queue=test", headers=agent_auth_header)
+
+    job = mongo.jobs.find_one({"job_id": job_id})
+    assert job["result_data"]["job_state"] == "running"
+    assert "job_state_changed_at" in job["result_data"]
+    assert isinstance(job["result_data"]["job_state_changed_at"], datetime)
+
+
+def test_job_state_changed_at_on_cancel(mongo_app):
+    """Ensure job_state_changed_at is set when a job is cancelled."""
+    app, mongo = mongo_app
+    job_data = {"job_queue": "test"}
+    output = app.post("/v1/job", json=job_data)
+    job_id = output.json.get("job_id")
+
+    app.post(f"/v1/job/{job_id}/action", json={"action": "cancel"})
+
+    job = mongo.jobs.find_one({"job_id": job_id})
+    assert job["result_data"]["job_state"] == "cancelled"
+    assert "job_state_changed_at" in job["result_data"]
+    assert isinstance(job["result_data"]["job_state_changed_at"], datetime)
 
 
 def test_agent_job_id_cleared_on_job_completion(mongo_app, agent_auth_header):

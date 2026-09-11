@@ -17,7 +17,7 @@
 
 from apiflask import Schema, fields, validators
 from apiflask.validators import Length, OneOf, Regexp
-from marshmallow import INCLUDE, ValidationError, validates_schema
+from marshmallow import INCLUDE, RAISE, ValidationError, validates_schema
 from marshmallow_oneofschema import OneOfSchema
 from testflinger_common.duration import DurationParseError, parse_duration
 from testflinger_common.enums import ServerRoles, TestPhase
@@ -458,7 +458,7 @@ class JobSearchResponse(Schema):
 
 
 class ResultStatus(Schema):
-    """Result Status schema - job state and phase exit codes only, no logs."""
+    """Job state, state-change timestamp and phase exit codes, without logs."""
 
     setup_status = fields.Integer(required=False)
     provision_status = fields.Integer(required=False)
@@ -468,6 +468,7 @@ class ResultStatus(Schema):
     reserve_status = fields.Integer(required=False)
     cleanup_status = fields.Integer(required=False)
     job_state = fields.String(required=False)
+    job_state_changed_at = fields.DateTime(required=False)
 
 
 class ResultGet(ResultStatus):
@@ -495,6 +496,17 @@ class ResultGet(ResultStatus):
 
 class ResultPost(Schema):
     """Result Post schema."""
+
+    class Meta:
+        """Configure marshmallow to reject unknown fields.
+
+        Explicit ``unknown=RAISE`` (matches marshmallow's default) locks the
+        contract so clients cannot smuggle server-managed fields like
+        ``job_state_changed_at``. See ``update_job_results`` for the
+        defense-in-depth strip.
+        """
+
+        unknown = RAISE
 
     status = fields.Dict(
         keys=fields.String(validate=OneOf(TestPhases)),
