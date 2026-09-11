@@ -22,6 +22,7 @@ from typing import Any
 
 from flask_pymongo import PyMongo
 from gridfs import GridFS, errors
+from pymongo import ReturnDocument
 from testflinger_common.enums import ServerRoles
 
 # Constants for TTL indexes
@@ -128,6 +129,11 @@ def create_indexes():
         partialFilterExpression={"sub": {"$exists": True}},
     )
 
+    # Remove stale job events after defined expiration
+    mongo.db.jobs_events.create_index(
+        "updated_at", expireAfterSeconds=DEFAULT_EXPIRATION
+    )
+
     # Faster lookups for common queries
     mongo.db.refresh_tokens.create_index("refresh_token", unique=True)
     mongo.db.refresh_tokens.create_index("client_id")
@@ -135,6 +141,7 @@ def create_indexes():
     mongo.db.client_permissions.create_index("client_id", unique=True)
     mongo.db.client_permissions.create_index("sub", sparse=True)
     mongo.db.jobs.create_index("job_id")
+    mongo.db.jobs_events.create_index("job_id", unique=True)
     mongo.db.jobs.create_index(["result_data.job_state", "job_data.job_queue"])
     mongo.db.agents.create_index("queues")
 
@@ -765,6 +772,146 @@ def register_oidc_client(userinfo: dict) -> None:
     )
 
 
+def search_jobs_by_pipeline(pipeline: list[dict]) -> list[dict]:
+    """Run an aggregation pipeline on the jobs collection.
+
+    :param pipeline: MongoDB aggregation pipeline.
+    :returns: List of matching job documents.
+    """
+    return list(mongo.db.jobs.aggregate(pipeline))
+
+
+def get_advertised_queues() -> list[dict]:
+    """Return all advertised queues with name and description."""
+    return list(
+        mongo.db.queues.find(
+            {}, projection={"_id": False, "name": True, "description": True}
+        )
+    )
+
+
+def upsert_queue(name: str, description: str, timestamp: datetime) -> None:
+    """Insert or update an advertised queue entry.
+
+    :param name: Queue name.
+    :param description: Queue description.
+    :param timestamp: Timestamp of the update.
+    """
+    mongo.db.queues.update_one(
+        {"name": name},
+        {"$set": {"description": description, "updated_at": timestamp}},
+        upsert=True,
+    )
+
+
+def get_queue_images(queue: str) -> dict | None:
+    """Return the images data for a given queue.
+
+    :param queue: Name of the queue.
+    :returns: Dictionary containing the queue's images field, or None if the
+        queue does not exist.
+    """
+    return mongo.db.queues.find_one(
+        {"name": queue}, {"_id": False, "images": True}
+    )
+
+
+def set_queue_images(queue: str, image_data: dict) -> None:
+    """Set the images for a given queue.
+
+    :param queue: Queue name.
+    :param image_data: Dict of image_name to provision_data mappings.
+    """
+    mongo.db.queues.update_one(
+        {"name": queue},
+        {"$set": {"images": image_data}},
+        upsert=True,
+    )
+
+
+def upsert_agent_document(agent_name: str, data: dict, log: list[str]) -> None:
+    """Insert or update an agent record.
+
+    :param agent_name: Name of the agent.
+    :param data: Agent data fields to set.
+    :param log: Log lines to push (kept to last 100).
+    """
+    mongo.db.agents.update_one(
+        {"name": agent_name},
+        {"$set": data, "$push": {"log": {"$each": log, "$slice": -100}}},
+        upsert=True,
+    )
+
+
+def get_waiting_jobs_in_queue(queue: str) -> list[dict]:
+    """Return waiting jobs in a queue sorted by priority descending.
+
+    :param queue: Queue name.
+    :returns: List of dicts with job_id field.
+    """
+    return list(
+        mongo.db.jobs.find(
+            {"job_data.job_queue": queue, "result_data.job_state": "waiting"},
+            {"job_id": 1},
+            sort=[("job_priority", -1)],
+        )
+    )
+
+
+def get_queue_document(queue_name: str) -> dict | None:
+    """Return a queue document by name.
+
+    :param queue_name: Name of the queue.
+    :returns: Queue document or None if not found.
+    """
+    return mongo.db.queues.find_one({"name": queue_name})
+
+
+def get_all_jobs_sorted() -> list[dict]:
+    """Return full job documents sorted by creation time, newest first.
+
+    :returns: List of full job documents, sorted by created_at descending.
+    """
+    return list(mongo.db.jobs.find(sort=[("created_at", -1)]))
+
+
+def get_job_document(job_id: str) -> dict | None:
+    """Return the full stored job document for a given job ID.
+
+    Includes the submitted job data, submitter, and results such as
+    ``result_data``, ``agent_id``, ``job_priority``, and timestamps.
+    Does NOT include logs.
+
+    :param job_id: UUID string of the job.
+    :returns: Full job document or None if not found.
+    """
+    return mongo.db.jobs.find_one({"job_id": job_id}, {"_id": False})
+
+
+def get_all_agent_queue_names() -> set[str]:
+    """Return a set of all queue names reported by agents."""
+    agent_data = mongo.db.agents.find({}, {"_id": 0, "queues": 1})
+    return {queue for agent in agent_data for queue in agent.get("queues", [])}
+
+
+def get_active_jobs_in_queue(queue_name: str) -> list[dict]:
+    """Return incomplete (active) jobs in a specified queue.
+
+    :param queue_name: Name of the queue.
+    :returns: List of job documents.
+    """
+    return list(
+        mongo.db.jobs.find(
+            {
+                "job_data.job_queue": queue_name,
+                "result_data.job_state": {
+                    "$nin": ["complete", "completed", "cancelled"]
+                },
+            }
+        )
+    )
+
+
 def get_job_results(job_id: str):
     """Retrieve results for a specific job id."""
     return mongo.db.jobs.find_one(
@@ -773,28 +920,38 @@ def get_job_results(job_id: str):
     )
 
 
-def get_job(job_id: str) -> dict | None:
-    """Retrieve the full job document for a specific job id.
+def update_job_results(job_id: str, json_data: dict) -> dict:
+    """Update results for a job and return the previous `result_data`.
 
-    :param job_id: UUID as a string for the job.
-    :returns: The full job document, or None if not found.
+    The previous `result_data` is returned to reliable detect any
+    state transitions this document update introduced.
+
+    :param job_id: The job ID to update results for.
+    :param json_data: The result data to store (not modified).
+    :return: The previous `result_data` dict, or an empty dict
     """
-    return mongo.db.jobs.find_one({"job_id": job_id}, {"_id": False})
+    # Prepend "result_data" to each key in the result data
+    set_data = {
+        f"result_data.{key}": value for key, value in json_data.items()
+    }
 
-
-def add_job_results(job_id: str, json_data: dict):
-    """Add results to specified job id with "result_data" prepended."""
-    # First, we need to prepend "result_data" to each key in the result_data
-    for key in list(json_data):
-        json_data[f"result_data.{key}"] = json_data.pop(key)
-
-    mongo.db.jobs.update_one({"job_id": job_id}, {"$set": json_data})
+    # find_one_and_update guarantees atomicity as it locks the document
+    # for the duration of the update. Returning the previous document
+    # allows us to properly detect unique events
+    previous_doc = mongo.db.jobs.find_one_and_update(
+        {"job_id": job_id},
+        {"$set": set_data},
+        projection={"result_data": True, "_id": False},
+        return_document=ReturnDocument.BEFORE,
+    )
 
     # Additionally, because the job_data may reflect that the job is now done,
     # we need to disassociate the agent from the job if the job is done:
     terminal_states = {"complete", "completed", "cancelled"}
-    if json_data.get("result_data.job_state") in terminal_states:
+    if json_data.get("job_state") in terminal_states:
         clear_agent_job(job_id)
+
+    return (previous_doc or {}).get("result_data", {})
 
 
 def job_exists(job_id: str) -> bool:
@@ -901,3 +1058,33 @@ def update_agent_provision_log(agent_name, json_data) -> bool:
         mongo.db.agents.update_one({"name": agent_name}, {"$set": agent})
         found = True
     return found
+
+
+def add_job_event(job_id: str, event: dict) -> None:
+    """Add an event to the job events collection.
+
+    Events are appended in natural insertion order (oldest first).
+
+    :param job_id: The ID of the job.
+    :param event: The event data to add.
+    """
+    mongo.db.jobs_events.update_one(
+        {"job_id": job_id},
+        {
+            "$push": {"events": event},
+            "$set": {"updated_at": datetime.now(timezone.utc)},
+        },
+        upsert=True,
+    )
+
+
+def get_job_events(job_id: str) -> list[dict]:
+    """Retrieve events for a specific job id.
+
+    :param job_id: The ID of the job.
+    :return: List of events for the job, or an empty list if none exist.
+    """
+    result = mongo.db.jobs_events.find_one(
+        {"job_id": job_id}, {"_id": False, "events": True}
+    )
+    return result.get("events", []) if result else []
