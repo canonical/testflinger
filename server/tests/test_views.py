@@ -637,7 +637,6 @@ def test_agent_state_update_forbidden_without_oidc(testapp):
     mongo_client = mongomock.MongoClient()
     mongo_client.db.agents.insert_one({"name": "agent1", "mode": "online"})
     with (
-        patch("testflinger.views.mongo", mongo_client),
         patch("testflinger.database.mongo", mongo_client),
     ):
         with testapp.test_client() as client:
@@ -654,7 +653,6 @@ def test_agent_state_update_unauthorized_without_session(oidc_app):
     mongo_client = mongomock.MongoClient()
     with (
         app.test_client() as client,
-        patch("testflinger.views.mongo", mongo_client),
         patch("testflinger.database.mongo", mongo_client),
     ):
         # No session set — user_email will be absent
@@ -675,7 +673,6 @@ def test_agent_state_update_forbidden_non_admin(oidc_app):
     )
     with (
         app.test_client() as client,
-        patch("testflinger.views.mongo", mongo_client),
         patch("testflinger.database.mongo", mongo_client),
     ):
         with client.session_transaction() as sess:
@@ -698,7 +695,6 @@ def test_agent_state_update_invalid_mode(oidc_app):
     )
     with (
         app.test_client() as client,
-        patch("testflinger.views.mongo", mongo_client),
         patch("testflinger.database.mongo", mongo_client),
     ):
         with client.session_transaction() as sess:
@@ -721,7 +717,6 @@ def test_agent_state_update_offline_requires_comment(oidc_app):
     )
     with (
         app.test_client() as client,
-        patch("testflinger.views.mongo", mongo_client),
         patch("testflinger.database.mongo", mongo_client),
     ):
         with client.session_transaction() as sess:
@@ -751,7 +746,6 @@ def test_agent_state_update_success_sets_mode(oidc_app):
     )
     with (
         app.test_client() as client,
-        patch("testflinger.views.mongo", mongo_client),
         patch("testflinger.database.mongo", mongo_client),
     ):
         with client.session_transaction() as sess:
@@ -769,6 +763,7 @@ def test_agent_state_update_success_sets_mode(oidc_app):
     )
     record = mongo_client.db.agents.find_one({"name": "agent1"})
     assert record["mode"] == "offline"
+    assert "state" not in record
     assert record["comment"] == "scheduled downtime"
     assert record["mode_changed_by"] == admin_email
 
@@ -819,7 +814,6 @@ def test_agent_state_update_all_modes(
         form_data["comment"] = comment
 
     with (
-        patch("testflinger.views.mongo", mongo_client),
         patch("testflinger.database.mongo", mongo_client),
     ):
         response = client.post("/agents/agent1/state", data=form_data)
@@ -832,6 +826,72 @@ def test_agent_state_update_all_modes(
 
     record = mongo_client.db.agents.find_one({"name": "agent1"})
     assert record["mode"] == expected_mode
+    if new_mode in ("online", "maintenance"):
+        assert record["state"] == "waiting"
+        assert record["state_changed_by"] == admin_email
+    else:
+        assert "state" not in record
+
+
+def test_agent_state_update_preserves_valid_substate(oidc_app):
+    """Changing mode preserves an existing valid sub-state."""
+    admin_email = "admin@example.com"
+    mongo_client = mongomock.MongoClient()
+    app, client = _make_oidc_admin_client(oidc_app, mongo_client, admin_email)
+    state_changed_at = datetime.now(timezone.utc).replace(microsecond=0)
+    mongo_client.db.agents.insert_one(
+        {
+            "name": "agent1",
+            "mode": "online",
+            "state": "provision",
+            "state_changed_at": state_changed_at,
+            "updated_at": state_changed_at,
+        }
+    )
+
+    with (
+        patch("testflinger.database.mongo", mongo_client),
+    ):
+        response = client.post(
+            "/agents/agent1/state",
+            data={"mode": "maintenance", "comment": "Replacing hardware"},
+        )
+
+    assert response.status_code == HTTPStatus.FOUND
+    record = mongo_client.db.agents.find_one({"name": "agent1"})
+    assert record["state"] == "provision"
+    assert record["state_changed_at"].replace(tzinfo=timezone.utc) == (
+        state_changed_at
+    )
+    assert "state_changed_by" not in record
+
+
+def test_agent_state_update_clears_empty_comment_for_restart(oidc_app):
+    """Returning to a comment-free mode removes an old mode comment."""
+    admin_email = "admin@example.com"
+    mongo_client = mongomock.MongoClient()
+    app, client = _make_oidc_admin_client(oidc_app, mongo_client, admin_email)
+    mongo_client.db.agents.insert_one(
+        {
+            "name": "agent1",
+            "mode": "maintenance",
+            "state": "waiting",
+            "comment": "Replacing hardware",
+            "updated_at": datetime.now(timezone.utc),
+        }
+    )
+
+    with (
+        patch("testflinger.database.mongo", mongo_client),
+    ):
+        response = client.post(
+            "/agents/agent1/state", data={"mode": "restart"}
+        )
+
+    assert response.status_code == HTTPStatus.FOUND
+    record = mongo_client.db.agents.find_one({"name": "agent1"})
+    assert "comment" not in record
+    assert "state" not in record
 
 
 def test_agent_state_update_maintenance_requires_comment(oidc_app):
@@ -841,7 +901,6 @@ def test_agent_state_update_maintenance_requires_comment(oidc_app):
     app, client = _make_oidc_admin_client(oidc_app, mongo_client, admin_email)
 
     with (
-        patch("testflinger.views.mongo", mongo_client),
         patch("testflinger.database.mongo", mongo_client),
     ):
         response = client.post(
@@ -865,7 +924,6 @@ def test_agents_list_admin_renders_state_modal(oidc_app):
         }
     )
     with (
-        patch("testflinger.views.mongo", mongo_client),
         patch("testflinger.database.mongo", mongo_client),
     ):
         response = client.get("/agents")
@@ -898,7 +956,6 @@ def test_queue_detail_admin_renders_state_modal(oidc_app):
         }
     )
     with (
-        patch("testflinger.views.mongo", mongo_client),
         patch("testflinger.database.mongo", mongo_client),
     ):
         response = client.get("/queues/q1")
@@ -931,7 +988,6 @@ def test_agents_list_non_admin_has_no_state_modal(oidc_app):
     )
     with (
         app.test_client() as client,
-        patch("testflinger.views.mongo", mongo_client),
         patch("testflinger.database.mongo", mongo_client),
     ):
         with client.session_transaction() as sess:
@@ -958,7 +1014,6 @@ def test_agent_state_update_redirects_to_safe_next(oidc_app):
         }
     )
     with (
-        patch("testflinger.views.mongo", mongo_client),
         patch("testflinger.database.mongo", mongo_client),
     ):
         response = client.post(
@@ -990,10 +1045,7 @@ def test_agent_state_update_ignores_unsafe_next(oidc_app, bad_next):
             "updated_at": datetime.now(timezone.utc),
         }
     )
-    with (
-        patch("testflinger.views.mongo", mongo_client),
-        patch("testflinger.database.mongo", mongo_client),
-    ):
+    with patch("testflinger.database.mongo", mongo_client):
         response = client.post(
             "/agents/agent1/state",
             data={"mode": "restart", "next": bad_next},

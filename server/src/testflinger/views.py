@@ -37,7 +37,6 @@ from testflinger_common.enums import AgentMode, ServerRoles
 
 from testflinger import database
 from testflinger.api.schemas import Job
-from testflinger.database import mongo
 from testflinger.logs import MongoLogHandler
 
 views = APIBlueprint("testflinger", __name__, enable_openapi=False)
@@ -83,10 +82,7 @@ def _enrich_agent(agent: dict) -> dict:
     agent["state_duration"] = _state_duration(agent.get("state_changed_at"))
     job_id = agent.get("job_id")
     if job_id:
-        job = mongo.db.jobs.find_one(
-            {"job_id": job_id},
-            {"result_data.job_state": True, "_id": False},
-        )
+        job = database.get_job_results(job_id)
         if job:
             agent["job_state"] = job.get("result_data", {}).get("job_state")
     return agent
@@ -308,13 +304,13 @@ def agent_detail(agent_id):
 def agent_state_update(agent_id):
     """UI endpoint for an admin to update an agent's mode."""
     if current_app.oauth is not None:
-        user_email = session.get("user_email", "")
-        if not user_email:
+        client_id = session.get("user_email", "")
+        if not client_id:
             return make_response(
                 render_template("401_unauthorized.html"),
                 HTTPStatus.UNAUTHORIZED,
             )
-        perms = database.get_client_permissions(user_email)
+        perms = database.get_client_permissions(client_id)
         if perms.get("role") != ServerRoles.ADMIN:
             return make_response("Forbidden", HTTPStatus.FORBIDDEN)
     else:
@@ -333,22 +329,7 @@ def agent_state_update(agent_id):
             f"Comment required for mode={new_mode}", HTTPStatus.BAD_REQUEST
         )
 
-    now = datetime.now(timezone.utc)
-    existing = mongo.db.agents.find_one({"name": agent_id}, {"mode": 1})
-    update: dict = {
-        "updated_at": now,
-        "mode": new_mode,
-    }
-    if comment:
-        update["comment"] = comment
-    if (existing or {}).get("mode") != new_mode:
-        update["mode_changed_at"] = now
-        update["mode_changed_by"] = user_email
-
-    mongo.db.agents.update_one(
-        {"name": agent_id},
-        {"$set": update},
-    )
+    database.update_agent_mode(agent_id, new_mode, comment, client_id)
 
     # Return to the page the change was initiated from (e.g. the agents
     # list) when a safe, local `next` target is supplied; otherwise fall

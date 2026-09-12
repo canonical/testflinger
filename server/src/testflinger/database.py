@@ -23,7 +23,12 @@ from typing import Any
 from flask_pymongo import PyMongo
 from gridfs import GridFS, errors
 from pymongo import ReturnDocument
-from testflinger_common.enums import ServerRoles
+from testflinger_common.enums import (
+    AgentMode,
+    AgentState,
+    ServerRoles,
+    TestPhase,
+)
 
 # Constants for TTL indexes
 REFRESH_TOKEN_IDEL_EXPIRATION = 60 * 60 * 24 * 90  # 90 days
@@ -932,6 +937,44 @@ def get_job_results(job_id: str):
         {"job_id": job_id},
         {"result_data": True, "_id": False},
     )
+
+
+def update_agent_mode(
+    agent_id: str, mode: str, comment: str, client_id: str
+) -> None:
+    """Update an agent mode while preserving the mode/state invariant.
+
+    :param agent_id: Agent name to update.
+    :param mode: Valid AgentMode value selected by the administrator.
+    :param comment: Optional explanation for the mode change.
+    :param client_id: Authenticated client making the change.
+    """
+    now = datetime.now(timezone.utc)
+    existing = (
+        mongo.db.agents.find_one({"name": agent_id}, {"mode": 1, "state": 1})
+        or {}
+    )
+    update: dict = {"updated_at": now, "mode": mode}
+    if comment:
+        update["comment"] = comment
+    if existing.get("mode") != mode:
+        update["mode_changed_at"] = now
+        update["mode_changed_by"] = client_id
+
+    update_op: dict = {"$set": update}
+    if mode in (AgentMode.OFFLINE, AgentMode.RESTART):
+        update_op["$unset"] = {"state": ""}
+        if not comment:
+            update_op["$unset"]["comment"] = ""
+    else:
+        valid_substates = {phase.value for phase in TestPhase}
+        valid_substates.add(AgentState.WAITING)
+        if existing.get("state") not in valid_substates:
+            update["state"] = AgentState.WAITING
+            update["state_changed_at"] = now
+            update["state_changed_by"] = client_id
+
+    mongo.db.agents.update_one({"name": agent_id}, update_op)
 
 
 def update_job_results(job_id: str, json_data: dict) -> dict:
