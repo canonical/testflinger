@@ -75,35 +75,35 @@
                    value="{{ field.get('value', '') }}">
           {% else %}
             <div class="p-form__group u-sv2">
-            <label class="p-form__label" for="{{ field.id }}">{{ field.label }}</label>
-            {% if field.type == "select" %}
-              <select class="p-form__control"
-                      id="{{ field.id }}"
-                      name="{{ field.name }}"
-                      {% if field.get("required") %}required{% endif %}>
-                {% for opt in field.options %}
-                  <option value="{{ opt.value }}"
-                          {% if opt.get("selected") %}selected{% endif %}>{{ opt.label }}</option>
-                {% endfor %}
-              </select>
-            {% elif field.type == "textarea" %}
-              <textarea class="p-form__control"
+              <label class="p-form__label" for="{{ field.id }}">{{ field.label }}</label>
+              {% if field.type == "select" %}
+                <select class="p-form__control"
                         id="{{ field.id }}"
                         name="{{ field.name }}"
-                        rows="{{ field.get('rows', 3) }}"
-                        placeholder="{{ field.get('placeholder', '') }}"
-                        {% if field.get("required") %}required{% endif %}>{{ field.get("value", "") }}</textarea>
-            {% else %}
-              {# text / email / date / number / etc. #}
-              <input class="p-form__control"
-                     type="{{ field.type }}"
-                     id="{{ field.id }}"
-                     name="{{ field.name }}"
-                     value="{{ field.get('value', '') }}"
-                     placeholder="{{ field.get('placeholder', '') }}"
-                     {% if field.get("required") %}required{% endif %}>
-            {% endif %}
-          </div>
+                        {% if field.get("required") %}required{% endif %}>
+                  {% for opt in field.options %}
+                    <option value="{{ opt.value }}"
+                            {% if opt.get("selected") %}selected{% endif %}>{{ opt.label }}</option>
+                  {% endfor %}
+                </select>
+              {% elif field.type == "textarea" %}
+                <textarea class="p-form__control"
+                          id="{{ field.id }}"
+                          name="{{ field.name }}"
+                          rows="{{ field.get('rows', 3) }}"
+                          placeholder="{{ field.get('placeholder', '') }}"
+                          {% if field.get("required") %}required{% endif %}>{{ field.get("value", "") }}</textarea>
+              {% else %}
+                {# text / email / date / number / etc. #}
+                <input class="p-form__control"
+                       type="{{ field.type }}"
+                       id="{{ field.id }}"
+                       name="{{ field.name }}"
+                       value="{{ field.get('value', '') }}"
+                       placeholder="{{ field.get('placeholder', '') }}"
+                       {% if field.get("required") %}required{% endif %}>
+              {% endif %}
+            </div>
           {% endif %}
         {% endfor %}
         <footer class="p-modal__footer">

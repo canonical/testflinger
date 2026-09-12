@@ -92,10 +92,10 @@
       {#- Test ran but failed -#}
       {%- set colour = "p-chip--caution" -%}
     {%- elif result_data and (
-          (result_data.get('setup_status') is not none and result_data.get('setup_status') != 0) or
-          (result_data.get('provision_status') is not none and result_data.get('provision_status') != 0) or
-          (result_data.get('firmware_update_status') is not none and result_data.get('firmware_update_status') != 0)
-        ) -%}
+      (result_data.get('setup_status') is not none and result_data.get('setup_status') != 0) or
+      (result_data.get('provision_status') is not none and result_data.get('provision_status') != 0) or
+      (result_data.get('firmware_update_status') is not none and result_data.get('firmware_update_status') != 0)
+      ) -%}
       {#- Infrastructure phase failed before test ran -#}
       {%- set colour = "p-chip--negative" -%}
     {%- else -%}

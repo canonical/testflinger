@@ -17,41 +17,40 @@
     a successful update (e.g. the agents list) instead of the agent detail
     page. Its value is the same for every agent on the page.
   --#}
-  {{ render_modal(modal_id     = "state-modal",
+  {{ render_modal(modal_id = "state-modal",
     title        = "Change Agent Mode",
     description  = "Select the new mode for the agent. All mode changes take effect on the agent's next poll. A comment is required for offline and maintenance modes.",
     action       = "",
-  fields       = [
-  {
-  "type":     "select",
-  "id":       "modal-mode",
-  "name":     "mode",
-  "label":    "New Mode",
-  "required": true,
-  "options":  [
-  {"value": "online",      "label": "Online"},
-  {"value": "maintenance", "label": "Maintenance"},
-  {"value": "offline",     "label": "Offline"},
-  {"value": "restart",     "label": "Restart"},
-  ],
-  },
-  {
-  "type":        "textarea",
-  "id":          "modal-comment",
-  "name":        "comment",
-  "label":       "Comment (required for offline and maintenance)",
-  "placeholder": "Reason for mode change",
-  "rows":        3,
-  },
-  {
-  "type":  "hidden",
-  "id":    "modal-next",
-  "name":  "next",
-  "value": request.path,
-  },
-  ],
-  submit_label = "Confirm",
-  ) }}
+    fields       = [
+    {
+    "type":     "select",
+    "id":       "modal-mode",
+    "name":     "mode",
+    "label":    "New Mode",
+    "required": true,
+    "options":  [
+    {"value": "online",      "label": "Online"},
+    {"value": "maintenance", "label": "Maintenance"},
+    {"value": "offline",     "label": "Offline"},
+    {"value": "restart",     "label": "Restart"},
+    ],
+    },
+    {
+    "type":        "textarea",
+    "id":          "modal-comment",
+    "name":        "comment",
+    "label":       "Comment (required for offline and maintenance)",
+    "placeholder": "Reason for mode change",
+    "rows":        3,
+    },
+    {
+    "type":  "hidden",
+    "id":    "modal-next",
+    "name":  "next",
+    "value": request.path,
+    },
+    ],
+    submit_label = "Confirm",) }}
   {{ render_modal_js() }}
   <script>
   // Populate the shared state modal from the clicked agent chip's data-* attrs.
