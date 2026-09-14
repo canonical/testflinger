@@ -15,6 +15,8 @@
 #
 """Return a db object for talking to MongoDB."""
 
+import functools
+import logging
 import os
 import urllib
 from datetime import datetime, timedelta, timezone
@@ -22,7 +24,8 @@ from typing import Any
 
 from flask_pymongo import PyMongo
 from gridfs import GridFS, errors
-from pymongo import ReturnDocument
+from pymongo import ASCENDING, ReturnDocument
+from pymongo.errors import DuplicateKeyError, PyMongoError
 from testflinger_common.enums import ServerRoles
 
 # Constants for TTL indexes
@@ -32,6 +35,7 @@ OUTPUT_EXPIRATION = 60 * 60 * 4  # 4 hours
 ACCOUNT_DELETE_EXPIRATION = 60 * 60 * 24 * 90  # 90 days
 
 mongo = PyMongo()
+logger = logging.getLogger(__name__)
 
 
 def _now() -> datetime:
@@ -42,6 +46,27 @@ def _now() -> datetime:
     is identical to ``datetime.now(timezone.utc)``.
     """
     return datetime.now(timezone.utc)
+
+
+def mongo_best_effort(func):
+    """Log and continue on MongoDB errors for non-critical operations.
+
+    This decorator should be used by functions that should not block but
+    provide visibility into the system.
+    """
+
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        try:
+            return func(*args, **kwargs)
+        except DuplicateKeyError:
+            # Some indices require unique values, if this is for non-critical
+            # operations, we can ignore this error and continue.
+            pass
+        except PyMongoError:
+            logger.exception("MongoDB write failed in %s", func.__name__)
+
+    return wrapper
 
 
 def get_mongo_uri():
@@ -152,6 +177,13 @@ def create_indexes():
     mongo.db.client_permissions.create_index("sub", sparse=True)
     mongo.db.jobs.create_index("job_id")
     mongo.db.jobs_events.create_index("job_id", unique=True)
+    mongo.db.job_statistics.create_index("job_id", unique=True)
+    mongo.db.job_statistics.create_index(
+        [("queue", ASCENDING), ("created_at", ASCENDING)]
+    )
+    mongo.db.job_statistics.create_index(
+        [("submitted_by", ASCENDING), ("created_at", ASCENDING)]
+    )
     mongo.db.jobs.create_index(["result_data.job_state", "job_data.job_queue"])
     mongo.db.agents.create_index("queues")
 
@@ -1103,10 +1135,12 @@ def update_agent_provision_log(agent_name, json_data) -> bool:
     return found
 
 
+@mongo_best_effort
 def add_job_event(job_id: str, event: dict) -> None:
     """Add an event to the job events collection.
 
     Events are appended in natural insertion order (oldest first).
+    This is done on best effort basis to not block core logic.
 
     :param job_id: The ID of the job.
     :param event: The event data to add.
@@ -1131,3 +1165,43 @@ def get_job_events(job_id: str) -> list[dict]:
         {"job_id": job_id}, {"_id": False, "events": True}
     )
     return result.get("events", []) if result else []
+
+
+@mongo_best_effort
+def add_job_statistics(job_id: str, statistics: dict) -> None:
+    """Add statistics to the ``job_statistics`` collection.
+
+    The inserted document remains a flat document that can later
+    be grouped or aggregated as needed. The ``statistics`` parameter is
+    defined by the caller for flexibility. This is done on best effort basis
+    to not block core logic.
+
+    :param job_id: The ID of the job.
+    :param statistics: Statistics to add for the specified job.
+    """
+    # These fields are only set on job submission (POST)
+    # Other fields are more flexible and can be updated by other callers.
+    immutable_fields = {"submitted_by", "created_at", "queue"}
+
+    update_fields = {}
+    on_insert_fields = {
+        key: statistics.pop(key)
+        for key in immutable_fields
+        if key in statistics
+    }
+
+    if on_insert_fields:
+        update_fields["$setOnInsert"] = on_insert_fields
+
+    # Any additional statistic should be set on the document.
+    if statistics:
+        update_fields["$set"] = statistics
+
+    if not update_fields:
+        return  # Nothing to write to DB
+
+    mongo.db.job_statistics.update_one(
+        {"job_id": job_id},
+        update_fields,
+        upsert=True,
+    )

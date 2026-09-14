@@ -141,15 +141,28 @@ def job_post(json_data: dict) -> dict:
     # because it will get modified by submit_job and other things it calls
     database.add_job(job)
 
+    # Use variables to reuse for events and metrics db calls
+    submitter = g.client_id if g.client_id else "anonymous"
+    job_id = job["job_id"]
+    queue = job["job_data"]["job_queue"]
+
     database.add_job_event(
-        job_id=job["job_id"],
+        job_id=job_id,
         event=events.build_event(
             event_type=JobEvent.JOB_SUBMITTED,
-            client_id=g.client_id,
-            queue_name=job["job_data"]["job_queue"],
+            client_id=submitter,
+            queue_name=queue,
         ),
     )
-    return jsonify(job_id=job.get("job_id"))
+
+    # Define job statistics to preserve on TF MongoDB internal database.
+    job_statistics = {
+        "queue": queue,
+        "submitted_by": submitter,
+        "created_at": job["created_at"],
+    }
+    database.add_job_statistics(job_id, job_statistics)
+    return jsonify(job_id=job_id)
 
 
 def validate_secrets(data: dict):
