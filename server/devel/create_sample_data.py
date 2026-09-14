@@ -119,9 +119,22 @@ class AgentDataGenerator:  # pylint: disable=too-few-public-methods
 
     def __iter__(self):
         for agent_num in range(self.num_agents):
-            agent_data = {
-                "state": "waiting",
-            }
+            # Reserve the first two agents for offline/maintenance modes so
+            # the sample UI always shows those chip variants. Give them
+            # waiting state (they aren't running jobs) for realism.
+            if agent_num == 0:
+                agent_data = {"mode": "offline", "state": "waiting"}
+            elif agent_num == 1:
+                agent_data = {
+                    "mode": "maintenance",
+                    "state": "waiting",
+                    "comment": "Scheduled hardware swap",
+                }
+            else:
+                agent_data = {
+                    "mode": "online",
+                    "state": random.choice(("waiting", "test", "provision")),
+                }
             if self.queue_list:
                 agent_data["queues"] = random.sample(
                     self.queue_list, random.randint(1, min(3, len(self.queue_list)))
