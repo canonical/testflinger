@@ -2403,3 +2403,24 @@ def test_get_job_events(mongo_app, agent_auth_header):
         "job_submitted",
         "job_phase_started",
     }
+
+
+def test_add_job_statistics_on_job_post(mongo_app):
+    """Test that job statistics are added when a job is posted."""
+    app, mongo = mongo_app
+    job_data = {
+        "job_queue": "test",
+        "tags": ["foo"],
+    }
+    output = app.post("/v1/job", json=job_data)
+    assert output.status_code == HTTPStatus.OK
+    job_id = output.json.get("job_id")
+
+    # Verify that the job statistics are added as a document in job_statistics
+    job_statistics = mongo.job_statistics.find_one({"job_id": job_id})
+
+    assert job_statistics is not None
+    assert job_statistics["job_id"] == job_id
+    assert job_statistics["queue"] == "test"
+    assert "submitted_by" in job_statistics
+    assert "created_at" in job_statistics

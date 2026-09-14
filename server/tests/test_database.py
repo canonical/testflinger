@@ -27,6 +27,7 @@ from mongomock.gridfs import enable_gridfs_integration
 from testflinger.database import (
     DEFAULT_EXPIRATION,
     add_job_event,
+    add_job_statistics,
     create_indexes,
     retrieve_file,
     save_file,
@@ -239,3 +240,104 @@ def test_new_job_events_preserve_insertion_order(mock_mongo):
         for evt in events
     ]
     assert stored_events == normalized_expected
+
+
+@pytest.mark.parametrize(
+    "exception",
+    [
+        mongomock.OperationFailure("Operation failure"),
+        mongomock.DuplicateKeyError("Duplicate key error"),
+    ],
+)
+@patch("testflinger.database.mongo", new_callable=mongomock.MongoClient)
+def test_add_job_event_does_not_raise_on_exception(mock_mongo, exception):
+    """Test add_job_event doesn't raise an exception on MongoDB errors."""
+    job_id = str(uuid4())
+    timestamp = datetime.datetime.now(datetime.timezone.utc)
+    event = _make_event("job_submitted", "Job submitted", timestamp)
+
+    # Patch the mongo client to raise the specified exception
+    with patch(
+        "testflinger.database.mongo.db.jobs_events.update_one",
+        side_effect=exception,
+    ):
+        add_job_event(job_id=job_id, event=event)
+
+    doc = mock_mongo.db.jobs_events.find_one({"job_id": job_id})
+    # The document should not be created due to the exception
+    assert doc is None
+
+
+@patch("testflinger.database.mongo", new_callable=mongomock.MongoClient)
+def test_add_job_statistics_adds_new_document(mock_mongo):
+    """Test add_job_statistics adds a new document if none exists."""
+    job_id = str(uuid4())
+    statistics = {"queue": "test_queue", "submitted_by": "alice"}
+
+    add_job_statistics(job_id, statistics)
+
+    doc = mock_mongo.db.job_statistics.find_one({"job_id": job_id})
+    assert doc is not None
+    assert doc["job_id"] == job_id
+    assert doc["queue"] == "test_queue"
+    assert doc["submitted_by"] == "alice"
+
+
+@patch("testflinger.database.mongo", new_callable=mongomock.MongoClient)
+def test_add_job_statistics_does_not_overwrite_existing(mock_mongo):
+    """Test do not overwrite existing statistics when adding new statistics."""
+    job_id = str(uuid4())
+    statistics = {"queue": "test_queue", "submitted_by": "alice"}
+
+    add_job_statistics(job_id, statistics)
+
+    # Call again with new statistics
+    # tags could come from a different source so this should be added to doc
+    # submitted_by should remain unchanged since it was already set
+    new_statistics = {"tags": ["tag1", "tag2"], "submitted_by": "bob"}
+    add_job_statistics(job_id, new_statistics)
+
+    doc = mock_mongo.db.job_statistics.find_one({"job_id": job_id})
+    assert doc is not None
+    # The original statistics should remain unchanged
+    assert doc["queue"] == "test_queue"
+    assert doc["submitted_by"] == "alice"
+    # The new statistics should be added to the document
+    assert doc["tags"] == ["tag1", "tag2"]
+
+
+@pytest.mark.parametrize(
+    "exception",
+    [
+        mongomock.OperationFailure("Operation failure"),
+        mongomock.DuplicateKeyError("Duplicate key error"),
+    ],
+)
+@patch("testflinger.database.mongo", new_callable=mongomock.MongoClient)
+def test_add_job_statistics_does_not_raise_on_exception(mock_mongo, exception):
+    """Test add_job_statistics doesn't raise an exception on MongoDB errors."""
+    job_id = str(uuid4())
+    statistics = {"queue": "test_queue", "submitted_by": "alice"}
+
+    # Patch the mongo client to raise the specified exception
+    with patch(
+        "testflinger.database.mongo.db.job_statistics.update_one",
+        side_effect=exception,
+    ):
+        add_job_statistics(job_id=job_id, statistics=statistics)
+
+    doc = mock_mongo.db.job_statistics.find_one({"job_id": job_id})
+    # The document should not be created due to the exception
+    assert doc is None
+
+
+@patch("testflinger.database.mongo", new_callable=mongomock.MongoClient)
+def test_empty_statistic_does_not_create_document(mock_mongo):
+    """Test document is not created if statistics are empty."""
+    job_id = str(uuid4())
+    statistics = {}
+
+    add_job_statistics(job_id, statistics)
+
+    doc = mock_mongo.db.job_statistics.find_one({"job_id": job_id})
+    assert doc is None
