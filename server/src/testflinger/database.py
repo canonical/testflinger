@@ -34,6 +34,16 @@ ACCOUNT_DELETE_EXPIRATION = 60 * 60 * 24 * 90  # 90 days
 mongo = PyMongo()
 
 
+def _now() -> datetime:
+    """Return the current UTC time.
+
+    A thin seam so tests can script ``job_state_changed_at`` timestamps
+    without patching the ``datetime`` class wholesale. Production behavior
+    is identical to ``datetime.now(timezone.utc)``.
+    """
+    return datetime.now(timezone.utc)
+
+
 def get_mongo_uri():
     """Create mongodb uri from environment variables."""
     mongo_user = os.environ.get("MONGODB_USERNAME")
@@ -241,6 +251,7 @@ def pop_job(queue_list: list[str], agent_name: str) -> dict | None:
             {
                 "$set": {
                     "result_data.job_state": "running",
+                    "result_data.job_state_changed_at": _now(),
                     "result_data.agent_id": agent_name,
                 }
             },
@@ -283,7 +294,10 @@ def cancel_job(job_id, client_id: str | None = None):
         The client ID of the user requesting the cancellation
     """
     modifications = 0
-    update_fields = {"result_data.job_state": "cancelled"}
+    update_fields = {
+        "result_data.job_state": "cancelled",
+        "result_data.job_state_changed_at": _now(),
+    }
     if client_id is not None:
         update_fields["result_data.cancelled_by"] = client_id
     # Set the job status to cancelled
@@ -923,32 +937,61 @@ def get_job_results(job_id: str):
 def update_job_results(job_id: str, json_data: dict) -> dict:
     """Update results for a job and return the previous `result_data`.
 
-    The previous `result_data` is returned to reliable detect any
-    state transitions this document update introduced.
+    State timestamps and event detection use the same atomic update.
 
     :param job_id: The job ID to update results for.
     :param json_data: The result data to store (not modified).
-    :return: The previous `result_data` dict, or an empty dict
+    :return: The previous `result_data` dict, or an empty dict.
     """
-    # Prepend "result_data" to each key in the result data
-    set_data = {
-        f"result_data.{key}": value for key, value in json_data.items()
+    # Direct callers do not benefit from ResultPost schema validation.
+    job_state = json_data.get("job_state")
+    if job_state is not None and not isinstance(job_state, str):
+        raise TypeError(
+            f"job_state must be a string, got {type(job_state).__name__}"
+        )
+    # Defense in depth: strip any client-supplied job_state_changed_at so the
+    # server-managed timestamp always wins even if the API schema is relaxed.
+    # Pipeline values must be literal, including nested client data.
+    set_fields = {
+        f"result_data.{key}": {"$literal": value}
+        for key, value in json_data.items()
+        if key not in {"job_state", "job_state_changed_at"}
     }
 
-    # find_one_and_update guarantees atomicity as it locks the document
-    # for the duration of the update. Returning the previous document
-    # allows us to properly detect unique events
+    if job_state is not None:
+        # Both expressions see the old document in this single $set stage.
+        set_fields["result_data.job_state_changed_at"] = {
+            "$cond": [
+                {
+                    "$ne": [
+                        {"$ifNull": ["$result_data.job_state", None]},
+                        {"$literal": job_state},
+                    ]
+                },
+                {"$literal": _now()},
+                "$result_data.job_state_changed_at",
+            ]
+        }
+        set_fields["result_data.job_state"] = {"$literal": job_state}
+
+    if not set_fields:
+        return (get_job_results(job_id) or {}).get("result_data", {})
+
+    # Return the exact pre-image for event detection, even on repeated states.
     previous_doc = mongo.db.jobs.find_one_and_update(
         {"job_id": job_id},
-        {"$set": set_data},
+        [{"$set": set_fields}],
         projection={"result_data": True, "_id": False},
         return_document=ReturnDocument.BEFORE,
     )
 
     # Additionally, because the job_data may reflect that the job is now done,
-    # we need to disassociate the agent from the job if the job is done:
+    # we need to disassociate the agent from the job if the job is done.
+    # Note: this checks the *submitted* state, not what was persisted, so
+    # posting a terminal state clears the agent even if the job was already
+    # in that terminal state (idempotent, matches prior behavior).
     terminal_states = {"complete", "completed", "cancelled"}
-    if json_data.get("job_state") in terminal_states:
+    if job_state in terminal_states:
         clear_agent_job(job_id)
 
     return (previous_doc or {}).get("result_data", {})

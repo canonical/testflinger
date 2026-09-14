@@ -358,6 +358,10 @@ def test_result_status_job_state_values(
     response = app.get(f"{result_url}/status")
     assert response.status_code == HTTPStatus.OK
     assert response.json.get("job_state") == job_state
+    assert (
+        response.json["job_state_changed_at"]
+        == app.get(result_url).json["job_state_changed_at"]
+    )
 
     # Also validate the corresponding lifecycle event(s) were recorded.
     doc = mongo.jobs_events.find_one({"job_id": job_id})
@@ -370,6 +374,28 @@ def test_result_status_job_state_values(
         # any other job_state values should not emit any lifecycle events
         # besides the initial JOB_SUBMITTED event that is always present.
         assert event_names == {JobEvent.JOB_SUBMITTED}
+
+
+@pytest.mark.parametrize("has_timestamp", [True, False])
+def test_result_status_initial_timestamp(mongo_app, has_timestamp):
+    """Expose creation timestamps while supporting older jobs without them."""
+    app, mongo = mongo_app
+    job_id = app.post("/v1/job", json={"job_queue": "test"}).json["job_id"]
+    if not has_timestamp:
+        mongo.jobs.update_one(
+            {"job_id": job_id},
+            {"$unset": {"result_data.job_state_changed_at": ""}},
+        )
+    result_url = f"/v1/result/{job_id}"
+    response = app.get(f"{result_url}/status")
+    assert response.status_code == HTTPStatus.OK
+    assert response.json["job_state"] == "waiting"
+    assert ("job_state_changed_at" in response.json) == has_timestamp
+    if has_timestamp:
+        assert (
+            response.json["job_state_changed_at"]
+            == app.get(result_url).json["job_state_changed_at"]
+        )
 
 
 def test_result_status_all_phases(mongo_app, agent_auth_header):
@@ -407,7 +433,10 @@ _LOG_FIELDS = {
     for phase in TestPhase
     for log_type in (LogType.STANDARD_OUTPUT, LogType.SERIAL_OUTPUT)
 }
-_STATUS_FIELDS = {f"{phase}_status" for phase in TestPhase} | {"job_state"}
+_STATUS_FIELDS = {f"{phase}_status" for phase in TestPhase} | {
+    "job_state",
+    "job_state_changed_at",
+}
 
 
 def test_result_status_contains_no_log_fields(mongo_app, agent_auth_header):

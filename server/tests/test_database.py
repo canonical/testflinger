@@ -16,6 +16,7 @@
 """Unit tests for testflinger database functions."""
 
 import datetime
+from copy import deepcopy
 from unittest.mock import patch
 from uuid import uuid4
 
@@ -29,10 +30,77 @@ from testflinger.database import (
     create_indexes,
     retrieve_file,
     save_file,
+    update_job_results,
 )
 
 # Enable GridFS support once for all tests in this module.
 enable_gridfs_integration()
+
+
+@pytest.mark.parametrize("state", ["waiting", "provision", "$custom", None])
+@patch("testflinger.database.mongo", new_callable=mongomock.MongoClient)
+def test_update_job_results_preserves_preimage_and_payload(mock_mongo, state):
+    """Return the pre-image without mutating input or evaluating its values."""
+    job_id = str(uuid4())
+    initial_time = datetime.datetime(2026, 1, 1, tzinfo=datetime.timezone.utc)
+    next_time = initial_time + datetime.timedelta(seconds=1)
+    mock_mongo.db.jobs.insert_one(
+        {
+            "job_id": job_id,
+            "result_data": {
+                "job_state": "waiting",
+                "job_state_changed_at": initial_time,
+            },
+        }
+    )
+    before = mock_mongo.db.jobs.find_one({"job_id": job_id})["result_data"]
+    payload = {
+        "device_info": {
+            "serial": "$result_data.job_state",
+            "data": ["$$ROOT"],
+        },
+        "job_state_changed_at": "spoofed",
+    }
+    if state is not None:
+        payload["job_state"] = state
+    original_payload = deepcopy(payload)
+
+    with patch(
+        "testflinger.database._now",
+        return_value=next_time.replace(tzinfo=None),
+    ):
+        previous = update_job_results(job_id, payload)
+
+    assert previous == before
+    assert payload == original_payload
+    stored = mock_mongo.db.jobs.find_one({"job_id": job_id})["result_data"]
+    assert stored["device_info"] == payload["device_info"]
+    assert stored["job_state"] == (state if state is not None else "waiting")
+    expected_time = (
+        next_time if state not in (None, "waiting") else initial_time
+    )
+    assert stored["job_state_changed_at"] == expected_time.replace(tzinfo=None)
+    assert update_job_results(job_id, payload) == stored
+    assert (
+        mock_mongo.db.jobs.find_one({"job_id": job_id})["result_data"]
+        == stored
+    )
+
+
+@pytest.mark.parametrize("payload", [{}, {"job_state_changed_at": "spoofed"}])
+@patch("testflinger.database.mongo", new_callable=mongomock.MongoClient)
+def test_update_job_results_noop(mock_mongo, payload):
+    """Empty or timestamp-only updates preserve results and missing jobs."""
+    job_id = str(uuid4())
+    assert update_job_results(job_id, payload) == {}
+    assert mock_mongo.db.jobs.count_documents({}) == 0
+    before = {"job_state": "waiting"}
+    mock_mongo.db.jobs.insert_one({"job_id": job_id, "result_data": before})
+    assert update_job_results(job_id, payload) == before
+    assert (
+        mock_mongo.db.jobs.find_one({"job_id": job_id})["result_data"]
+        == before
+    )
 
 
 @patch("testflinger.database.mongo", new_callable=mongomock.MongoClient)

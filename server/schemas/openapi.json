@@ -699,6 +699,10 @@
           "job_state": {
             "type": "string"
           },
+          "job_state_changed_at": {
+            "format": "date-time",
+            "type": "string"
+          },
           "provision_output": {
             "type": "string"
           },
@@ -773,6 +777,10 @@
             "type": "integer"
           },
           "job_state": {
+            "type": "string"
+          },
+          "job_state_changed_at": {
+            "format": "date-time",
             "type": "string"
           },
           "provision_status": {
@@ -2753,7 +2761,7 @@
     },
     "/v1/result/{job_id}/status": {
       "get": {
-        "description": "This is a lightweight alternative to GET /result/<job_id> that omits\nlog data (output and serial).  Use this when only the job state or\nphase statuses are needed.\n\n:param job_id: UUID as a string for the job\n:raises HTTPError: If the job_id is not a valid UUID",
+        "description": "This is a lightweight alternative to GET /result/<job_id> that omits\nlog data (output and serial). Use this when only the job state,\nits last change time, or phase statuses are needed. The optional\njob_state_changed_at timestamp uses UTC by convention and is absent\nfor older jobs that have not recorded a state change.\n\n:param job_id: UUID as a string for the job\n:raises HTTPError: If the job_id is not a valid UUID",
         "parameters": [
           {
             "in": "path",
@@ -2790,7 +2798,7 @@
             "description": "Not found"
           }
         },
-        "summary": "Return job state and phase exit codes for a specified job_id.",
+        "summary": "Return job state, state-change timestamp and phase exit codes.",
         "tags": [
           "V1"
         ],
