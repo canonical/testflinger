@@ -28,6 +28,9 @@ from pymongo import ASCENDING, ReturnDocument
 from pymongo.errors import DuplicateKeyError, PyMongoError
 from testflinger_common.enums import ServerRoles
 
+# Field that should be allowed for grouping in the job_statistics collection.
+_STATISTICS_GROUP_FIELDS = frozenset({"queue", "submitted_by"})
+
 # Constants for TTL indexes
 REFRESH_TOKEN_IDEL_EXPIRATION = 60 * 60 * 24 * 90  # 90 days
 DEFAULT_EXPIRATION = 60 * 60 * 24 * 7  # 7 days
@@ -46,6 +49,46 @@ def _now() -> datetime:
     is identical to ``datetime.now(timezone.utc)``.
     """
     return datetime.now(timezone.utc)
+
+
+def _validate_group_by(group_by: str) -> str:
+    """Validate the group by parameter.
+
+    :param group_by: The field to group by.
+    :return: The corresponding MongoDB field name.
+    :raises ValueError: If the group_by parameter is not supported.
+    """
+    if group_by not in _STATISTICS_GROUP_FIELDS:
+        raise ValueError(f"Unsupported group_by: {group_by}")
+    return f"${group_by}"
+
+
+def _statistics_match(
+    start_at: datetime | None,
+    end_at: datetime | None,
+    queues: list[str] | None,
+    submitters: list[str] | None = None,
+) -> dict:
+    """Build a MongoDB match filter for job statistics queries.
+
+    :param start_at: Optional start datetime for filtering.
+    :param end_at: Optional end datetime for filtering.
+    :param queues: Optional list of queue names for filtering.
+    :param submitters: Optional list of submitter names for filtering.
+    :return: A MongoDB match filter dictionary.
+    """
+    match: dict[str, Any] = {}
+    if start_at or end_at:
+        match["created_at"] = {
+            k: v
+            for k, v in (("$gte", start_at), ("$lt", end_at))
+            if v is not None
+        }
+    if queues:
+        match["queue"] = {"$in": queues}
+    if submitters:
+        match["submitted_by"] = {"$in": submitters}
+    return match
 
 
 def mongo_best_effort(func):
@@ -1205,3 +1248,76 @@ def add_job_statistics(job_id: str, statistics: dict) -> None:
         update_fields,
         upsert=True,
     )
+
+
+def get_job_statistics_totals(
+    group_by: str,
+    start_at: datetime | None = None,
+    end_at: datetime | None = None,
+    queues: list[str] | None = None,
+    submitters: list[str] | None = None,
+) -> list[dict]:
+    """Total job counts grouped by the given dimension.
+
+    :param group_by: The dimension to group by.
+    :param start_at: Optional start datetime for filtering.
+    :param end_at: Optional end datetime for filtering.
+    :param queues: Optional list of queue names for filtering.
+    :param submitters: Optional list of submitters for filtering.
+    :return: List of dictionaries with keys 'key' and 'count'.
+    """
+    group_field = _validate_group_by(group_by)
+    pipeline = [
+        {"$match": _statistics_match(start_at, end_at, queues, submitters)},
+        {"$group": {"_id": group_field, "count": {"$sum": 1}}},
+        {"$sort": {"count": -1}},
+    ]
+    return [
+        {"key": doc["_id"], "count": doc["count"]}
+        for doc in mongo.db.job_statistics.aggregate(pipeline)
+    ]
+
+
+def get_job_statistics_buckets(
+    group_by: str,
+    start_at: datetime | None = None,
+    end_at: datetime | None = None,
+    queues: list[str] | None = None,
+    submitters: list[str] | None = None,
+) -> list[dict]:
+    """Per-day job counts grouped by the given dimension.
+
+    :param group_by: The dimension to group by.
+    :param start_at: Optional start datetime for filtering.
+    :param end_at: Optional end datetime for filtering.
+    :param queues: Optional list of queue names for filtering.
+    :param submitters: Optional list of submitters for filtering.
+    :return: List of dictionaries with keys 'date', 'key', and 'count'.
+    """
+    group_field = _validate_group_by(group_by)
+    pipeline = [
+        {"$match": _statistics_match(start_at, end_at, queues, submitters)},
+        {
+            "$group": {
+                "_id": {
+                    "date": {
+                        "$dateToString": {
+                            "format": "%Y-%m-%d",
+                            "date": "$created_at",
+                        }
+                    },
+                    "key": group_field,
+                },
+                "count": {"$sum": 1},
+            }
+        },
+        {"$sort": {"_id.date": 1}},
+    ]
+    return [
+        {
+            "date": doc["_id"]["date"],
+            "key": doc["_id"]["key"],
+            "count": doc["count"],
+        }
+        for doc in mongo.db.job_statistics.aggregate(pipeline)
+    ]
