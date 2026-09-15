@@ -803,6 +803,22 @@ def images_post(json_data: dict):
     return "OK"
 
 
+def _add_provision_streak(agent: dict) -> None:
+    """Add the API provisioning streak representation to an agent record."""
+    status = agent.get("provision_streak_type")
+    value = agent.get("provision_streak_count")
+    if status not in {"pass", "fail"} or not isinstance(value, int):
+        return
+    if value < 1:
+        return
+
+    agent["provision_streak"] = {
+        "status": status,
+        "value": value,
+        "signed_value": value if status == "pass" else -value,
+    }
+
+
 @v1.get("/agents/data")
 @authenticate
 @require_role(ServerRoles.ADMIN, ServerRoles.MANAGER, ServerRoles.CONTRIBUTOR)
@@ -814,6 +830,7 @@ def agents_get_all():
     restricted_queues_owners = database.get_restricted_queues_owners()
 
     for agent in agents:
+        _add_provision_streak(agent)
         agent["restricted_to"] = {
             queue: restricted_queues_owners[queue]
             for queue in agent.get("queues", [])
@@ -841,6 +858,7 @@ def agents_get_one(agent_name):
     if not agent_data:
         return {}, HTTPStatus.NOT_FOUND
 
+    _add_provision_streak(agent_data)
     restricted_queues = database.get_restricted_queues()
     restricted_queues_owners = database.get_restricted_queues_owners()
 
@@ -1063,6 +1081,8 @@ def get_agents_on_queue(queue_name):
     agents = database.get_agents(queue=queue_name)
     if not agents:
         return [], HTTPStatus.NO_CONTENT
+    for agent in agents:
+        _add_provision_streak(agent)
     return agents
 
 

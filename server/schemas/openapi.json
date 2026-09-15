@@ -118,6 +118,9 @@
           "name": {
             "type": "string"
           },
+          "provision_streak": {
+            "$ref": "#/components/schemas/ProvisionStreak"
+          },
           "provision_type": {
             "type": "string"
           },
@@ -589,6 +592,31 @@
         "required": [
           "exit_code",
           "job_id"
+        ],
+        "type": "object"
+      },
+      "ProvisionStreak": {
+        "additionalProperties": false,
+        "properties": {
+          "signed_value": {
+            "type": "integer"
+          },
+          "status": {
+            "enum": [
+              "pass",
+              "fail"
+            ],
+            "type": "string"
+          },
+          "value": {
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "signed_value",
+          "status",
+          "value"
         ],
         "type": "object"
       },

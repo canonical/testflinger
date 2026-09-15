@@ -1154,6 +1154,68 @@ def test_agents_provision_logs_post(mongo_app, agent_auth_header):
     assert agent_data["provision_streak_count"] == 1
 
 
+def test_agents_get_returns_provision_streak(mongo_app, agent_auth_header):
+    """Agent API responses include a signed provisioning streak."""
+    app, _ = mongo_app
+    agent_name = "agent1"
+    app.post(
+        f"/v1/agents/data/{agent_name}",
+        json={"state": "waiting", "queues": ["test"]},
+        headers=agent_auth_header,
+    )
+    app.post(
+        f"/v1/agents/provision_logs/{agent_name}",
+        json={"job_id": "00000000-0000-0000-0000-00000000000", "exit_code": 1},
+        headers=agent_auth_header,
+    )
+
+    expected_failure = {"status": "fail", "value": 1, "signed_value": -1}
+    assert (
+        app.get(f"/v1/agents/data/{agent_name}").json["provision_streak"]
+        == expected_failure
+    )
+    assert app.get("/v1/agents/data").json[0]["provision_streak"] == (
+        expected_failure
+    )
+    assert app.get("/v1/queues/test/agents").json[0]["provision_streak"] == (
+        expected_failure
+    )
+
+    app.post(
+        f"/v1/agents/provision_logs/{agent_name}",
+        json={"job_id": "00000000-0000-0000-0000-00000000000", "exit_code": 0},
+        headers=agent_auth_header,
+    )
+
+    assert app.get(f"/v1/agents/data/{agent_name}").json[
+        "provision_streak"
+    ] == {"status": "pass", "value": 1, "signed_value": 1}
+
+
+@pytest.mark.parametrize(
+    "streak_type, streak_count",
+    [("unknown", 1), ("pass", 0)],
+)
+def test_agents_get_omits_invalid_provision_streak(
+    mongo_app, agent_auth_header, streak_type, streak_count
+):
+    """Agent API omits invalid provisioning streak data."""
+    app, mongo = mongo_app
+    agent_name = "agent1"
+    mongo.agents.insert_one(
+        {
+            "name": agent_name,
+            "state": "waiting",
+            "provision_streak_type": streak_type,
+            "provision_streak_count": streak_count,
+        }
+    )
+
+    agent = app.get(f"/v1/agents/data/{agent_name}").json
+
+    assert "provision_streak" not in agent
+
+
 def test_provision_log_submitted_by_copied_from_job(
     mongo_app, agent_auth_header, role_clients_factory
 ):
