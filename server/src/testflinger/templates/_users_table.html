@@ -1,0 +1,29 @@
+<table class="p-table--mobile-card"
+       aria-label="Table showing statistics for Testflinger users">
+  <thead>
+    <tr>
+      <th>Testflinger users</th>
+      <th>Count</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>All users</td>
+      <td>{{ user_data.all_users_count }}</td>
+    </tr>
+    <tr>
+      <td class="has-overflow">
+        Active Users
+        <span class="p-tooltip--top-left" aria-describedby="active-users-tooltip">
+          <i class="p-icon--help"></i>
+          <span class="p-tooltip__message"
+                role="tooltip"
+                id="active-users-tooltip"
+                style="white-space: nowrap;
+                       text-align: left">Number of users with at least one job submission over the last 7 days.</span>
+        </span>
+      </td>
+      <td>{{ user_data.active_users_count }}</td>
+    </tr>
+  </tbody>
+</table>

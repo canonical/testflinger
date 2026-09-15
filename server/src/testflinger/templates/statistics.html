@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% set active_page = "statistics" %}
+{% set title = "Statistics" %}
+{% block content %}
+  <div class="p-strip is-shallow">
+    <div class="row">
+      <h1 class="p-heading--3">Statistics</h1>
+    </div>
+    <div class="row">
+      <ul class="p-list--divided">
+        <li class="p-list__item">
+          <h2 class="p-heading--5">
+            <a href="{{ url_for('testflinger.statistics_jobs') }}">Job Statistics</a>
+          </h2>
+          <p>Job counts grouped by queue or submitter, with date range and filtering.</p>
+        </li>
+      </ul>
+    </div>
+  </div>
+{% endblock content %}
