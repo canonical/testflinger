@@ -20,12 +20,12 @@
                      placeholder="Search and filter queues…"
                      autocomplete="off">
               <datalist id="queues-options">
-                {% for queue in available_queues %}<option value="{{ queue }}"></option>{% endfor %}
+                {% for queue in filters.available_queues %}<option value="{{ queue }}"></option>{% endfor %}
               </datalist>
               <button type="button" class="p-button--neutral tag-input__add">Add</button>
             </div>
             <div class="tag-input__chips">
-              {% for queue in selected_queues %}
+              {% for queue in filters.selected_queues %}
                 <span class="p-chip">
                   <span class="p-chip__value">{{ queue }}</span>
                   <button type="button" class="p-chip__dismiss">Dismiss</button>
@@ -44,12 +44,12 @@
                      placeholder="Search and filter submitters…"
                      autocomplete="off">
               <datalist id="submitters-options">
-                {% for submitter in available_submitters %}<option value="{{ submitter }}"></option>{% endfor %}
+                {% for submitter in filters.available_submitters %}<option value="{{ submitter }}"></option>{% endfor %}
               </datalist>
               <button type="button" class="p-button--neutral tag-input__add">Add</button>
             </div>
             <div class="tag-input__chips">
-              {% for submitter in selected_submitters %}
+              {% for submitter in filters.selected_submitters %}
                 <span class="p-chip">
                   <span class="p-chip__value">{{ submitter }}</span>
                   <button type="button" class="p-chip__dismiss">Dismiss</button>
@@ -74,7 +74,7 @@
                    id="start-date"
                    name="start"
                    class="p-form__control"
-                   value="{{ start_date }}">
+                   value="{{ filters.start_date }}">
           </div>
           <div class="p-form__group">
             <label for="stop-date" class="p-form__label">Stop Date</label>
@@ -82,7 +82,7 @@
                    id="stop-date"
                    name="stop"
                    class="p-form__control"
-                   value="{{ stop_date }}">
+                   value="{{ filters.stop_date }}">
           </div>
         </div>
         <div class="p-form__group">

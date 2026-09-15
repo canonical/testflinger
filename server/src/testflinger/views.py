@@ -352,6 +352,7 @@ def statistics():
 @views.route("/statistics/jobs")
 def statistics_jobs():
     """Job statistics view definition."""
+    # Default to the last 7 days for the statistics view
     seven_days_ago = datetime.now(tz=timezone.utc) - timedelta(days=7)
 
     # Get job data for the statistics view
@@ -391,23 +392,24 @@ def statistics_jobs():
         submitters=selected_submitters or None,
     )
 
-    available_queues = sorted({queue["name"] for queue in queues_data()})
-    available_submitters = sorted(
-        {
-            permissions["client_id"]
-            for permissions in database.get_all_client_permissions()
-        }
-    )
+    filters = {
+        "start_date": start_date,
+        "stop_date": stop_date,
+        "available_queues": sorted({queue["name"] for queue in queues_data()}),
+        "available_submitters": sorted(
+            {
+                permissions["client_id"]
+                for permissions in database.get_all_client_permissions()
+            }
+        ),
+        "selected_queues": selected_queues,
+        "selected_submitters": selected_submitters,
+    }
 
     return render_template(
         "statistics_jobs.html",
         job_totals=job_totals,
         job_buckets=job_buckets,
         group_by=group_by,
-        start_date=start_date,
-        stop_date=stop_date,
-        available_queues=available_queues,
-        available_submitters=available_submitters,
-        selected_queues=selected_queues,
-        selected_submitters=selected_submitters,
+        filters=filters,
     )
