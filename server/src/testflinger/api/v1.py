@@ -1642,3 +1642,40 @@ def get_job_events(job_id):
 
     job_events = database.get_job_events(job_id)
     return jsonify({"job_id": job_id, "events": job_events})
+
+
+@v1.get("/statistics/jobs")
+@authenticate
+@require_role(ServerRoles.ADMIN, ServerRoles.MANAGER)
+@v1.input(schemas.JobStatisticsQuery, location="query")
+@v1.output(schemas.JobStatisticsOut)
+def get_jobs_statistics(query_data: dict) -> dict:
+    """Get job submission statistics grouped by queue or submitter.
+
+    This supports additional filtering by date range, queues or submitter.
+
+    :param query_data: Dictionary containing query parameters for filtering
+    :return: Both totals and buckets based on specified filter.
+    """
+    group_by = query_data["group_by"]
+    queues = query_data.get("queues")
+    submitters = query_data.get("submitters")
+    start_at = query_data.get("start_at")
+    end_at = query_data.get("end_at")
+
+    return jsonify(
+        totals=database.get_job_statistics_totals(
+            group_by=group_by,
+            start_at=start_at,
+            end_at=end_at,
+            queues=queues,
+            submitters=submitters,
+        ),
+        buckets=database.get_job_statistics_buckets(
+            group_by=group_by,
+            start_at=start_at,
+            end_at=end_at,
+            queues=queues,
+            submitters=submitters,
+        ),
+    )
