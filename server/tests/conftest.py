@@ -227,12 +227,6 @@ def agent_auth_header():
 
 
 @pytest.fixture
-def admin_auth_header():
-    """Pytest fixture that provides an Authorization header for an admin."""
-    return utilities.get_access_token_header("admin-id", ServerRoles.ADMIN)
-
-
-@pytest.fixture
 def role_clients_factory(mongo_app):
     """
     Fixture to create isolated test clients for each of the four roles.

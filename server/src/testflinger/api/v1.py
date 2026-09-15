@@ -1646,7 +1646,7 @@ def get_job_events(job_id):
 
 @v1.get("/statistics/jobs")
 @authenticate
-@require_role(ServerRoles.ADMIN, ServerRoles.MANAGER)
+@require_role(ServerRoles.ADMIN, ServerRoles.MANAGER, ServerRoles.CONTRIBUTOR)
 @v1.input(schemas.JobStatisticsQuery, location="query")
 @v1.output(schemas.JobStatisticsOut)
 def get_jobs_statistics(query_data: dict) -> dict:

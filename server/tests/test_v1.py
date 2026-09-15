@@ -2426,12 +2426,10 @@ def test_add_job_statistics_on_job_post(mongo_app):
     assert "created_at" in job_statistics
 
 
-def test_get_job_statistics_defaults(
-    statistics_data, mongo_app, admin_auth_header
-):
+def test_get_job_statistics_defaults(statistics_data, mongo_app):
     """Test job statistics are grouped by submitter without filters."""
     app, _ = mongo_app
-    output = app.get("/v1/statistics/jobs", headers=admin_auth_header)
+    output = app.get("/v1/statistics/jobs")
     assert output.status_code == HTTPStatus.OK
 
     # Expected totals from the statistics_data fixture
@@ -2451,24 +2449,18 @@ def test_get_job_statistics_defaults(
     assert output.json["buckets"] == expected_buckets
 
 
-def test_get_job_statistics_invalid_group_bucket(mongo_app, admin_auth_header):
+def test_get_job_statistics_invalid_group_bucket(mongo_app):
     """Test that an invalid group_by parameter returns a 422 error."""
     app, _ = mongo_app
-    output = app.get(
-        "/v1/statistics/jobs?group_by=invalid", headers=admin_auth_header
-    )
+    output = app.get("/v1/statistics/jobs?group_by=invalid")
     assert output.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
     assert "Validation error" in output.json["message"]
 
 
-def test_get_job_statistics_by_queue(
-    statistics_data, mongo_app, admin_auth_header
-):
+def test_get_job_statistics_by_queue(statistics_data, mongo_app):
     """Test job statistics are grouped by queue."""
     app, _ = mongo_app
-    output = app.get(
-        "/v1/statistics/jobs?group_by=queue", headers=admin_auth_header
-    )
+    output = app.get("/v1/statistics/jobs?group_by=queue")
     assert output.status_code == HTTPStatus.OK
 
     # Expected totals from the statistics_data fixture
@@ -2489,14 +2481,11 @@ def test_get_job_statistics_by_queue(
     assert output.json["buckets"] == expected_buckets
 
 
-def test_get_job_statistics_date_range(
-    statistics_data, mongo_app, admin_auth_header
-):
+def test_get_job_statistics_date_range(statistics_data, mongo_app):
     """Test job statistics can be filtered by a date range."""
     app, _ = mongo_app
     output = app.get(
         "/v1/statistics/jobs?start_at=2026-01-02T00:00:00Z",
-        headers=admin_auth_header,
     )
     assert output.status_code == HTTPStatus.OK
 
@@ -2516,27 +2505,21 @@ def test_get_job_statistics_date_range(
     assert output.json["buckets"] == expected_buckets
 
 
-def test_get_job_statistics_not_iso8601_datetime(
-    statistics_data, mongo_app, admin_auth_header
-):
+def test_get_job_statistics_not_iso8601_datetime(statistics_data, mongo_app):
     """Test job statistics returns 422 if start_at is not a ISO8601 format."""
     app, _ = mongo_app
     output = app.get(
         "/v1/statistics/jobs?start_at=2026-01-02",
-        headers=admin_auth_header,
     )
     assert output.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
     assert "Validation error" in output.json["message"]
 
 
-def test_get_job_statistics_with_filters(
-    statistics_data, mongo_app, admin_auth_header
-):
+def test_get_job_statistics_with_filters(statistics_data, mongo_app):
     """Test job statistics can be filtered by queue and submitter."""
     app, _ = mongo_app
     output = app.get(
         "/v1/statistics/jobs?queues=queue1&submitters=user1",
-        headers=admin_auth_header,
     )
     assert output.status_code == HTTPStatus.OK
 

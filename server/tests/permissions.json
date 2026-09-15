@@ -93,6 +93,6 @@
     "GET": ["AGENT", "CONTRIBUTOR", "MANAGER", "ADMIN"]
   },
   "/v1/statistics/jobs": {
-    "GET": ["MANAGER", "ADMIN"]
+    "GET": ["MANAGER", "ADMIN", "CONTRIBUTOR"]
   }
 }

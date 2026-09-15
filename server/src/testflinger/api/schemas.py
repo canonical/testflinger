@@ -830,14 +830,14 @@ class JobStatisticsQuery(Schema):
         required=False,
         metadata={
             "description": "Filter statistics for jobs created "
-                "at or after this datetime (ISO 8601)."
+            "at or after this datetime (ISO 8601)."
         },
     )
     end_at = fields.DateTime(
         required=False,
         metadata={
             "description": "Filter statistics for jobs created "
-                "before this datetime (ISO 8601)."
+            "before this datetime (ISO 8601)."
         },
     )
 
