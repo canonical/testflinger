@@ -383,6 +383,13 @@ def statistics_jobs():
         queues=selected_queues or None,
         submitters=selected_submitters or None,
     )
+    job_buckets = database.get_job_statistics_buckets(
+        group_by=group_by,
+        start_at=start_datetime,
+        end_at=stop_datetime,
+        queues=selected_queues or None,
+        submitters=selected_submitters or None,
+    )
 
     available_queues = sorted({queue["name"] for queue in queues_data()})
     available_submitters = sorted(
@@ -395,6 +402,7 @@ def statistics_jobs():
     return render_template(
         "statistics_jobs.html",
         job_totals=job_totals,
+        job_buckets=job_buckets,
         group_by=group_by,
         start_date=start_date,
         stop_date=stop_date,
