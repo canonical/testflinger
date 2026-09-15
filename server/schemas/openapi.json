@@ -500,6 +500,64 @@
         ],
         "type": "object"
       },
+      "JobStatisticsBuckets": {
+        "additionalProperties": false,
+        "properties": {
+          "count": {
+            "type": "integer"
+          },
+          "date": {
+            "type": "string"
+          },
+          "key": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "count",
+          "date",
+          "key"
+        ],
+        "type": "object"
+      },
+      "JobStatisticsOut": {
+        "additionalProperties": false,
+        "properties": {
+          "buckets": {
+            "items": {
+              "$ref": "#/components/schemas/JobStatisticsBuckets"
+            },
+            "type": "array"
+          },
+          "totals": {
+            "items": {
+              "$ref": "#/components/schemas/JobStatisticsTotal"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "buckets",
+          "totals"
+        ],
+        "type": "object"
+      },
+      "JobStatisticsTotal": {
+        "additionalProperties": false,
+        "properties": {
+          "count": {
+            "type": "integer"
+          },
+          "key": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "count",
+          "key"
+        ],
+        "type": "object"
+      },
       "LogGet": {
         "additionalProperties": false,
         "properties": {
@@ -2928,6 +2986,106 @@
           "contributor",
           "manager",
           "admin"
+        ]
+      }
+    },
+    "/v1/statistics/jobs": {
+      "get": {
+        "description": "This supports additional filtering by date range, queues or submitter.\n\n:param query_data: Dictionary containing query parameters for filtering\n:return: Both totals and buckets based on specified filter.",
+        "parameters": [
+          {
+            "description": "Group statistics by 'queue' or 'submitted_by'.",
+            "in": "query",
+            "name": "group_by",
+            "required": false,
+            "schema": {
+              "default": "submitted_by",
+              "enum": [
+                "queue",
+                "submitted_by"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "description": "Filter statistics by specific queues.",
+            "explode": true,
+            "in": "query",
+            "name": "queues",
+            "required": false,
+            "schema": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "style": "form"
+          },
+          {
+            "description": "Filter statistics by specific submitters.",
+            "explode": true,
+            "in": "query",
+            "name": "submitters",
+            "required": false,
+            "schema": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "style": "form"
+          },
+          {
+            "description": "Filter statistics for jobs created at or after this datetime (ISO 8601).",
+            "in": "query",
+            "name": "start_at",
+            "required": false,
+            "schema": {
+              "format": "date-time",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Filter statistics for jobs created before this datetime (ISO 8601).",
+            "in": "query",
+            "name": "end_at",
+            "required": false,
+            "schema": {
+              "format": "date-time",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobStatisticsOut"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "summary": "Get job submission statistics grouped by queue or submitter.",
+        "tags": [
+          "V1"
+        ],
+        "x-permission-roles": [
+          "admin",
+          "manager",
+          "contributor"
         ]
       }
     }
