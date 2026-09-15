@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% set active_page = "statistics" %}
+{% set title = "Job Statistics" %}
+{% block content %}
+  <div class="p-strip is-shallow">
+    <div class="row">
+      <a href="{{ url_for('testflinger.statistics') }}">&larr; Statistics</a>
+      <h1 class="p-heading--3">Job Statistics</h1>
+    </div>
+    <div class="row">
+      <form action="" method="get">
+        <div class="tag-input-group u-sv3">
+          <div class="p-form__group tag-input" data-field-name="queues">
+            <label for="queues-input" class="p-form__label">Queues</label>
+            <div class="tag-input__row">
+              <input type="text"
+                     id="queues-input"
+                     list="queues-options"
+                     class="tag-input__field"
+                     placeholder="Search and filter queues…"
+                     autocomplete="off">
+              <datalist id="queues-options">
+                {% for queue in available_queues %}<option value="{{ queue }}"></option>{% endfor %}
+              </datalist>
+              <button type="button" class="p-button--neutral tag-input__add">Add</button>
+            </div>
+            <div class="tag-input__chips">
+              {% for queue in selected_queues %}
+                <span class="p-chip">
+                  <span class="p-chip__value">{{ queue }}</span>
+                  <button type="button" class="p-chip__dismiss">Dismiss</button>
+                </span>
+                <input type="hidden" name="queues" value="{{ queue }}">
+              {% endfor %}
+            </div>
+          </div>
+          <div class="p-form__group tag-input" data-field-name="submitters">
+            <label for="submitters-input" class="p-form__label">Submitters</label>
+            <div class="tag-input__row">
+              <input type="text"
+                     id="submitters-input"
+                     list="submitters-options"
+                     class="tag-input__field"
+                     placeholder="Search and filter submitters…"
+                     autocomplete="off">
+              <datalist id="submitters-options">
+                {% for submitter in available_submitters %}<option value="{{ submitter }}"></option>{% endfor %}
+              </datalist>
+              <button type="button" class="p-button--neutral tag-input__add">Add</button>
+            </div>
+            <div class="tag-input__chips">
+              {% for submitter in selected_submitters %}
+                <span class="p-chip">
+                  <span class="p-chip__value">{{ submitter }}</span>
+                  <button type="button" class="p-chip__dismiss">Dismiss</button>
+                </span>
+                <input type="hidden" name="submitters" value="{{ submitter }}">
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+        <div class="p-form--inline">
+          <div class="p-form__group">
+            <label for="group-by" class="p-form__label">Group by</label>
+            <select id="group-by" name="group_by" class="p-form__control">
+              <option value="submitted_by"
+                      {% if group_by == "submitted_by" %}selected{% endif %}>Submitter</option>
+              <option value="queue" {% if group_by == "queue" %}selected{% endif %}>Queue</option>
+            </select>
+          </div>
+          <div class="p-form__group">
+            <label for="start-date" class="p-form__label">Start Date</label>
+            <input type="date"
+                   id="start-date"
+                   name="start"
+                   class="p-form__control"
+                   value="{{ start_date }}">
+          </div>
+          <div class="p-form__group">
+            <label for="stop-date" class="p-form__label">Stop Date</label>
+            <input type="date"
+                   id="stop-date"
+                   name="stop"
+                   class="p-form__control"
+                   value="{{ stop_date }}">
+          </div>
+        </div>
+        <div class="p-form__group">
+          <button type="submit" class="p-button--positive">Apply</button>
+        </div>
+      </form>
+    </div>
+    <div class="row">
+      <h2 class="p-heading--4">Job Totals</h2>
+      {% include "_job_totals_table.html" %}
+    </div>
+  </div>
+{% endblock content %}

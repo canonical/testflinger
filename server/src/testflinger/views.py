@@ -341,3 +341,65 @@ def seconds_to_hms(seconds: float) -> str:
     minutes = (seconds % 3600) // 60
     seconds = seconds % 60
     return f"{hours:02d}h {minutes:02d}m {seconds:02d}s"
+
+
+@views.route("/statistics")
+def statistics():
+    """Statistics hub view definition."""
+    return render_template("statistics.html")
+
+
+@views.route("/statistics/jobs")
+def statistics_jobs():
+    """Job statistics view definition."""
+    seven_days_ago = datetime.now(tz=timezone.utc) - timedelta(days=7)
+
+    # Get job data for the statistics view
+    group_by = request.args.get("group_by", "submitted_by")
+    if group_by not in ("queue", "submitted_by"):
+        group_by = "submitted_by"
+
+    default_start_date = seven_days_ago.strftime("%Y-%m-%d")
+    default_stop_date = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
+
+    start_date = request.args.get("start", default_start_date)
+    stop_date = request.args.get("stop", default_stop_date)
+
+    # Convert start and stop dates to datetime objects for the query
+    start_datetime = datetime.strptime(start_date, "%Y-%m-%d").replace(
+        tzinfo=timezone.utc
+    )
+    stop_datetime = datetime.strptime(stop_date, "%Y-%m-%d").replace(
+        tzinfo=timezone.utc
+    ) + timedelta(days=1)
+
+    selected_queues = request.args.getlist("queues")
+    selected_submitters = request.args.getlist("submitters")
+
+    job_totals = database.get_job_statistics_totals(
+        group_by=group_by,
+        start_at=start_datetime,
+        end_at=stop_datetime,
+        queues=selected_queues or None,
+        submitters=selected_submitters or None,
+    )
+
+    available_queues = sorted({queue["name"] for queue in queues_data()})
+    available_submitters = sorted(
+        {
+            permissions["client_id"]
+            for permissions in database.get_all_client_permissions()
+        }
+    )
+
+    return render_template(
+        "statistics_jobs.html",
+        job_totals=job_totals,
+        group_by=group_by,
+        start_date=start_date,
+        stop_date=stop_date,
+        available_queues=available_queues,
+        available_submitters=available_submitters,
+        selected_queues=selected_queues,
+        selected_submitters=selected_submitters,
+    )

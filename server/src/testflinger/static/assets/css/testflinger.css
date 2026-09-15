@@ -127,3 +127,37 @@ main {
     margin-bottom: 0.5rem;
     white-space: nowrap;
 }
+
+/* Tag input filter: a search field + Add button on one row, 
+   with chips wrapping freely beneath so they don't disturb the row above. */
+.tag-input-group {
+    display: flex;
+    gap: 2rem;
+}
+
+.tag-input {
+    flex: 1 1 0;
+    min-width: 0;
+}
+
+.tag-input__row {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.tag-input__field {
+    flex: 1 1 auto;
+}
+
+.tag-input__chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+}
+
+.tag-input__chips:empty {
+    margin-top: 0;
+}
+
