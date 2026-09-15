@@ -131,6 +131,14 @@ class AgentJob(Schema):
     tags = fields.List(fields.String(), required=False)
 
 
+class ProvisionStreak(Schema):
+    """Consecutive provisioning result summary for an agent."""
+
+    status = fields.String(required=True, validate=OneOf(["pass", "fail"]))
+    value = fields.Integer(required=True, validate=validators.Range(min=1))
+    signed_value = fields.Integer(required=True)
+
+
 class AgentOut(Schema):
     """Agent data output schema."""
 
@@ -144,6 +152,7 @@ class AgentOut(Schema):
     restricted_to = fields.Dict(required=False)
     job = fields.Nested(AgentJob, required=False, allow_none=True)
     links = fields.List(fields.Nested(AgentLink), required=False)
+    provision_streak = fields.Nested(ProvisionStreak, required=False)
 
 
 class ActionIn(Schema):
