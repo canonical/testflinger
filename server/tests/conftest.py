@@ -17,8 +17,10 @@
 
 import secrets
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from http import HTTPStatus
 from typing import Dict
+from uuid import uuid4
 
 import bcrypt
 import mongomock
@@ -225,6 +227,12 @@ def agent_auth_header():
 
 
 @pytest.fixture
+def admin_auth_header():
+    """Pytest fixture that provides an Authorization header for an admin."""
+    return utilities.get_access_token_header("admin-id", ServerRoles.ADMIN)
+
+
+@pytest.fixture
 def role_clients_factory(mongo_app):
     """
     Fixture to create isolated test clients for each of the four roles.
@@ -278,3 +286,38 @@ def webhook_fixture(requests_mock, monkeypatch):
     monkeypatch.setenv("WEBHOOK_URL", "http://mywebhook.com/")
     requests_mock.put(webhook, status_code=HTTPStatus.OK)
     return webhook
+
+
+@pytest.fixture()
+def statistics_data(mongo_app):
+    """Fixture to populate the mock database with job statistics data."""
+    _, mongo = mongo_app
+    statistics = [
+        {
+            "job_id": str(uuid4()),
+            "queue": "queue1",
+            "submitted_by": "user1",
+            "created_at": datetime(2026, 1, 1, tzinfo=timezone.utc),
+        },
+        {
+            "job_id": str(uuid4()),
+            "queue": "queue2",
+            "submitted_by": "user1",
+            "created_at": datetime(2026, 1, 1, tzinfo=timezone.utc),
+        },
+        {
+            "job_id": str(uuid4()),
+            "queue": "queue1",
+            "submitted_by": "user2",
+            "created_at": datetime(2026, 1, 2, tzinfo=timezone.utc),
+        },
+        {
+            "job_id": str(uuid4()),
+            "queue": "queue2",
+            "submitted_by": "user1",
+            "created_at": datetime(2026, 1, 2, tzinfo=timezone.utc),
+        },
+    ]
+
+    # Insert the statistics data into the mock database
+    mongo.job_statistics.insert_many(statistics)

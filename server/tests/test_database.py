@@ -40,45 +40,6 @@ from testflinger.database import (
 enable_gridfs_integration()
 
 
-@pytest.fixture()
-def statistics_data():
-    """Fixture to populate the mock database with job statistics data."""
-    return [
-        {
-            "job_id": str(uuid4()),
-            "queue": "queue1",
-            "submitted_by": "user1",
-            "created_at": datetime.datetime(
-                2026, 1, 1, tzinfo=datetime.timezone.utc
-            ),
-        },
-        {
-            "job_id": str(uuid4()),
-            "queue": "queue2",
-            "submitted_by": "user1",
-            "created_at": datetime.datetime(
-                2026, 1, 1, tzinfo=datetime.timezone.utc
-            ),
-        },
-        {
-            "job_id": str(uuid4()),
-            "queue": "queue1",
-            "submitted_by": "user2",
-            "created_at": datetime.datetime(
-                2026, 1, 2, tzinfo=datetime.timezone.utc
-            ),
-        },
-        {
-            "job_id": str(uuid4()),
-            "queue": "queue2",
-            "submitted_by": "user1",
-            "created_at": datetime.datetime(
-                2026, 1, 2, tzinfo=datetime.timezone.utc
-            ),
-        },
-    ]
-
-
 @pytest.mark.parametrize("state", ["waiting", "provision", "$custom", None])
 @patch("testflinger.database.mongo", new_callable=mongomock.MongoClient)
 def test_update_job_results_preserves_preimage_and_payload(mock_mongo, state):
@@ -395,12 +356,8 @@ def test_get_job_statistics_unsupported_group_by(func):
     assert "Unsupported group_by" in str(exc_info.value)
 
 
-@patch("testflinger.database.mongo", new_callable=mongomock.MongoClient)
-def test_statistics_group_by_totals(mock_mongo, statistics_data):
+def test_statistics_group_by_totals(statistics_data):
     """Test get_job_statistics_totals groups by the correct field."""
-    for stat in statistics_data:
-        mock_mongo.db.job_statistics.insert_one(stat)
-
     # Group by queue
     totals_by_queue = get_job_statistics_totals(group_by="queue")
     assert totals_by_queue == [
@@ -416,12 +373,8 @@ def test_statistics_group_by_totals(mock_mongo, statistics_data):
     ]
 
 
-@patch("testflinger.database.mongo", new_callable=mongomock.MongoClient)
-def test_statistics_group_by_buckets(mock_mongo, statistics_data):
+def test_statistics_group_by_buckets(statistics_data):
     """Test get_job_statistics_buckets groups by the correct field."""
-    for stat in statistics_data:
-        mock_mongo.db.job_statistics.insert_one(stat)
-
     # Group by queue
     buckets_by_queue = get_job_statistics_buckets(group_by="queue")
     assert buckets_by_queue == [
@@ -440,12 +393,8 @@ def test_statistics_group_by_buckets(mock_mongo, statistics_data):
     ]
 
 
-@patch("testflinger.database.mongo", new_callable=mongomock.MongoClient)
-def test_statistics_totals_start_at_range(mock_mongo, statistics_data):
+def test_statistics_totals_start_at_range(statistics_data):
     """Test get_job_statistics_totals filters by start_at range."""
-    for stat in statistics_data:
-        mock_mongo.db.job_statistics.insert_one(stat)
-
     # only jobs on/after 2026-01-02
     totals = get_job_statistics_totals(
         group_by="queue",
@@ -457,12 +406,8 @@ def test_statistics_totals_start_at_range(mock_mongo, statistics_data):
     ]
 
 
-@patch("testflinger.database.mongo", new_callable=mongomock.MongoClient)
-def test_statistics_totals_end_at_range(mock_mongo, statistics_data):
+def test_statistics_totals_end_at_range(statistics_data):
     """Test get_job_statistics_totals filters by end_at (exclusive)."""
-    for stat in statistics_data:
-        mock_mongo.db.job_statistics.insert_one(stat)
-
     # only jobs before 2026-01-02 (end bound is exclusive)
     totals = get_job_statistics_totals(
         group_by="queue",
@@ -474,12 +419,8 @@ def test_statistics_totals_end_at_range(mock_mongo, statistics_data):
     ]
 
 
-@patch("testflinger.database.mongo", new_callable=mongomock.MongoClient)
-def test_statistics_totals_date_range_both_bounds(mock_mongo, statistics_data):
+def test_statistics_totals_date_range_both_bounds(statistics_data):
     """Test get_job_statistics_totals with both start_at and end_at."""
-    for stat in statistics_data:
-        mock_mongo.db.job_statistics.insert_one(stat)
-
     # window covering only 2026-01-01 (start inclusive, end exclusive)
     totals = get_job_statistics_totals(
         group_by="submitted_by",
@@ -489,12 +430,8 @@ def test_statistics_totals_date_range_both_bounds(mock_mongo, statistics_data):
     assert totals == [{"key": "user1", "count": 2}]
 
 
-@patch("testflinger.database.mongo", new_callable=mongomock.MongoClient)
-def test_statistics_totals_queue_filter(mock_mongo, statistics_data):
+def test_statistics_totals_queue_filter(statistics_data):
     """Test get_job_statistics_totals filters by queue list."""
-    for stat in statistics_data:
-        mock_mongo.db.job_statistics.insert_one(stat)
-
     totals = get_job_statistics_totals(group_by="queue", queues=["queue1"])
     assert totals == [{"key": "queue1", "count": 2}]
 
@@ -503,12 +440,8 @@ def test_statistics_totals_queue_filter(mock_mongo, statistics_data):
     assert totals == []
 
 
-@patch("testflinger.database.mongo", new_callable=mongomock.MongoClient)
-def test_statistics_totals_submitter_filter(mock_mongo, statistics_data):
+def test_statistics_totals_submitter_filter(statistics_data):
     """Test get_job_statistics_totals filters by submitter list."""
-    for stat in statistics_data:
-        mock_mongo.db.job_statistics.insert_one(stat)
-
     totals = get_job_statistics_totals(
         group_by="submitted_by", submitters=["user1"]
     )
@@ -522,12 +455,8 @@ def test_statistics_empty_collection(mock_mongo):
     assert get_job_statistics_buckets(group_by="queue") == []
 
 
-@patch("testflinger.database.mongo", new_callable=mongomock.MongoClient)
-def test_statistics_combined_filters(mock_mongo, statistics_data):
+def test_statistics_combined_filters(statistics_data):
     """Test date range combined with queue filter."""
-    for stat in statistics_data:
-        mock_mongo.db.job_statistics.insert_one(stat)
-
     # queue1 jobs on/after 2026-01-02: only the user2 job qualifies
     totals = get_job_statistics_totals(
         group_by="submitted_by",

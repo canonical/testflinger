@@ -2424,3 +2424,133 @@ def test_add_job_statistics_on_job_post(mongo_app):
     assert job_statistics["queue"] == "test"
     assert "submitted_by" in job_statistics
     assert "created_at" in job_statistics
+
+
+def test_get_job_statistics_defaults(
+    statistics_data, mongo_app, admin_auth_header
+):
+    """Test job statistics are grouped by submitter without filters."""
+    app, _ = mongo_app
+    output = app.get("/v1/statistics/jobs", headers=admin_auth_header)
+    assert output.status_code == HTTPStatus.OK
+
+    # Expected totals from the statistics_data fixture
+    expected_totals = [
+        {"count": 3, "key": "user1"},
+        {"count": 1, "key": "user2"},
+    ]
+
+    # Expected buckets (per-day) from the statistics_data fixture
+    expected_buckets = [
+        {"date": "2026-01-01", "count": 2, "key": "user1"},
+        {"date": "2026-01-02", "count": 1, "key": "user1"},
+        {"date": "2026-01-02", "count": 1, "key": "user2"},
+    ]
+
+    assert output.json["totals"] == expected_totals
+    assert output.json["buckets"] == expected_buckets
+
+
+def test_get_job_statistics_invalid_group_bucket(mongo_app, admin_auth_header):
+    """Test that an invalid group_by parameter returns a 422 error."""
+    app, _ = mongo_app
+    output = app.get(
+        "/v1/statistics/jobs?group_by=invalid", headers=admin_auth_header
+    )
+    assert output.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+    assert "Validation error" in output.json["message"]
+
+
+def test_get_job_statistics_by_queue(
+    statistics_data, mongo_app, admin_auth_header
+):
+    """Test job statistics are grouped by queue."""
+    app, _ = mongo_app
+    output = app.get(
+        "/v1/statistics/jobs?group_by=queue", headers=admin_auth_header
+    )
+    assert output.status_code == HTTPStatus.OK
+
+    # Expected totals from the statistics_data fixture
+    expected_totals = [
+        {"count": 2, "key": "queue1"},
+        {"count": 2, "key": "queue2"},
+    ]
+
+    # Expected buckets (per-day) from the statistics_data fixture
+    expected_buckets = [
+        {"date": "2026-01-01", "count": 1, "key": "queue1"},
+        {"date": "2026-01-01", "count": 1, "key": "queue2"},
+        {"date": "2026-01-02", "count": 1, "key": "queue1"},
+        {"date": "2026-01-02", "count": 1, "key": "queue2"},
+    ]
+
+    assert output.json["totals"] == expected_totals
+    assert output.json["buckets"] == expected_buckets
+
+
+def test_get_job_statistics_date_range(
+    statistics_data, mongo_app, admin_auth_header
+):
+    """Test job statistics can be filtered by a date range."""
+    app, _ = mongo_app
+    output = app.get(
+        "/v1/statistics/jobs?start_at=2026-01-02T00:00:00Z",
+        headers=admin_auth_header,
+    )
+    assert output.status_code == HTTPStatus.OK
+
+    # Expected totals from the statistics_data fixture for the specified range
+    expected_totals = [
+        {"count": 1, "key": "user1"},
+        {"count": 1, "key": "user2"},
+    ]
+
+    # Expected buckets from the statistics_data fixture for the specified range
+    expected_buckets = [
+        {"date": "2026-01-02", "count": 1, "key": "user1"},
+        {"date": "2026-01-02", "count": 1, "key": "user2"},
+    ]
+
+    assert output.json["totals"] == expected_totals
+    assert output.json["buckets"] == expected_buckets
+
+
+def test_get_job_statistics_not_iso8601_datetime(
+    statistics_data, mongo_app, admin_auth_header
+):
+    """Test job statistics returns 422 if start_at is not a ISO8601 format."""
+    app, _ = mongo_app
+    output = app.get(
+        "/v1/statistics/jobs?start_at=2026-01-02",
+        headers=admin_auth_header,
+    )
+    assert output.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+    assert "Validation error" in output.json["message"]
+
+
+def test_get_job_statistics_with_filters(
+    statistics_data, mongo_app, admin_auth_header
+):
+    """Test job statistics can be filtered by queue and submitter."""
+    app, _ = mongo_app
+    output = app.get(
+        "/v1/statistics/jobs?queues=queue1&submitters=user1",
+        headers=admin_auth_header,
+    )
+    assert output.status_code == HTTPStatus.OK
+
+    # Expected totals from the statistics_data fixture with specified filters
+    expected_totals = [
+        {"count": 1, "key": "user1"},
+    ]
+
+    # Expected buckets from the statistics_data fixture with specified filters
+    expected_buckets = [
+        {"date": "2026-01-01", "count": 1, "key": "user1"},
+    ]
+
+    assert "user2" not in output.json
+    assert "queue2" not in output.json
+    assert output.json["totals"] == expected_totals
+    assert output.json["buckets"] == expected_buckets
