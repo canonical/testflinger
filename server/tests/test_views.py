@@ -716,7 +716,7 @@ def test_statistics_jobs_default_group_by(statistics_data, mongo_app):
 
 
 def test_statistics_jobs_group_by_queue(statistics_data, mongo_app):
-    """Test the job statistics page can group totals/buckets by queue."""
+    """Test the job statistics page can group totals/daily counts by queue."""
     app, _ = mongo_app
     response = app.get(
         "/statistics/jobs?group_by=queue&start=2026-01-01&stop=2026-01-03"
@@ -742,7 +742,7 @@ def test_statistics_jobs_invalid_group_by_defaults_to_submitter(mongo_app):
 
 
 def test_statistics_jobs_filters_by_queue(statistics_data, mongo_app):
-    """Test the job statistics page filters totals/buckets by queue."""
+    """Test the job statistics page filters totals/daily counts by queue."""
     app, _ = mongo_app
     response = app.get(
         "/statistics/jobs?group_by=queue&queues=queue1"

@@ -98,14 +98,14 @@
                     role="tab"
                     aria-selected="true"
                     aria-controls="job-totals"
-                    id="job-totals-tab">Job Totals</button>
+                    id="job-totals-tab">Totals</button>
           </div>
           <div class="p-tabs__item">
             <button class="p-tabs__link"
                     role="tab"
                     aria-selected="false"
-                    aria-controls="job-buckets"
-                    id="job-buckets-tab">Job Buckets</button>
+                    aria-controls="job-daily"
+                    id="job-daily-tab">Daily</button>
           </div>
         </div>
         <div tabindex="0"
@@ -114,9 +114,9 @@
              aria-labelledby="job-totals-tab">{% include "_job_totals_table.html" %}</div>
         <div tabindex="0"
              role="tabpanel"
-             id="job-buckets"
-             aria-labelledby="job-buckets-tab"
-             hidden>{% include "_job_buckets_table.html" %}</div>
+             id="job-daily"
+             aria-labelledby="job-daily-tab"
+             hidden>{% include "_job_daily_table.html" %}</div>
       </div>
     </div>
   </div>
