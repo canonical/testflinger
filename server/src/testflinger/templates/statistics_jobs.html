@@ -25,6 +25,9 @@
               <button type="button" class="p-button--neutral tag-input__add">Add</button>
             </div>
             <div class="tag-input__chips">
+              {% if filters.selected_queues %}
+                <button type="button" class="tag-input__clear-all">&#10005; Clear all</button>
+              {% endif %}
               {% for queue in filters.selected_queues %}
                 <span class="p-chip">
                   <span class="p-chip__value">{{ queue }}</span>
@@ -49,6 +52,9 @@
               <button type="button" class="p-button--neutral tag-input__add">Add</button>
             </div>
             <div class="tag-input__chips">
+              {% if filters.selected_submitters %}
+                <button type="button" class="tag-input__clear-all">&#10005; Clear all</button>
+              {% endif %}
               {% for submitter in filters.selected_submitters %}
                 <span class="p-chip">
                   <span class="p-chip__value">{{ submitter }}</span>

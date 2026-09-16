@@ -22,10 +22,25 @@ document.addEventListener('DOMContentLoaded', function() {
         chipsContainer.addEventListener('click', function(event) {
             if (event.target.matches('.p-chip__dismiss')) {
                 removeTag(event.target.closest('.p-chip'));
+            } else if (event.target.matches('.tag-input__clear-all')) {
+                clearAllTags(chipsContainer);
             }
         });
     });
 });
+
+/**
+ * Creates the "Clear all" button shown alongside the chips whenever at
+ * least one tag is selected.
+ * @returns {HTMLButtonElement}
+ */
+function createClearAllButton() {
+    var button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'tag-input__clear-all';
+    button.textContent = '\u2715 Clear all';
+    return button;
+}
 
 /**
  * Adds a new tag (chip) with the value currently in the text input, unless
@@ -50,6 +65,10 @@ function addTag(chipsContainer, fieldName, textInput) {
         return;
     }
 
+    if (!chipsContainer.querySelector('.tag-input__clear-all')) {
+        chipsContainer.appendChild(createClearAllButton());
+    }
+
     var chip = document.createElement('span');
     chip.className = 'p-chip';
     chip.innerHTML =
@@ -68,13 +87,30 @@ function addTag(chipsContainer, fieldName, textInput) {
 }
 
 /**
- * Removes a chip and its associated hidden input from the DOM.
+ * Removes a chip and its associated hidden input from the DOM. If it was
+ * the last remaining chip, the "Clear all" button is removed too.
  * @param {HTMLElement} chip
  */
 function removeTag(chip) {
+    var chipsContainer = chip.parentElement;
     var hiddenInput = chip.nextElementSibling;
     if (hiddenInput && hiddenInput.matches('input[type="hidden"]')) {
         hiddenInput.remove();
     }
     chip.remove();
+
+    if (chipsContainer && !chipsContainer.querySelector('.p-chip')) {
+        var clearAllButton = chipsContainer.querySelector('.tag-input__clear-all');
+        if (clearAllButton) {
+            clearAllButton.remove();
+        }
+    }
+}
+
+/**
+ * Removes all chips and hidden inputs from a tag input's chips container.
+ * @param {HTMLElement} chipsContainer
+ */
+function clearAllTags(chipsContainer) {
+    chipsContainer.innerHTML = '';
 }
