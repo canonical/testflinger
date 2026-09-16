@@ -331,6 +331,33 @@ class TestOemAutoinstall(unittest.TestCase):
 
     @patch.object(OemAutoinstall, "copy_ssh_id")
     @patch("subprocess.run")
+    def test_storage_quotes_configured_test_username(
+        self, mock_run, mock_copy_ssh_id
+    ):
+        """Test storage shell arguments quote the configured test user."""
+        device = OemAutoinstall(self.config_file.name, self.job_file.name)
+        device.job_data["test_data"]["test_username"] = "oem; touch /tmp/pwn"
+        mock_run.side_effect = [
+            Mock(returncode=0),
+            Mock(returncode=1),
+            Mock(returncode=0, stdout="/dev/nvme0n1p3\n"),
+            Mock(returncode=0),
+            Mock(returncode=0),
+        ]
+
+        device.prepare_storage_when_bootstrap()
+
+        mount_command = mock_run.call_args_list[3][0][0][-1]
+        self.assertIn(
+            "chown 'oem; touch /tmp/pwn:oem; touch /tmp/pwn' "
+            "'/home/oem; touch /tmp/pwn'",
+            mount_command,
+        )
+        self.assertNotIn("chown oem; touch /tmp/pwn", mount_command)
+        mock_copy_ssh_id.assert_called_once_with(force=True)
+
+    @patch.object(OemAutoinstall, "copy_ssh_id")
+    @patch("subprocess.run")
     def test_failed_mount_validation_unmounts_before_formatting(
         self, mock_run, mock_copy_ssh_id
     ):
@@ -411,6 +438,19 @@ class TestOemAutoinstall(unittest.TestCase):
             )
         )
         mock_copy_ssh_id.assert_not_called()
+
+    @patch("subprocess.run")
+    def test_storage_inspection_aborts_for_mounted_candidate(self, mock_run):
+        """Test partition inspection rejects a mounted storage candidate."""
+        device = OemAutoinstall(self.config_file.name, self.job_file.name)
+        mock_run.return_value = Mock(returncode=0, stdout="")
+
+        device._find_existing_storage_partition("ubuntu@192.168.1.100")
+
+        remote_command = mock_run.call_args[0][0][-1]
+        self.assertNotIn("NF == 4", remote_command)
+        self.assertIn("NF > 4", remote_command)
+        self.assertIn("exit 3", remote_command)
 
     @patch.object(OemAutoinstall, "copy_ssh_id")
     @patch("subprocess.run")

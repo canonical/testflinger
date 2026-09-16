@@ -21,6 +21,7 @@ with provision-image.sh script.
 import json
 import logging
 import os
+import shlex
 import shutil
 import subprocess
 import time
@@ -192,6 +193,7 @@ class OemAutoinstall:
         return proc
 
     def _is_expected_storage_mounted(self, target, mountpoint):
+        mountpoint = shlex.quote(mountpoint)
         proc = self._run_storage_ssh(
             target,
             (
@@ -211,9 +213,11 @@ class OemAutoinstall:
             (
                 "rows=$(lsblk -pnro "
                 "PATH,TYPE,FSTYPE,PARTN,MOUNTPOINT) || exit 2; "
-                "for candidate in $(printf '%s\\n' \"$rows\" | "
+                "candidates=$(printf '%s\\n' \"$rows\" | "
                 'awk \'$2 == "part" && $3 == "ext4" && '
-                '$4 == "3" && NF == 4 {print $1}\'); do '
+                '$4 == "3" {if (NF > 4) exit 3; print $1}\') '
+                '|| exit $?; '
+                "for candidate in $candidates; do "
                 'parent_name=$(lsblk -dnro PKNAME "$candidate") || exit 2; '
                 '[ -n "$parent_name" ] || continue; '
                 "parent=/dev/$parent_name; "
@@ -253,29 +257,35 @@ class OemAutoinstall:
     ):
         ssh_dir = f"{mountpoint}/.ssh"
         authorized_keys = f"{ssh_dir}/authorized_keys"
+        quoted_authorized_keys = shlex.quote(authorized_keys)
+        quoted_mountpoint = shlex.quote(mountpoint)
+        quoted_owner = shlex.quote(f"{test_username}:{test_username}")
+        quoted_partition = shlex.quote(storage_partition)
+        quoted_ssh_dir = shlex.quote(ssh_dir)
+        quoted_username = shlex.quote(test_username)
         mount_proc = self._run_storage_ssh(
             target,
             (
                 "key_file=$(mktemp) || exit 1; "
                 "trap 'rm -f \"$key_file\"' EXIT; "
-                f'cp {authorized_keys} "$key_file" || '
+                f'cp {quoted_authorized_keys} "$key_file" || '
                 "exit 1; "
-                f"if sudo -n mount -t ext4 -o rw {storage_partition} "
-                f"{mountpoint}; then "
-                f"if sudo -n chown {test_username}:{test_username} "
-                f"{mountpoint} && "
+                f"if sudo -n mount -t ext4 -o rw {quoted_partition} "
+                f"{quoted_mountpoint}; then "
+                f"if sudo -n chown {quoted_owner} "
+                f"{quoted_mountpoint} && "
                 f"sudo -n install -d -m 700 "
-                f"-o {test_username} -g {test_username} "
-                f"{ssh_dir} && "
-                f"sudo -n touch {authorized_keys} && "
-                f'sudo -n tee -a {authorized_keys} < "$key_file" '
+                f"-o {quoted_username} -g {quoted_username} "
+                f"{quoted_ssh_dir} && "
+                f"sudo -n touch {quoted_authorized_keys} && "
+                f'sudo -n tee -a {quoted_authorized_keys} < "$key_file" '
                 ">/dev/null && "
-                f"sudo -n chown {test_username}:{test_username} "
-                f"{authorized_keys} && "
-                f"sudo -n chmod 600 {authorized_keys}; then "
+                f"sudo -n chown {quoted_owner} "
+                f"{quoted_authorized_keys} && "
+                f"sudo -n chmod 600 {quoted_authorized_keys}; then "
                 "exit 0; "
                 "fi; "
-                f"sudo -n umount {mountpoint} || exit 2; "
+                f"sudo -n umount {quoted_mountpoint} || exit 2; "
                 "fi; "
                 "exit 1"
             ),
@@ -297,7 +307,7 @@ class OemAutoinstall:
             "before storage preparation"
         )
         umount_proc = self._run_storage_ssh(
-            target, f"sudo -n umount {mountpoint}"
+            target, f"sudo -n umount {shlex.quote(mountpoint)}"
         )
         if umount_proc.returncode != 0:
             raise subprocess.CalledProcessError(
