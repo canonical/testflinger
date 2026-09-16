@@ -550,7 +550,10 @@ def test_unauthorized_view_access(oidc_app, endpoint):
     assert "You need to sign in to access this page." in str(response.data)
 
 
-@pytest.mark.parametrize("endpoint", ["/agents", "/jobs", "/queues"])
+@pytest.mark.parametrize(
+    "endpoint",
+    ["/agents", "/jobs", "/queues", "/statistics", "/statistics/jobs"],
+)
 def test_authorized_view_access(oidc_app, endpoint):
     """Test views are available when OIDC is enabled and user authenticated."""
     app, _ = oidc_app
@@ -682,3 +685,92 @@ def test_agent_detail_provision_log_with_client_id(testapp):
     html = str(response)
     assert "client-A" in html
     assert "client-B" in html
+
+
+def test_statistics_hub_view(mongo_app):
+    """Test the statistics hub page links to the job statistics page."""
+    app, _ = mongo_app
+    response = app.get("/statistics")
+
+    assert response.status_code == HTTPStatus.OK
+    html = response.data.decode()
+    assert 'href="/statistics/jobs"' in html
+    assert "Job Statistics" in html
+
+
+def test_statistics_jobs_default_group_by(statistics_data, mongo_app):
+    """Test the job statistics page groups by submitter by default."""
+    app, _ = mongo_app
+    response = app.get("/statistics/jobs?start=2026-01-01&stop=2026-01-03")
+
+    assert response.status_code == HTTPStatus.OK
+    html = response.data.decode()
+    assert "<th>Client ID</th>" in html
+    assert "<th>Queue</th>" not in html
+    assert "user1" in html
+    assert "user2" in html
+    assert "2026-01-01" in html
+    assert "2026-01-02" in html
+    assert "queue1" not in html
+    assert "queue2" not in html
+
+
+def test_statistics_jobs_group_by_queue(statistics_data, mongo_app):
+    """Test the job statistics page can group totals/buckets by queue."""
+    app, _ = mongo_app
+    response = app.get(
+        "/statistics/jobs?group_by=queue&start=2026-01-01&stop=2026-01-03"
+    )
+
+    assert response.status_code == HTTPStatus.OK
+    html = response.data.decode()
+    assert "<th>Queue</th>" in html
+    assert "<th>Client ID</th>" not in html
+    assert "queue1" in html
+    assert "queue2" in html
+    assert "user1" not in html
+    assert "user2" not in html
+
+
+def test_statistics_jobs_invalid_group_by_defaults_to_submitter(mongo_app):
+    """Test an unsupported group_by value falls back to submitted_by."""
+    app, _ = mongo_app
+    response = app.get("/statistics/jobs?group_by=bogus")
+
+    assert response.status_code == HTTPStatus.OK
+    assert "<th>Client ID</th>" in response.data.decode()
+
+
+def test_statistics_jobs_filters_by_queue(statistics_data, mongo_app):
+    """Test the job statistics page filters totals/buckets by queue."""
+    app, _ = mongo_app
+    response = app.get(
+        "/statistics/jobs?group_by=queue&queues=queue1"
+        "&start=2026-01-01&stop=2026-01-03"
+    )
+
+    assert response.status_code == HTTPStatus.OK
+    html = response.data.decode()
+    assert "queue1" in html
+    assert "queue2" not in html
+    # The selected queue should be rendered as a chip in the filter form.
+    assert '<span class="p-chip__value">queue1</span>' in html
+
+
+def test_statistics_jobs_lists_available_queues_and_submitters(mongo_app):
+    """Test the filter form lists all known queues and submitters."""
+    app, mongo = mongo_app
+
+    # On purpose not using the statistics_data fixture so we can have
+    # more control and visibility of *all* queues and client_ids.
+    mongo.queues.insert_one(
+        {"name": "advertised-queue", "description": "desc"}
+    )
+    mongo.client_permissions.insert_one({"client_id": "user1"})
+
+    response = app.get("/statistics/jobs")
+
+    assert response.status_code == HTTPStatus.OK
+    html = response.data.decode()
+    assert "advertised-queue" in html
+    assert "user1" in html
