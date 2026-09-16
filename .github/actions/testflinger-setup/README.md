@@ -1,6 +1,6 @@
 # `testflinger-setup`
 
-This action installs the required CLI tools.
+This action verifies connectivity to the Testflinger server and installs the required CLI tools.
 
 ## Usage
 
