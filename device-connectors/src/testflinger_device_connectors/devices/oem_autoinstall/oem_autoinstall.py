@@ -216,7 +216,7 @@ class OemAutoinstall:
                 "candidates=$(printf '%s\\n' \"$rows\" | "
                 'awk \'$2 == "part" && $3 == "ext4" && '
                 '$4 == "3" {if (NF > 4) exit 3; print $1}\') '
-                '|| exit $?; '
+                "|| exit $?; "
                 "for candidate in $candidates; do "
                 'parent_name=$(lsblk -dnro PKNAME "$candidate") || exit 2; '
                 '[ -n "$parent_name" ] || continue; '
