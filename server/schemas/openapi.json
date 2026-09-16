@@ -500,7 +500,7 @@
         ],
         "type": "object"
       },
-      "JobStatisticsBuckets": {
+      "JobStatisticsDaily": {
         "additionalProperties": false,
         "properties": {
           "count": {
@@ -523,9 +523,9 @@
       "JobStatisticsOut": {
         "additionalProperties": false,
         "properties": {
-          "buckets": {
+          "daily": {
             "items": {
-              "$ref": "#/components/schemas/JobStatisticsBuckets"
+              "$ref": "#/components/schemas/JobStatisticsDaily"
             },
             "type": "array"
           },
@@ -537,7 +537,7 @@
           }
         },
         "required": [
-          "buckets",
+          "daily",
           "totals"
         ],
         "type": "object"
@@ -2991,7 +2991,7 @@
     },
     "/v1/statistics/jobs": {
       "get": {
-        "description": "This supports additional filtering by date range, queues or submitter.\n\n:param query_data: Dictionary containing query parameters for filtering\n:return: Both totals and buckets based on specified filter.",
+        "description": "This supports additional filtering by date range, queues or submitter.\n\n:param query_data: Dictionary containing query parameters for filtering\n:return: Both totals and daily counts based on specified filter.",
         "parameters": [
           {
             "description": "Group statistics by 'queue' or 'submitted_by'.",

@@ -2438,18 +2438,18 @@ def test_get_job_statistics_defaults(statistics_data, mongo_app):
         {"count": 1, "key": "user2"},
     ]
 
-    # Expected buckets (per-day) from the statistics_data fixture
-    expected_buckets = [
+    # Expected daily counts from the statistics_data fixture
+    expected_daily = [
         {"date": "2026-01-01", "count": 2, "key": "user1"},
         {"date": "2026-01-02", "count": 1, "key": "user1"},
         {"date": "2026-01-02", "count": 1, "key": "user2"},
     ]
 
     assert output.json["totals"] == expected_totals
-    assert output.json["buckets"] == expected_buckets
+    assert output.json["daily"] == expected_daily
 
 
-def test_get_job_statistics_invalid_group_bucket(mongo_app):
+def test_get_job_statistics_invalid_group_by(mongo_app):
     """Test that an invalid group_by parameter returns a 422 error."""
     app, _ = mongo_app
     output = app.get("/v1/statistics/jobs?group_by=invalid")
@@ -2469,8 +2469,8 @@ def test_get_job_statistics_by_queue(statistics_data, mongo_app):
         {"count": 2, "key": "queue2"},
     ]
 
-    # Expected buckets (per-day) from the statistics_data fixture
-    expected_buckets = [
+    # Expected daily counts (per-day) from the statistics_data fixture
+    expected_daily = [
         {"date": "2026-01-01", "count": 1, "key": "queue1"},
         {"date": "2026-01-01", "count": 1, "key": "queue2"},
         {"date": "2026-01-02", "count": 1, "key": "queue1"},
@@ -2478,7 +2478,7 @@ def test_get_job_statistics_by_queue(statistics_data, mongo_app):
     ]
 
     assert output.json["totals"] == expected_totals
-    assert output.json["buckets"] == expected_buckets
+    assert output.json["daily"] == expected_daily
 
 
 def test_get_job_statistics_date_range(statistics_data, mongo_app):
@@ -2495,14 +2495,14 @@ def test_get_job_statistics_date_range(statistics_data, mongo_app):
         {"count": 1, "key": "user2"},
     ]
 
-    # Expected buckets from the statistics_data fixture for the specified range
-    expected_buckets = [
+    # Expected counts from the statistics_data fixture for the specified range
+    expected_daily = [
         {"date": "2026-01-02", "count": 1, "key": "user1"},
         {"date": "2026-01-02", "count": 1, "key": "user2"},
     ]
 
     assert output.json["totals"] == expected_totals
-    assert output.json["buckets"] == expected_buckets
+    assert output.json["daily"] == expected_daily
 
 
 def test_get_job_statistics_not_iso8601_datetime(statistics_data, mongo_app):
@@ -2528,12 +2528,12 @@ def test_get_job_statistics_with_filters(statistics_data, mongo_app):
         {"count": 1, "key": "user1"},
     ]
 
-    # Expected buckets from the statistics_data fixture with specified filters
-    expected_buckets = [
+    # Expected counts from the statistics_data fixture with specified filters
+    expected_daily = [
         {"date": "2026-01-01", "count": 1, "key": "user1"},
     ]
 
     assert "user2" not in output.json
     assert "queue2" not in output.json
     assert output.json["totals"] == expected_totals
-    assert output.json["buckets"] == expected_buckets
+    assert output.json["daily"] == expected_daily

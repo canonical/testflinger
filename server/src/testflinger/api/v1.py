@@ -1655,7 +1655,7 @@ def get_jobs_statistics(query_data: dict) -> dict:
     This supports additional filtering by date range, queues or submitter.
 
     :param query_data: Dictionary containing query parameters for filtering
-    :return: Both totals and buckets based on specified filter.
+    :return: Both totals and daily counts based on specified filter.
     """
     group_by = query_data["group_by"]
     queues = query_data.get("queues")
@@ -1671,7 +1671,7 @@ def get_jobs_statistics(query_data: dict) -> dict:
             queues=queues,
             submitters=submitters,
         ),
-        buckets=database.get_job_statistics_buckets(
+        daily=database.get_job_statistics_daily(
             group_by=group_by,
             start_at=start_at,
             end_at=end_at,
