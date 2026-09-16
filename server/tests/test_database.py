@@ -29,7 +29,7 @@ from testflinger.database import (
     add_job_event,
     add_job_statistics,
     create_indexes,
-    get_job_statistics_buckets,
+    get_job_statistics_daily,
     get_job_statistics_totals,
     retrieve_file,
     save_file,
@@ -346,7 +346,7 @@ def test_empty_statistic_does_not_create_document(mock_mongo):
 
 
 @pytest.mark.parametrize(
-    "func", [get_job_statistics_buckets, get_job_statistics_totals]
+    "func", [get_job_statistics_daily, get_job_statistics_totals]
 )
 def test_get_job_statistics_unsupported_group_by(func):
     """Test statistics functions raise ValueError for unsupported group_by."""
@@ -373,11 +373,11 @@ def test_statistics_group_by_totals(statistics_data):
     ]
 
 
-def test_statistics_group_by_buckets(statistics_data):
-    """Test get_job_statistics_buckets groups by the correct field."""
+def test_statistics_group_by_daily(statistics_data):
+    """Test get_job_statistics_daily groups by the correct field."""
     # Group by queue
-    buckets_by_queue = get_job_statistics_buckets(group_by="queue")
-    assert buckets_by_queue == [
+    daily_by_queue = get_job_statistics_daily(group_by="queue")
+    assert daily_by_queue == [
         {"date": "2026-01-01", "key": "queue1", "count": 1},
         {"date": "2026-01-01", "key": "queue2", "count": 1},
         {"date": "2026-01-02", "key": "queue1", "count": 1},
@@ -385,8 +385,8 @@ def test_statistics_group_by_buckets(statistics_data):
     ]
 
     # Group by submitted_by
-    buckets_by_submitter = get_job_statistics_buckets(group_by="submitted_by")
-    assert buckets_by_submitter == [
+    daily_by_submitter = get_job_statistics_daily(group_by="submitted_by")
+    assert daily_by_submitter == [
         {"date": "2026-01-01", "key": "user1", "count": 2},
         {"date": "2026-01-02", "key": "user1", "count": 1},
         {"date": "2026-01-02", "key": "user2", "count": 1},
@@ -452,7 +452,7 @@ def test_statistics_totals_submitter_filter(statistics_data):
 def test_statistics_empty_collection(mock_mongo):
     """Test statistics functions return empty lists on an empty collection."""
     assert get_job_statistics_totals(group_by="queue") == []
-    assert get_job_statistics_buckets(group_by="queue") == []
+    assert get_job_statistics_daily(group_by="queue") == []
 
 
 def test_statistics_combined_filters(statistics_data):

@@ -849,8 +849,8 @@ class JobStatisticsTotal(Schema):
     count = fields.Integer(required=True)
 
 
-class JobStatisticsBuckets(Schema):
-    """Class to represent job statistics buckets."""
+class JobStatisticsDaily(Schema):
+    """Class to represent daily job statistics."""
 
     date = fields.String(required=True)  # Not an ISO 8601 Datetime object
     key = fields.String(required=True)
@@ -861,4 +861,4 @@ class JobStatisticsOut(Schema):
     """Class to represent job statistics output response."""
 
     totals = fields.List(fields.Nested(JobStatisticsTotal), required=True)
-    buckets = fields.List(fields.Nested(JobStatisticsBuckets), required=True)
+    daily = fields.List(fields.Nested(JobStatisticsDaily), required=True)

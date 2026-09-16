@@ -1278,7 +1278,7 @@ def get_job_statistics_totals(
     ]
 
 
-def get_job_statistics_buckets(
+def get_job_statistics_daily(
     group_by: str,
     start_at: datetime | None = None,
     end_at: datetime | None = None,
