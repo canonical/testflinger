@@ -384,7 +384,7 @@ def statistics_jobs():
         queues=selected_queues or None,
         submitters=selected_submitters or None,
     )
-    job_buckets = database.get_job_statistics_buckets(
+    job_daily = database.get_job_statistics_daily(
         group_by=group_by,
         start_at=start_datetime,
         end_at=stop_datetime,
@@ -409,7 +409,7 @@ def statistics_jobs():
     return render_template(
         "statistics_jobs.html",
         job_totals=job_totals,
-        job_buckets=job_buckets,
+        job_daily=job_daily,
         group_by=group_by,
         filters=filters,
     )
