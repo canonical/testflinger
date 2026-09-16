@@ -13,5 +13,13 @@
         <td data-heading="Count">{{ total.count }}</td>
       </tr>
     {% endfor %}
+    <tr>
+      <td data-heading="{{ 'Queue' if group_by == 'queue' else 'Client ID' }}">
+        <strong>Total</strong>
+      </td>
+      <td data-heading="Count">
+        <strong>{{ job_totals|sum(attribute="count") }}</strong>
+      </td>
+    </tr>
   </tbody>
 </table>

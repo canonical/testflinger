@@ -91,12 +91,33 @@
       </form>
     </div>
     <div class="row">
-      <h2 class="p-heading--4">Job Totals</h2>
-      {% include "_job_totals_table.html" %}
-    </div>
-    <div class="row">
-      <h2 class="p-heading--4">Job Buckets</h2>
-      {% include "_job_buckets_table.html" %}
+      <div class="p-tabs">
+        <div class="p-tabs__list" role="tablist" aria-label="Job Statistics tabs">
+          <div class="p-tabs__item">
+            <button class="p-tabs__link"
+                    role="tab"
+                    aria-selected="true"
+                    aria-controls="job-totals"
+                    id="job-totals-tab">Job Totals</button>
+          </div>
+          <div class="p-tabs__item">
+            <button class="p-tabs__link"
+                    role="tab"
+                    aria-selected="false"
+                    aria-controls="job-buckets"
+                    id="job-buckets-tab">Job Buckets</button>
+          </div>
+        </div>
+        <div tabindex="0"
+             role="tabpanel"
+             id="job-totals"
+             aria-labelledby="job-totals-tab">{% include "_job_totals_table.html" %}</div>
+        <div tabindex="0"
+             role="tabpanel"
+             id="job-buckets"
+             aria-labelledby="job-buckets-tab"
+             hidden>{% include "_job_buckets_table.html" %}</div>
+      </div>
     </div>
   </div>
 {% endblock content %}
