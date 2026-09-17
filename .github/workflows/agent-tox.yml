@@ -96,7 +96,7 @@ jobs:
         include:
           - runner: ubuntu-latest
             arch: amd64
-          - runner: self-hosted-linux-s390x-noble-edge
+          - runner: self-hosted-linux-s390x-noble-medium
             arch: s390x
 
     steps:
