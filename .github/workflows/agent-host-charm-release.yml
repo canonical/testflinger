@@ -38,6 +38,8 @@ jobs:
         include:
           - runner: ubuntu-latest
             arch: amd64
+          - runner: [self-hosted, linux, s390x-noble-medium]
+            arch: s390x
 
     permissions:
       actions: read # necessary to get the runner information
@@ -77,6 +79,9 @@ jobs:
             distro: jammy
           - base: ubuntu@24.04
             arch: amd64
+            distro: noble
+          - base: ubuntu@24.04
+            arch: s390x
             distro: noble
     permissions:
       contents: read # for actions/checkout to fetch code
