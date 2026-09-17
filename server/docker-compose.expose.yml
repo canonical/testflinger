@@ -1,0 +1,45 @@
+# Debug-only override for exposing the dev server outside the workshop, e.g.
+# behind a reverse proxy at http://<host>/p/5000/.
+#
+#   just serve-exposed            # from server/
+#   just workshop serve-exposed   # from the host (also connects the tunnels)
+#
+# Functional changes from the default deployment:
+#
+#   ENABLE_PROXYFIX. Makes Flask honour X-Forwarded-{For,Proto,Host,Prefix}
+#   (werkzeug ProxyFix, see src/testflinger/application.py). Without it every
+#   generated URL is root-relative (/agents) and breaks under a path prefix.
+#   It is a no-op when the server is reached directly, since the headers are
+#   then absent.
+#
+# Auth story on the exposed variant:
+#
+#   The full Dex login round-trip does NOT work through the reverse proxy —
+#   Dex issues tokens for the issuer URL it is configured with, which does
+#   not match the outside-facing hostname/prefix. So the "Sign In" link is
+#   present but will not complete a login.
+#
+#   Instead this variant enables TF_DEV_AUTO_SIGNIN, which adds an
+#   "Auto Sign In as ADMIN" link that bypasses Dex entirely and installs a
+#   session as the well-known dev admin identity. This
+#   is what remote testers use.
+#
+#   The OIDC_* / WEB_SECRET_KEY env vars are inherited unchanged from the
+#   base docker-compose.yml so that app_register_oidc() succeeds and
+#   oauth is not None (the tripwire the admin-check code paths gate on).
+#   Dex itself never has to be reachable from the browser.
+#
+# The reverse proxy must send:
+#     proxy_set_header X-Forwarded-Prefix
+#     proxy_set_header X-Forwarded-Host
+#     proxy_set_header X-Forwarded-Proto
+#     proxy_set_header X-Forwarded-For
+# and strip the prefix before proxying (trailing slash on proxy_pass).
+#
+# NOT for production: TF_DEV_AUTO_SIGNIN unconditionally grants admin, and
+# ProxyFix trusts exactly one hop.
+services:
+  testflinger:
+    environment:
+      ENABLE_PROXYFIX: "true"
+      TF_DEV_AUTO_SIGNIN: "1"
