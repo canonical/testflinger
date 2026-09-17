@@ -37,6 +37,10 @@ DEFAULT_EXPIRATION = 60 * 60 * 24 * 7  # 7 days
 OUTPUT_EXPIRATION = 60 * 60 * 4  # 4 hours
 ACCOUNT_DELETE_EXPIRATION = 60 * 60 * 24 * 90  # 90 days
 
+# For statistics, these fields are only set on job submission (POST)
+# Other fields are more flexible and can be inserted by other callers.
+_STATS_IMMUTABLE_FIELDS = frozenset({"submitted_by", "created_at", "queue"})
+
 mongo = PyMongo()
 logger = logging.getLogger(__name__)
 
@@ -80,9 +84,9 @@ def _statistics_match(
     match: dict[str, Any] = {}
     if start_at or end_at:
         match["created_at"] = {
-            k: v
-            for k, v in (("$gte", start_at), ("$lt", end_at))
-            if v is not None
+            operator: bound
+            for operator, bound in (("$gte", start_at), ("$lt", end_at))
+            if bound is not None
         }
     if queues:
         match["queue"] = {"$in": queues}
@@ -1217,19 +1221,16 @@ def add_job_statistics(job_id: str, statistics: dict) -> None:
     The inserted document remains a flat document that can later
     be grouped or aggregated as needed. The ``statistics`` parameter is
     defined by the caller for flexibility. This is done on best effort basis
-    to not block core logic.
+    to not block core logic. This also mutates the ``statistics`` dict to
+    remove any immutable fields that are only meant to be set on insert.
 
     :param job_id: The ID of the job.
     :param statistics: Statistics to add for the specified job.
     """
-    # These fields are only set on job submission (POST)
-    # Other fields are more flexible and can be updated by other callers.
-    immutable_fields = {"submitted_by", "created_at", "queue"}
-
     update_fields = {}
     on_insert_fields = {
         key: statistics.pop(key)
-        for key in immutable_fields
+        for key in _STATS_IMMUTABLE_FIELDS
         if key in statistics
     }
 
@@ -1237,6 +1238,8 @@ def add_job_statistics(job_id: str, statistics: dict) -> None:
         update_fields["$setOnInsert"] = on_insert_fields
 
     # Any additional statistic should be set on the document.
+    # This allows flexibility for the caller to set any other valuable
+    # statistics using job_id as the primary key.
     if statistics:
         update_fields["$set"] = statistics
 
@@ -1270,7 +1273,7 @@ def get_job_statistics_totals(
     pipeline = [
         {"$match": _statistics_match(start_at, end_at, queues, submitters)},
         {"$group": {"_id": group_field, "count": {"$sum": 1}}},
-        {"$sort": {"count": -1}},
+        {"$sort": {"count": -1, "_id": 1}},
     ]
     return [
         {"key": doc["_id"], "count": doc["count"]}
@@ -1311,7 +1314,7 @@ def get_job_statistics_daily(
                 "count": {"$sum": 1},
             }
         },
-        {"$sort": {"_id.date": 1}},
+        {"$sort": {"_id.date": 1, "_id.key": 1}},
     ]
     return [
         {
