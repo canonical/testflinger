@@ -29,17 +29,16 @@ from pymongo.errors import DuplicateKeyError, PyMongoError
 from testflinger_common.enums import ServerRoles
 
 # Field that should be allowed for grouping in the job_statistics collection.
-_STATISTICS_GROUP_FIELDS = frozenset({"queue", "submitted_by"})
+_STATS_GROUP_FIELDS = frozenset({"queue", "submitted_by"})
+# For statistics, these fields are only set on job submission (POST)
+# Other fields are more flexible and can be inserted by other callers.
+_STATS_IMMUTABLE_FIELDS = frozenset({"submitted_by", "created_at", "queue"})
 
 # Constants for TTL indexes
 REFRESH_TOKEN_IDEL_EXPIRATION = 60 * 60 * 24 * 90  # 90 days
 DEFAULT_EXPIRATION = 60 * 60 * 24 * 7  # 7 days
 OUTPUT_EXPIRATION = 60 * 60 * 4  # 4 hours
 ACCOUNT_DELETE_EXPIRATION = 60 * 60 * 24 * 90  # 90 days
-
-# For statistics, these fields are only set on job submission (POST)
-# Other fields are more flexible and can be inserted by other callers.
-_STATS_IMMUTABLE_FIELDS = frozenset({"submitted_by", "created_at", "queue"})
 
 mongo = PyMongo()
 logger = logging.getLogger(__name__)
@@ -62,7 +61,7 @@ def _validate_group_by(group_by: str) -> str:
     :return: The corresponding MongoDB field name.
     :raises ValueError: If the group_by parameter is not supported.
     """
-    if group_by not in _STATISTICS_GROUP_FIELDS:
+    if group_by not in _STATS_GROUP_FIELDS:
         raise ValueError(f"Unsupported group_by: {group_by}")
     return f"${group_by}"
 
