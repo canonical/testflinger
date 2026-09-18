@@ -28,6 +28,9 @@ jobs:
     name: Build and Push Charm
 
     runs-on: ${{ matrix.runner }}
+    # Multiple bases require one runner per base/arch combination.
+    # The charm is pre-built with --destructive-mode on each runner
+    # so it can later be uploaded to charmhub for each base/arch combination.
     strategy:
       fail-fast: false
       matrix:
@@ -49,10 +52,18 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - name: Install just and charmcraft
+        run: |
+          sudo snap install --classic just
+          sudo snap install --classic charmcraft
+      - name: Pack charm for host platform
+        working-directory: agent/charms/testflinger-agent-host-charm
+        run: just pack-host
       - name: Upload charm to charmhub
         uses: canonical/charming-actions/upload-charm@1753e0803f70445132e92acd45c905aba6473225 # 2.7.0
         with:
           charm-path: agent/charms/testflinger-agent-host-charm
+          built-charm-path: agent/charms/testflinger-agent-host-charm/*.charm
           credentials: "${{ secrets.CHARMHUB_TOKEN }}"
           github-token: "${{ secrets.GITHUB_TOKEN }}"
           channel: ${{ github.event_name == 'push' && 'latest/beta' || github.event.inputs.channel }}

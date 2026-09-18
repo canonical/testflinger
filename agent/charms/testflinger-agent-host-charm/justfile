@@ -77,7 +77,10 @@ integration *args: pack-host
 pack:
     @charmcraft pack
 
-[doc('Build the charm package for the host platform only')]
+[doc('Build the charm package for the host platform only (destructive in CI, LXD locally)')]
 [group('package')]
 pack-host:
-    @charmcraft pack --platform "ubuntu@$(. /etc/os-release && echo $VERSION_ID):$(dpkg --print-architecture)"
+    #!/usr/bin/env bash
+    PLATFORM="ubuntu@$(. /etc/os-release && echo $VERSION_ID):$(dpkg --print-architecture)"
+    DESTRUCTIVE="{{ if env('CI', 'false') == 'true' { '--destructive-mode' } else { '' } }}"
+    charmcraft pack --platform "$PLATFORM" $DESTRUCTIVE
