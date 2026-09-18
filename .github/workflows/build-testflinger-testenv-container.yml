@@ -30,6 +30,9 @@ jobs:
         version: [focal, jammy, noble]
 
     steps:
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
         with:
@@ -62,7 +65,10 @@ jobs:
         with:
           context: ./agent/extra/testflinger-testenv
           push: true
+          platforms: linux/amd64,linux/arm64,linux/s390x
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=${{ matrix.version }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.version }}
           build-args: |
             BASE_IMAGE=ubuntu:${{ matrix.version }}
