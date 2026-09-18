@@ -66,13 +66,18 @@ test:
 check: lint format test
     @echo 'Agent charm checks done!'
 
-[doc('Run integration tests.')]
+[doc('Run integration tests. Builds only for the host platform.')]
 [group('test')]
 [positional-arguments]
-integration *args: pack
-    @uvx tox run -e integration -- "$@"
+integration *args: pack-host
+    @uvx tox run -e integration -- {{ args }}
 
-[doc('Build the charm package')]
+[doc('Build the charm package (all bases for host architecture)')]
 [group('package')]
 pack:
     @charmcraft pack
+
+[doc('Build the charm package for the host platform only')]
+[group('package')]
+pack-host:
+    @charmcraft pack --platform "ubuntu@$(. /etc/os-release && echo $VERSION_ID):$(dpkg --print-architecture)"
