@@ -57,6 +57,7 @@ from testflinger_cli.enums import LogType, TestPhase
 from testflinger_cli.errors import (
     AttachmentError,
     CredentialsError,
+    JobSubmissionError,
     NetworkError,
     SnapPrivateFileError,
     UnknownStatusError,
@@ -116,7 +117,7 @@ def cli():
         tfcli.run()
     except KeyboardInterrupt:
         sys.exit("Received KeyboardInterrupt")
-    except (CredentialsError, NetworkError) as exc:
+    except (CredentialsError, NetworkError, JobSubmissionError) as exc:
         sys.exit(exc)
     finally:
         StatusLine.stop()
@@ -1291,9 +1292,6 @@ class TestflingerCli:
                 if agent["state"] != "offline"
                 and agent["name"] in exclude_agents
             ]
-            print(agents)
-            print(exclude_agents)
-            print(online_excluded_agents)
             if online_excluded_agents:
                 message += (
                     "\nAdditionally, the following agents ARE online, "
@@ -1302,8 +1300,7 @@ class TestflingerCli:
                 )
                 for agent in online_excluded_agents:
                     message += f"\n\t- {agent['name']}"
-            print(message)
-            sys.exit(1)
+            raise JobSubmissionError(message)
 
         # else, wait_for_available_agents is set:
         message = (

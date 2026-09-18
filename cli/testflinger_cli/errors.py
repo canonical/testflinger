@@ -49,6 +49,15 @@ class InvalidJobIdError(Exception):
         )
 
 
+class JobSubmissionError(Exception):
+    """Exception thrown when job submission fails."""
+
+    def __init__(self, reason: str) -> None:
+        super().__init__(
+            f"Job submission failed with following reason: {reason}"
+        )
+
+
 class CredentialsError(Exception):
     """Base class for errors related to authentication and authorization."""
 
