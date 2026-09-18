@@ -28,7 +28,11 @@ from datetime import datetime, timezone
 from typing import Iterator, Optional, Tuple
 
 import requests
-from sample_users import SAMPLE_CLIENTS
+from sample_users import (
+    SAMPLE_CLIENTS,
+    TESTFLINGER_ADMIN_ID,
+    TESTFLINGER_ADMIN_SECRET,
+)
 
 logging.basicConfig(level=logging.INFO)
 
@@ -319,8 +323,8 @@ def main():
     # Primary client used for queue/agent setup (needs admin role)
     admin_client = TestflingerClient(
         server_url=args.server,
-        client_id=os.environ.get("TESTFLINGER_CLIENT_ID", "testflinger-admin"),
-        client_key=os.environ.get("TESTFLINGER_SECRET_KEY", "testflinger"),
+        client_id=os.environ.get("TESTFLINGER_CLIENT_ID", TESTFLINGER_ADMIN_ID),
+        client_key=os.environ.get("TESTFLINGER_SECRET_KEY", TESTFLINGER_ADMIN_SECRET),
     )
 
     queues = QueueDataGenerator(num_queues=args.queues)

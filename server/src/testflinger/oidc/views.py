@@ -40,12 +40,25 @@ def callback():
     try:
         token = current_app.oauth.oidc.authorize_access_token()
         userinfo = token["userinfo"]
-        session["user"] = userinfo["name"]
+        name = userinfo.get("name")
+        email = userinfo.get("email")
+        if not name or not email:
+            current_app.owasp_logger.authn_login_fail(
+                userid=name or "unknown",
+                description=(
+                    "OIDC authentication failed: id_token is missing "
+                    "required 'name' or 'email' claim"
+                ),
+                **OWASPLogger.get_request_metadata(request),
+            )
+            return redirect(url_for("testflinger.home"))
+        session["user"] = name
+        session["user_email"] = email
         register_oidc_client(userinfo)
         # Log successful OIDC authentication
         current_app.owasp_logger.authn_login_success(
-            userid=userinfo["name"],
-            description=(f"User {userinfo['name']} authenticated via OIDC"),
+            userid=name,
+            description=(f"User {name} authenticated via OIDC"),
             **OWASPLogger.get_request_metadata(request),
         )
     except (MismatchingStateError, OAuthError) as err:

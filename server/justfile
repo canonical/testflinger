@@ -79,9 +79,14 @@ test:
 check: lint format test check-schema check-roles-docs
     @echo 'Server checks done!'
 
+[doc('Generate the sample users data.')]
+[group('deploy')]
+gen_sample_users:
+    @uv run devel/generate_sample_users.py
+
 [doc('Run the server.')]
 [group('deploy')]
-serve:
+serve: gen_sample_users
     @docker compose up --build --detach testflinger
 
 [doc('Tear down and restart the local deployment.')]
