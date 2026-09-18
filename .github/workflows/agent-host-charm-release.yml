@@ -97,12 +97,15 @@ jobs:
       - name: Install Juju
         run: sudo snap install juju --classic
       - name: Download and Unpack Charm
+        env:
+          BASE: ${{ matrix.base }}
+          ARCH: ${{ matrix.arch }}
         run: |
           CHANNEL=$(echo "$CHANNEL" | sed "-e s,latest/,,")
-          CHARM=$(juju download testflinger-agent-host --channel=$CHANNEL --base=${{ matrix.base }} --arch=${{ matrix.arch }} 2>&1 | grep ".charm$" | sed -e 's/.*\(testflinger.*.charm\)/\1/')
+          CHARM=$(juju download testflinger-agent-host --channel="$CHANNEL" --base="$BASE" --arch="$ARCH" 2>&1 | grep ".charm$" | sed -e 's/.*\(testflinger.*.charm\)/\1/')
 
           # Extract the contents to a local folder
-          unzip -d unpacked-charm $CHARM
+          unzip -d unpacked-charm "$CHARM"
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
