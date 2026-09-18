@@ -39,6 +39,7 @@ from testflinger_cli.client import HTTPError
 from testflinger_cli.enums import LogType
 from testflinger_cli.errors import (
     InvalidJobIdError,
+    JobSubmissionError,
     NetworkError,
     NoJobDataError,
 )
@@ -742,7 +743,7 @@ def test_list_queues_connection_error(caplog, requests_mock):
     assert "Unable to get a list of queues from the server." in caplog.text
 
 
-def test_submit_no_agents_fails(capsys, tmp_path, requests_mock):
+def test_submit_no_agents_fails(tmp_path, requests_mock):
     """Test that submitting a job without online agents fails."""
     requests_mock.get(URL + "/v1/queues/fake/agents", json=[])
     fake_data = {"job_queue": "fake", "provision_data": {"distro": "fake"}}
@@ -750,16 +751,14 @@ def test_submit_no_agents_fails(capsys, tmp_path, requests_mock):
     test_file.write_text(json.dumps(fake_data))
     sys.argv = ["", "submit", str(test_file)]
     tfcli = testflinger_cli.TestflingerCli()
-    with pytest.raises(SystemExit) as exc_info:
+    with pytest.raises(JobSubmissionError) as exc_info:
         tfcli.submit()
-    assert exc_info.value.code == 1
-    assert (
-        "ERROR: No online agents available for queue fake"
-        in capsys.readouterr().out
+    assert "ERROR: No online agents available for queue fake" in str(
+        exc_info.value
     )
 
 
-def test_submit_no_agents_fails_excluded(capsys, tmp_path, requests_mock):
+def test_submit_no_agents_fails_excluded(tmp_path, requests_mock):
     """
     Test that submitting a job where the only online agents are excluded from
     running the job fails appropriately.
@@ -786,12 +785,10 @@ def test_submit_no_agents_fails_excluded(capsys, tmp_path, requests_mock):
     test_file.write_text(json.dumps(fake_data))
     sys.argv = ["", "submit", str(test_file)]
     tfcli = testflinger_cli.TestflingerCli()
-    with pytest.raises(SystemExit) as exc_info:
+    with pytest.raises(JobSubmissionError) as exc_info:
         tfcli.submit()
-    assert exc_info.value.code == 1
-    assert (
-        "ERROR: No online agents available for queue fake"
-        in capsys.readouterr().out
+    assert "ERROR: No online agents available for queue fake" in str(
+        exc_info.value
     )
 
 
