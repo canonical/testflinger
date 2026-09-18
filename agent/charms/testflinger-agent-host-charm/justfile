@@ -82,5 +82,9 @@ pack:
 pack-host:
     #!/usr/bin/env bash
     PLATFORM="ubuntu@$(. /etc/os-release && echo $VERSION_ID):$(dpkg --print-architecture)"
-    DESTRUCTIVE="{{ if env('CI', 'false') == 'true' { '--destructive-mode' } else { '' } }}"
-    charmcraft pack --platform "$PLATFORM" $DESTRUCTIVE
+    if [ "{{ env('CI', 'false') }}" = "true" ]; then
+        # Destructive mode needs root to install build-packages
+        /usr/bin/sudo charmcraft pack --platform "$PLATFORM" --destructive-mode
+    else
+        charmcraft pack --platform "$PLATFORM"
+    fi
