@@ -57,13 +57,17 @@ jobs:
           sudo snap install --classic just
           sudo snap install --classic charmcraft
       - name: Pack charm for host platform
+        id: pack
         working-directory: agent/charms/testflinger-agent-host-charm
-        run: just pack-host
+        run: |
+          just pack-host
+          # resolve the charm file name and pass it to the next step
+          echo "charm=$(ls *.charm)" >> "$GITHUB_OUTPUT"
       - name: Upload charm to charmhub
         uses: canonical/charming-actions/upload-charm@1753e0803f70445132e92acd45c905aba6473225 # 2.7.0
         with:
           charm-path: agent/charms/testflinger-agent-host-charm
-          built-charm-path: agent/charms/testflinger-agent-host-charm/*.charm
+          built-charm-path: agent/charms/testflinger-agent-host-charm/${{ steps.pack.outputs.charm }}
           credentials: "${{ secrets.CHARMHUB_TOKEN }}"
           github-token: "${{ secrets.GITHUB_TOKEN }}"
           channel: ${{ github.event_name == 'push' && 'latest/beta' || github.event.inputs.channel }}
