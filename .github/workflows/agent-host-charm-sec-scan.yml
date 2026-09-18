@@ -27,6 +27,16 @@ jobs:
   scan:
     name: Scan Charm with Trivy
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - base: ubuntu@22.04
+            arch: amd64
+            distro: jammy
+          - base: ubuntu@24.04
+            arch: amd64
+            distro: noble
     permissions:
       contents: read # for actions/checkout to fetch code
       security-events: write # for github/codeql-action/upload-sarif to upload SARIF results
@@ -37,7 +47,7 @@ jobs:
         run: sudo snap install juju --classic
       - name: Download and Unpack Charm
         run: |
-          CHARM=$(juju download testflinger-agent-host --channel=$CHANNEL 2>&1 | grep ".charm$" | sed -e 's/.*\(testflinger.*.charm\)/\1/')
+          CHARM=$(juju download testflinger-agent-host --channel=$CHANNEL --base=${{ matrix.base }} --arch=${{ matrix.arch }} 2>&1 | grep ".charm$" | sed -e 's/.*\(testflinger.*.charm\)/\1/')
 
           # Extract the contents to a local folder
           unzip -d unpacked-charm $CHARM
@@ -56,4 +66,5 @@ jobs:
         uses: github/codeql-action/upload-sarif@cdf488f595d80d6e07e03d4674febd5ab45fa938 # v4.37.9
         with:
           sarif_file: 'testflinger-agent-host-trivy-results.sarif'
+          category: ${{ matrix.distro }}-${{ matrix.arch }}
           wait-for-processing: "true"
