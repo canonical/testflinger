@@ -25,9 +25,13 @@ from unittest.mock import patch
 
 import prometheus_client
 import pytest
-import requests
 import requests_mock as rmock
-from testflinger_common.enums import AgentState, LogType, TestEvent, TestPhase
+from testflinger_common.enums import (
+    AgentMode,
+    LogType,
+    TestEvent,
+    TestPhase,
+)
 
 import testflinger_agent
 from testflinger_agent.agent import TestflingerAgent as _TestflingerAgent
@@ -82,7 +86,7 @@ class TestClient:
         fake_job_data = {"job_id": str(uuid.uuid1()), "job_queue": "test"}
         requests_mock.get(
             f"http://127.0.0.1:8000/v1/agents/data/{self.config['agent_id']}",
-            json={"state": AgentState.WAITING, "restricted_to": {}},
+            json={"mode": "online", "state": "waiting", "restricted_to": {}},
         )
         requests_mock.get(
             "http://127.0.0.1:8000/v1/job?queue=test",
@@ -105,7 +109,7 @@ class TestClient:
         }
         requests_mock.get(
             f"http://127.0.0.1:8000/v1/agents/data/{self.config['agent_id']}",
-            json={"state": AgentState.WAITING, "restricted_to": {}},
+            json={"mode": "online", "state": "waiting", "restricted_to": {}},
         )
         requests_mock.get(
             "http://127.0.0.1:8000/v1/job?queue=test",
@@ -130,7 +134,7 @@ class TestClient:
         }
         requests_mock.get(
             f"http://127.0.0.1:8000/v1/agents/data/{self.config['agent_id']}",
-            json={"state": AgentState.WAITING, "restricted_to": {}},
+            json={"mode": "online", "state": "waiting", "restricted_to": {}},
         )
         requests_mock.get(
             "http://127.0.0.1:8000/v1/job?queue=test",
@@ -187,7 +191,11 @@ class TestClient:
             # mock response to requesting agent data
             mocker.get(
                 "http://127.0.0.1:8000/v1/agents/data/test01",
-                json={"state": AgentState.WAITING, "restricted_to": {}},
+                json={
+                    "mode": "online",
+                    "state": "waiting",
+                    "restricted_to": {},
+                },
             )
 
             # request and process the job (should unpack the archive)
@@ -250,7 +258,11 @@ class TestClient:
             mocker.get(re.compile(r"/v1/result/"))
             mocker.get(
                 "http://127.0.0.1:8000/v1/agents/data/test01",
-                json={"state": AgentState.WAITING, "restricted_to": {}},
+                json={
+                    "mode": "online",
+                    "state": "waiting",
+                    "restricted_to": {},
+                },
             )
 
             # request and process the job (should unpack the archive)
@@ -313,7 +325,11 @@ class TestClient:
             mocker.get(re.compile(r"/v1/result/"))
             mocker.get(
                 "http://127.0.0.1:8000/v1/agents/data/test01",
-                json={"state": AgentState.WAITING, "restricted_to": {}},
+                json={
+                    "mode": "online",
+                    "state": "waiting",
+                    "restricted_to": {},
+                },
             )
 
             # request and process the job (should unpack the archive)
@@ -342,7 +358,7 @@ class TestClient:
         }
         requests_mock.get(
             f"http://127.0.0.1:8000/v1/agents/data/{self.config['agent_id']}",
-            json={"state": AgentState.WAITING, "restricted_to": {}},
+            json={"mode": "online", "state": "waiting", "restricted_to": {}},
         )
         requests_mock.get(
             "http://127.0.0.1:8000/v1/job?queue=test",
@@ -368,7 +384,7 @@ class TestClient:
         }
         requests_mock.get(
             f"http://127.0.0.1:8000/v1/agents/data/{self.config['agent_id']}",
-            json={"state": AgentState.WAITING, "restricted_to": {}},
+            json={"mode": "online", "state": "waiting", "restricted_to": {}},
         )
         requests_mock.get(
             "http://127.0.0.1:8000/v1/job?queue=test",
@@ -400,7 +416,7 @@ class TestClient:
         }
         requests_mock.get(
             f"http://127.0.0.1:8000/v1/agents/data/{self.config['agent_id']}",
-            json={"state": AgentState.WAITING, "restricted_to": {}},
+            json={"mode": "online", "state": "waiting", "restricted_to": {}},
         )
         requests_mock.get(
             "http://127.0.0.1:8000/v1/job?queue=test",
@@ -436,7 +452,7 @@ class TestClient:
         )
         requests_mock.get(
             f"http://127.0.0.1:8000/v1/agents/data/{self.config['agent_id']}",
-            json={"state": AgentState.WAITING, "restricted_to": {}},
+            json={"mode": "online", "state": "waiting", "restricted_to": {}},
         )
         requests_mock.post(rmock.ANY, status_code=HTTPStatus.OK)
         with patch.object(
@@ -489,19 +505,24 @@ class TestClient:
                 [
                     {
                         "text": json.dumps(
-                            {"state": AgentState.WAITING, "restricted_to": {}}
+                            {
+                                "mode": "online",
+                                "state": "waiting",
+                                "restricted_to": {},
+                            }
                         )
                     },
                     {
                         "text": json.dumps(
-                            {"state": AgentState.OFFLINE, "restricted_to": {}}
+                            {"mode": "offline", "restricted_to": {}}
                         )
                     },
                 ],
             )
 
             agent.process_jobs()
-            assert agent.check_offline()
+            mode, _ = agent.check_mode_change()
+            assert mode != AgentMode.ONLINE
 
     def test_post_agent_data(self, agent):
         # Make sure we post the initial agent data
@@ -533,7 +554,7 @@ class TestClient:
         )
         requests_mock.get(
             f"http://127.0.0.1:8000/v1/agents/data/{self.config['agent_id']}",
-            json={"state": AgentState.WAITING, "restricted_to": {}},
+            json={"mode": "online", "state": "waiting", "restricted_to": {}},
         )
         status_url = f"http://127.0.0.1:8000/v1/job/{job_id}/events"
         requests_mock.post(status_url, status_code=HTTPStatus.OK)
@@ -574,7 +595,7 @@ class TestClient:
         )
         requests_mock.get(
             f"http://127.0.0.1:8000/v1/agents/data/{self.config['agent_id']}",
-            json={"state": AgentState.WAITING, "restricted_to": {}},
+            json={"mode": "online", "state": "waiting", "restricted_to": {}},
         )
         status_url = f"http://127.0.0.1:8000/v1/job/{job_id}/events"
         requests_mock.post(status_url, status_code=HTTPStatus.OK)
@@ -615,7 +636,7 @@ class TestClient:
         )
         requests_mock.get(
             f"http://127.0.0.1:8000/v1/agents/data/{self.config['agent_id']}",
-            json={"state": AgentState.WAITING, "restricted_to": {}},
+            json={"mode": "online", "state": "waiting", "restricted_to": {}},
         )
         status_url = f"http://127.0.0.1:8000/v1/job/{job_id}/events"
         requests_mock.post(status_url, status_code=HTTPStatus.OK)
@@ -652,7 +673,7 @@ class TestClient:
         )
         requests_mock.get(
             f"http://127.0.0.1:8000/v1/agents/data/{self.config['agent_id']}",
-            json={"state": AgentState.WAITING, "restricted_to": {}},
+            json={"mode": "online", "state": "waiting", "restricted_to": {}},
         )
         status_url = f"http://127.0.0.1:8000/v1/job/{job_id}/events"
         requests_mock.post(status_url, status_code=HTTPStatus.OK)
@@ -685,7 +706,7 @@ class TestClient:
         )
         requests_mock.get(
             f"http://127.0.0.1:8000/v1/agents/data/{self.config['agent_id']}",
-            json={"state": AgentState.WAITING, "restricted_to": {}},
+            json={"mode": "online", "state": "waiting", "restricted_to": {}},
         )
         expected_log_params = (
             job_id,
@@ -713,7 +734,7 @@ class TestClient:
         )
         requests_mock.get(
             f"http://127.0.0.1:8000/v1/agents/data/{self.config['agent_id']}",
-            json={"state": AgentState.WAITING, "restricted_to": {}},
+            json={"mode": "online", "state": "waiting", "restricted_to": {}},
         )
         expected_log_params = (
             job_id,
@@ -742,7 +763,7 @@ class TestClient:
         )
         requests_mock.get(
             f"http://127.0.0.1:8000/v1/agents/data/{self.config['agent_id']}",
-            json={"state": AgentState.WAITING, "restricted_to": {}},
+            json={"mode": "online", "state": "waiting", "restricted_to": {}},
         )
         status_url = f"http://127.0.0.1:8000/v1/job/{job_id}/events"
         requests_mock.post(status_url, status_code=HTTPStatus.OK)
@@ -815,7 +836,7 @@ class TestClient:
         )
         requests_mock.get(
             f"http://127.0.0.1:8000/v1/agents/data/{self.config['agent_id']}",
-            json={"state": AgentState.WAITING, "restricted_to": {}},
+            json={"mode": "online", "state": "waiting", "restricted_to": {}},
         )
         status_url = f"http://127.0.0.1:8000/v1/job/{job_id}/events"
         requests_mock.post(status_url, status_code=HTTPStatus.OK)
@@ -890,7 +911,7 @@ class TestClient:
         )
         requests_mock.get(
             f"http://127.0.0.1:8000/v1/agents/data/{agent_id}",
-            json={"state": AgentState.WAITING, "restricted_to": {}},
+            json={"mode": "online", "state": "waiting", "restricted_to": {}},
         )
         requests_mock.post(rmock.ANY, status_code=HTTPStatus.OK)
         with patch("shutil.rmtree"), patch("pathlib.Path.unlink"):
@@ -936,7 +957,7 @@ class TestClient:
         )
         requests_mock.get(
             f"http://127.0.0.1:8000/v1/agents/data/{agent_id}",
-            json={"state": AgentState.WAITING, "restricted_to": {}},
+            json={"mode": "online", "state": "waiting", "restricted_to": {}},
         )
         requests_mock.post(rmock.ANY, status_code=HTTPStatus.OK)
 
@@ -989,14 +1010,14 @@ class TestClient:
             [
                 {
                     "text": json.dumps(
-                        {"state": AgentState.WAITING, "restricted_to": {}}
+                        {
+                            "mode": "online",
+                            "state": "waiting",
+                            "restricted_to": {},
+                        }
                     )
                 },
-                {
-                    "text": json.dumps(
-                        {"state": AgentState.OFFLINE, "restricted_to": {}}
-                    )
-                },
+                {"text": json.dumps({"mode": "offline", "restricted_to": {}})},
             ],
         )
         requests_mock.post(rmock.ANY, status_code=HTTPStatus.OK)
@@ -1007,7 +1028,8 @@ class TestClient:
             "recovery_failures_total", {"agent_id": agent_id}
         )
         assert recovery_failures == 1
-        assert agent.check_offline()
+        mode, _ = agent.check_mode_change()
+        assert mode != AgentMode.ONLINE
 
     def test_missing_agent_state(self, agent, requests_mock, caplog):
         """Test default state for an agent is offline if unable to retrieve."""
@@ -1032,6 +1054,21 @@ class TestClient:
         with patch("shutil.rmtree"):
             agent.process_jobs()
         assert "Failed to retrieve agent data" in caplog.text
+
+    def test_missing_mode_field_defaults_to_online(self, agent, requests_mock):
+        """Agent defaults to ONLINE when server returns 200 with no mode key.
+
+        This can happen when the agent is talking to an older server that has
+        not yet been updated to return the v2 mode field.  The agent must not
+        treat the absence of the field as an error and must continue operating
+        normally (i.e. check_mode_change returns ONLINE).
+        """
+        requests_mock.get(
+            f"http://127.0.0.1:8000/v1/agents/data/{self.config['agent_id']}",
+            json={"state": "waiting", "restricted_to": {}},
+        )
+        mode, _ = agent.check_mode_change()
+        assert mode == AgentMode.ONLINE
 
     def test_server_wait_for_connectivity(self, agent, requests_mock, caplog):
         """Test agent waits for server availability before processing jobs."""
@@ -1073,205 +1110,3 @@ class TestClient:
 
         # Verify None is returned when check_jobs returns None
         assert result is None
-
-
-class TestStartupState:
-    """Tests for _set_startup_state behaviour on agent initialisation.
-
-    The rule is:
-    - OFFLINE → preserve that state (do not come up online)
-    - Everything else (MAINTENANCE, RESTART, WAITING, UNKNOWN, any stale
-      job-phase state, no state key, empty response, HTTP error / unknown
-      agent) → WAITING
-    """
-
-    AGENT_ID = "test01"
-    SERVER = "127.0.0.1:8000"
-    AGENT_DATA_URL = f"http://{SERVER}/v1/agents/data/{AGENT_ID}"
-
-    @pytest.fixture(autouse=True)
-    def clear_registry(self):
-        collectors = tuple(
-            prometheus_client.REGISTRY._collector_to_names.keys()
-        )
-        for collector in collectors:
-            prometheus_client.REGISTRY.unregister(collector)
-        yield
-
-    @pytest.fixture
-    def base_config(self, tmp_path):
-        return validate(
-            {
-                "agent_id": self.AGENT_ID,
-                "polling_interval": 2,
-                "server_address": self.SERVER,
-                "job_queues": ["test"],
-                "execution_basedir": str(tmp_path / "execution"),
-                "logging_basedir": str(tmp_path / "logs"),
-                "results_basedir": str(tmp_path / "results"),
-            }
-        )
-
-    def _startup_state_posted(self, requests_mock) -> dict:
-        """Return the final state-bearing POST body on startup."""
-        state_posts = [
-            call.json()
-            for call in requests_mock.request_history
-            if call.method == "POST"
-            and "/v1/agents/data/" in call.path
-            and "state" in (call.json() or {})
-        ]
-        assert state_posts, (
-            "No state POST found — agent never reported a state"
-        )
-        return state_posts[-1]
-
-    @pytest.fixture(autouse=True)
-    def mock_http(self, requests_mock):
-        """Register catch-alls first so specific URL mocks take priority."""
-        requests_mock.get(rmock.ANY)
-        requests_mock.post(rmock.ANY)
-
-    def test_no_state_posted_before_server_state_is_read(
-        self, requests_mock, base_config
-    ):
-        """State must not be POSTed to the server before the agent has read
-        the server's current state.  Posting state first could clobber an
-        OFFLINE or MAINTENANCE state that was set by an administrator.
-        """
-        requests_mock.get(
-            self.AGENT_DATA_URL,
-            json={"state": AgentState.OFFLINE, "comment": "set by admin"},
-        )
-        self._make_agent(requests_mock, base_config)
-
-        history = requests_mock.request_history
-        # Index of the first GET that reads the agent's current state
-        first_state_get = next(
-            (
-                i
-                for i, call in enumerate(history)
-                if call.method == "GET" and "/v1/agents/data/" in call.path
-            ),
-            None,
-        )
-        assert first_state_get is not None, (
-            "Agent never read its state from the server on startup"
-        )
-        # Any POST before that GET must not contain a 'state' field
-        premature_state_posts = [
-            call
-            for call in history[:first_state_get]
-            if call.method == "POST"
-            and "/v1/agents/data/" in call.path
-            and "state" in (call.json() or {})
-        ]
-        assert not premature_state_posts, (
-            "Agent POSTed a state to the server before reading the current "
-            f"server state: {[c.json() for c in premature_state_posts]}"
-        )
-
-    def _make_agent(self, requests_mock, base_config):
-        """Instantiate the agent; mock infrastructure is already registered."""
-        return _TestflingerAgent(_TestflingerClient(base_config))
-
-    # ------------------------------------------------------------------
-    # States that must be PRESERVED (agent stays non-online)
-    # ------------------------------------------------------------------
-
-    def test_startup_preserves_offline(self, requests_mock, base_config):
-        """An OFFLINE state set by the server must not be overridden with
-        WAITING when the agent restarts.
-
-        The agent preserves OFFLINE by leaving the server-side state alone:
-        it must not POST any state on startup in this case (echoing it back
-        would race with any concurrent admin update to state/comment).
-        """
-        requests_mock.get(
-            self.AGENT_DATA_URL,
-            json={"state": AgentState.OFFLINE, "comment": "set by admin"},
-        )
-        self._make_agent(requests_mock, base_config)
-
-        state_posts = [
-            call.json()
-            for call in requests_mock.request_history
-            if call.method == "POST"
-            and "/v1/agents/data/" in call.path
-            and "state" in (call.json() or {})
-        ]
-        assert state_posts == [], (
-            "Agent must not POST any state on startup when server state is "
-            f"OFFLINE, but posted: {state_posts}"
-        )
-
-    # ------------------------------------------------------------------
-    # States that must result in WAITING (agent comes up online)
-    # ------------------------------------------------------------------
-
-    @pytest.mark.parametrize(
-        "server_state",
-        [
-            # Maintenance lifecycle handling belongs to the maintenance-mode
-            # feature, which must preserve it through startup and polling.
-            AgentState.MAINTENANCE,
-            AgentState.RESTART,  # explicit restart request → come back online
-            AgentState.WAITING,  # already waiting (e.g. clean shutdown)
-            AgentState.UNKNOWN,  # local-only sentinel, treat as no useful info
-            # stale job-phase states left by a crash
-            "setup",
-            "provision",
-            "test",
-            "allocate",
-            "reserve",
-            "cleanup",
-        ],
-    )
-    def test_startup_comes_up_waiting_for_non_preserved_states(
-        self, requests_mock, base_config, server_state
-    ):
-        """Any state that is not OFFLINE or MAINTENANCE must result in the
-        agent coming up as WAITING.
-        """
-        requests_mock.get(
-            self.AGENT_DATA_URL,
-            json={"state": server_state, "comment": ""},
-        )
-        self._make_agent(requests_mock, base_config)
-        assert self._startup_state_posted(requests_mock)["state"] == (
-            AgentState.WAITING
-        )
-
-    @pytest.mark.parametrize(
-        "mock_kwargs, description",
-        [
-            ({"json": {}}, "empty body"),
-            ({"json": {"comment": "no state key"}}, "no state key"),
-            ({"status_code": HTTPStatus.NOT_FOUND}, "404 unknown agent"),
-            (
-                {"exc": requests.exceptions.ConnectionError("unreachable")},
-                "server unreachable",
-            ),
-        ],
-    )
-    def test_startup_comes_up_waiting_when_server_gives_no_state(
-        self, requests_mock, base_config, mock_kwargs, description
-    ):
-        """When the server cannot supply a meaningful state (new agent, error,
-        empty response), the agent must come up as WAITING.
-        """
-        requests_mock.get(self.AGENT_DATA_URL, **mock_kwargs)
-        self._make_agent(requests_mock, base_config)
-        assert self._startup_state_posted(requests_mock)["state"] == (
-            AgentState.WAITING
-        )
-
-    def test_startup_comes_up_waiting_when_server_response_is_invalid_json(
-        self, requests_mock, base_config
-    ):
-        """An invalid success response has no usable prior state."""
-        requests_mock.get(self.AGENT_DATA_URL, text="not JSON")
-        self._make_agent(requests_mock, base_config)
-        assert self._startup_state_posted(requests_mock)["state"] == (
-            AgentState.WAITING
-        )

@@ -25,6 +25,7 @@ from urllib.parse import urljoin
 import requests
 import yaml
 from requests.adapters import HTTPAdapter, Retry
+from testflinger_common.enums import AgentMode
 from urllib3.exceptions import HTTPError
 
 from testflinger_agent import schema
@@ -127,21 +128,64 @@ def start_agent():
     check_interval = config.get("polling_interval")
     client = TestflingerClient(config)
     agent = TestflingerAgent(client)
+    # Track the current non-operational mode so we only transition once
+    # per edge and call the correct exit method when the mode clears.
+    current_mode = AgentMode.ONLINE
+
     while True:
         # Only check agent status and process jobs if server is available
         client.wait_for_server_connectivity()
 
-        is_offline, offline_comment = agent.check_offline()
-        if is_offline:
+        mode, comment = agent.check_mode_change()
+
+        if mode == AgentMode.OFFLINE and current_mode != AgentMode.OFFLINE:
             logger.error(
-                "Agent %s is offline, not processing jobs! "
+                "Agent %s is offline, not processing any jobs! "
                 "Reason: %s\n"
                 "Please contact Testflinger Admin if you require assistance.",
                 config.get("agent_id"),
-                offline_comment or "Unknown",
+                comment or "Unknown",
             )
-            while agent.check_offline()[0]:
-                time.sleep(check_interval)
+            agent.go_offline(comment)
+            current_mode = AgentMode.OFFLINE
+
+        elif (
+            mode == AgentMode.MAINTENANCE
+            and current_mode != AgentMode.MAINTENANCE
+        ):
+            logger.error(
+                "Agent %s is in maintenance mode, not processing normal jobs! "
+                "Reason: %s\n"
+                "Please contact Testflinger Admin if you require assistance.",
+                config.get("agent_id"),
+                comment or "Unknown",
+            )
+            agent.enter_maintenance_mode(comment)
+            current_mode = AgentMode.MAINTENANCE
+
+        elif mode == AgentMode.ONLINE and current_mode != AgentMode.ONLINE:
+            # Transitioning back to normal operation
+            if current_mode == AgentMode.OFFLINE:
+                logger.info(
+                    "Agent %s exiting offline, resuming normal operation.",
+                    config.get("agent_id"),
+                )
+                agent.exit_offline()
+            elif current_mode == AgentMode.MAINTENANCE:
+                logger.info(
+                    "Agent %s exiting maintenance mode, resuming normal "
+                    "operation.",
+                    config.get("agent_id"),
+                )
+                agent.exit_maintenance_mode()
+            current_mode = AgentMode.ONLINE
+
+        if current_mode != AgentMode.ONLINE:
+            # Not in normal operation – sleep and re-poll without
+            # processing jobs.
+            time.sleep(check_interval)
+            continue
+
         # Refresh the updated_at timestamp on advertised queues
         client.post_advertised_queues()
         logger.info("Checking jobs")

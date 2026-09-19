@@ -15,6 +15,8 @@
 from pathlib import Path
 from unittest.mock import Mock, patch
 
+from testflinger_common.enums import AgentMode
+
 import testflinger_agent
 from testflinger_agent import start_agent
 
@@ -69,7 +71,7 @@ class TestMainLoop:
         mock_client_class.return_value = mock_client
         mock_agent = Mock()
         mock_agent_class.return_value = mock_agent
-        mock_agent.check_offline.return_value = (False, "")
+        mock_agent.check_mode_change.return_value = (AgentMode.ONLINE, "")
         mock_agent.process_jobs.return_value = None
 
         try:
@@ -98,7 +100,10 @@ class TestMainLoop:
         mock_load_config.return_value = config
         mock_agent = Mock()
         mock_agent_class.return_value = mock_agent
-        mock_agent.check_offline.return_value = (True, "Offline by admin")
+        mock_agent.check_mode_change.return_value = (
+            AgentMode.OFFLINE,
+            "Offline by admin",
+        )
         mock_agent.process_jobs.return_value = None
 
         try:
