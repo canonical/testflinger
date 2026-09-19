@@ -2403,3 +2403,137 @@ def test_get_job_events(mongo_app, agent_auth_header):
         "job_submitted",
         "job_phase_started",
     }
+
+
+def test_add_job_statistics_on_job_post(mongo_app):
+    """Test that job statistics are added when a job is posted."""
+    app, mongo = mongo_app
+    job_data = {
+        "job_queue": "test",
+        "tags": ["foo"],
+    }
+    output = app.post("/v1/job", json=job_data)
+    assert output.status_code == HTTPStatus.OK
+    job_id = output.json.get("job_id")
+
+    # Verify that the job statistics are added as a document in job_statistics
+    job_statistics = mongo.job_statistics.find_one({"job_id": job_id})
+
+    assert job_statistics is not None
+    assert job_statistics["job_id"] == job_id
+    assert job_statistics["queue"] == "test"
+    assert "submitted_by" in job_statistics
+    assert "created_at" in job_statistics
+
+
+def test_get_job_statistics_defaults(statistics_data, mongo_app):
+    """Test job statistics are grouped by submitter without filters."""
+    app, _ = mongo_app
+    output = app.get("/v1/statistics/jobs")
+    assert output.status_code == HTTPStatus.OK
+
+    # Expected totals from the statistics_data fixture
+    expected_totals = [
+        {"count": 3, "key": "user1"},
+        {"count": 1, "key": "user2"},
+    ]
+
+    # Expected daily counts from the statistics_data fixture
+    expected_daily = [
+        {"date": "2026-01-01", "count": 2, "key": "user1"},
+        {"date": "2026-01-02", "count": 1, "key": "user1"},
+        {"date": "2026-01-02", "count": 1, "key": "user2"},
+    ]
+
+    assert output.json["totals"] == expected_totals
+    assert output.json["daily"] == expected_daily
+
+
+def test_get_job_statistics_invalid_group_by(mongo_app):
+    """Test that an invalid group_by parameter returns a 422 error."""
+    app, _ = mongo_app
+    output = app.get("/v1/statistics/jobs?group_by=invalid")
+    assert output.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+    assert "Validation error" in output.json["message"]
+
+
+def test_get_job_statistics_by_queue(statistics_data, mongo_app):
+    """Test job statistics are grouped by queue."""
+    app, _ = mongo_app
+    output = app.get("/v1/statistics/jobs?group_by=queue")
+    assert output.status_code == HTTPStatus.OK
+
+    # Expected totals from the statistics_data fixture
+    expected_totals = [
+        {"count": 2, "key": "queue1"},
+        {"count": 2, "key": "queue2"},
+    ]
+
+    # Expected daily counts (per-day) from the statistics_data fixture
+    expected_daily = [
+        {"date": "2026-01-01", "count": 1, "key": "queue1"},
+        {"date": "2026-01-01", "count": 1, "key": "queue2"},
+        {"date": "2026-01-02", "count": 1, "key": "queue1"},
+        {"date": "2026-01-02", "count": 1, "key": "queue2"},
+    ]
+
+    assert output.json["totals"] == expected_totals
+    assert output.json["daily"] == expected_daily
+
+
+def test_get_job_statistics_date_range(statistics_data, mongo_app):
+    """Test job statistics can be filtered by a date range."""
+    app, _ = mongo_app
+    output = app.get(
+        "/v1/statistics/jobs?start_at=2026-01-02T00:00:00Z",
+    )
+    assert output.status_code == HTTPStatus.OK
+
+    # Expected totals from the statistics_data fixture for the specified range
+    expected_totals = [
+        {"count": 1, "key": "user1"},
+        {"count": 1, "key": "user2"},
+    ]
+
+    # Expected counts from the statistics_data fixture for the specified range
+    expected_daily = [
+        {"date": "2026-01-02", "count": 1, "key": "user1"},
+        {"date": "2026-01-02", "count": 1, "key": "user2"},
+    ]
+
+    assert output.json["totals"] == expected_totals
+    assert output.json["daily"] == expected_daily
+
+
+def test_get_job_statistics_not_iso8601_datetime(statistics_data, mongo_app):
+    """Test job statistics returns 422 if start_at is not a ISO8601 format."""
+    app, _ = mongo_app
+    output = app.get(
+        "/v1/statistics/jobs?start_at=2026-01-02",
+    )
+    assert output.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+    assert "Validation error" in output.json["message"]
+
+
+def test_get_job_statistics_with_filters(statistics_data, mongo_app):
+    """Test job statistics can be filtered by queue and submitter."""
+    app, _ = mongo_app
+    output = app.get(
+        "/v1/statistics/jobs?queues=queue1&submitters=user1",
+    )
+    assert output.status_code == HTTPStatus.OK
+
+    # Expected totals from the statistics_data fixture with specified filters
+    expected_totals = [
+        {"count": 1, "key": "user1"},
+    ]
+
+    # Expected counts from the statistics_data fixture with specified filters
+    expected_daily = [
+        {"date": "2026-01-01", "count": 1, "key": "user1"},
+    ]
+
+    assert "user2" not in output.json
+    assert "queue2" not in output.json
+    assert output.json["totals"] == expected_totals
+    assert output.json["daily"] == expected_daily
