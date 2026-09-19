@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_macros.html" import job_state_chip %}
 {% set active_page = "jobs" %}
 {% set title = "Job" %}
 {% macro code_snippet(content, language) -%}
@@ -34,7 +35,7 @@
       {% endif %}
       <tr>
         <th scope="row">State</th>
-        <td>{{ job.result_data.job_state }}</td>
+        <td>{{ job_state_chip(job.result_data.job_state, job.result_data) }}</td>
       </tr>
       <tr>
         <th scope="row">Created At</th>
