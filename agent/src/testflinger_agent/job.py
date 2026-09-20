@@ -146,6 +146,10 @@ class TestflingerJob:
             output_timeout_checker = OutputTimeoutChecker(
                 self.get_output_timeout()
             )
+            runner.output_timeout_checker = output_timeout_checker
+            runner.output_timeout = self.get_output_timeout()
+            runner.recovery_enabled = self.get_recovery_enabled()
+            runner.recovery_timeout = self.get_recovery_timeout()
             runner.register_stop_condition_checker(output_timeout_checker)
             runner.subscribe_event(
                 RunnerEvents.OUTPUT_RECEIVED, output_timeout_checker.update
@@ -296,6 +300,26 @@ class TestflingerJob:
         return min(
             self.job_data.get("output_timeout", default_timeout),
             self.client.config.get("output_timeout", default_timeout),
+        )
+
+    def get_recovery_enabled(self):
+        """Get if the recovery mode on output timeout is enabled."""
+        return self.job_data.get(
+            "recovery_enabled",
+            self.client.config.get("recovery_enabled", ""),
+        )
+
+    def get_recovery_timeout(self):
+        """Get the recovery timeout for the recovery command in seconds."""
+        default_timeout = 5 * 60
+
+        # Don't exceed the maximum grace period configured for the device!
+        return min(
+            self.job_data.get(
+                "recovery_timeout",
+                default_timeout,
+            ),
+            self.client.config.get("recovery_timeout", default_timeout),
         )
 
     def banner(self, line):
