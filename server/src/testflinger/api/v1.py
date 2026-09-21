@@ -99,7 +99,7 @@ def get_version():
     ServerRoles.ADMIN,
     ServerRoles.MANAGER,
     ServerRoles.CONTRIBUTOR,
-    ServerRoles.MULTIDEVICE,
+    ServerRoles.ORCHESTRATOR,
 )
 @v1.input(schemas.Job, location="json")
 @v1.output(schemas.JobId)
@@ -700,7 +700,7 @@ def result_get(job_id: str):
     ServerRoles.ADMIN,
     ServerRoles.MANAGER,
     ServerRoles.CONTRIBUTOR,
-    ServerRoles.MULTIDEVICE,
+    ServerRoles.ORCHESTRATOR,
 )
 @v1.input(schemas.ActionIn, location="json")
 def action_post(job_id, json_data):

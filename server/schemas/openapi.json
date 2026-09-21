@@ -184,7 +184,7 @@
               "manager",
               "contributor",
               "agent",
-              "multidevice"
+              "orchestrator"
             ],
             "type": "string"
           }
@@ -1066,7 +1066,7 @@
           "manager",
           "contributor",
           "agent",
-          "multidevice"
+          "orchestrator"
         ]
       },
       "post": {
@@ -1573,7 +1573,8 @@
           "admin",
           "manager",
           "contributor",
-          "agent"
+          "agent",
+          "orchestrator"
         ]
       }
     },
@@ -1654,7 +1655,7 @@
           "admin",
           "manager",
           "contributor",
-          "multidevice"
+          "orchestrator"
         ]
       }
     },
@@ -1855,7 +1856,7 @@
           "admin",
           "manager",
           "contributor",
-          "multidevice"
+          "orchestrator"
         ]
       }
     },
@@ -2496,7 +2497,7 @@
           "manager",
           "contributor",
           "agent",
-          "multidevice"
+          "orchestrator"
         ]
       },
       "post": {
@@ -2812,7 +2813,7 @@
           "manager",
           "contributor",
           "agent",
-          "multidevice"
+          "orchestrator"
         ]
       }
     },

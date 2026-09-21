@@ -4,7 +4,7 @@
   },
   "/v1/agents/data/<agent_name>": {
     "POST": ["AGENT", "MANAGER", "ADMIN"],
-    "GET": ["AGENT", "CONTRIBUTOR", "MANAGER", "ADMIN", "MULTIDEVICE"]
+    "GET": ["AGENT", "CONTRIBUTOR", "MANAGER", "ADMIN", "ORCHESTRATOR"]
   },
   "/v1/agents/images": {
     "POST": ["AGENT", "MANAGER", "ADMIN"]
@@ -29,13 +29,13 @@
   },
   "/v1/job": {
     "GET": ["AGENT"],
-    "POST": ["CONTRIBUTOR", "MANAGER", "ADMIN", "MULTIDEVICE"]
+    "POST": ["CONTRIBUTOR", "MANAGER", "ADMIN", "ORCHESTRATOR"]
   },
   "/v1/job/<job_id>": {
     "GET": ["CONTRIBUTOR", "MANAGER", "ADMIN"]
   },
   "/v1/job/<job_id>/action": {
-    "POST": ["CONTRIBUTOR", "MANAGER", "ADMIN", "MULTIDEVICE"]
+    "POST": ["CONTRIBUTOR", "MANAGER", "ADMIN", "ORCHESTRATOR"]
   },
   "/v1/job/<job_id>/attachments": {
     "GET": ["AGENT"],
@@ -72,10 +72,10 @@
   },
   "/v1/result/<job_id>": {
     "POST": ["AGENT"],
-    "GET": ["AGENT", "CONTRIBUTOR", "MANAGER", "ADMIN", "MULTIDEVICE"]
+    "GET": ["AGENT", "CONTRIBUTOR", "MANAGER", "ADMIN", "ORCHESTRATOR"]
   },
   "/v1/result/<job_id>/status": {
-    "GET": ["AGENT", "CONTRIBUTOR", "MANAGER", "ADMIN", "MULTIDEVICE"]
+    "GET": ["AGENT", "CONTRIBUTOR", "MANAGER", "ADMIN", "ORCHESTRATOR"]
   },
   "/v1/result/<job_id>/artifact": {
     "POST": ["AGENT"],
@@ -90,6 +90,6 @@
     "PUT": ["CONTRIBUTOR", "MANAGER", "ADMIN"]
   },
   "/v1/events/job/<job_id>": {
-    "GET": ["AGENT", "CONTRIBUTOR", "MANAGER", "ADMIN"]
+    "GET": ["AGENT", "CONTRIBUTOR", "MANAGER", "ADMIN", "ORCHESTRATOR"]
   }
 }

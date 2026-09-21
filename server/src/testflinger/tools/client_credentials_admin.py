@@ -127,7 +127,7 @@ def handle_client_id_role():
         2: "manager",
         3: default_role,
         4: "agent",
-        5: "multidevice",
+        5: "orchestrator",
     }
 
     while True:
@@ -141,7 +141,7 @@ def handle_client_id_role():
             print("2. manager")
             print("3. contributor (default)")
             print("4. agent")
-            print("5. multidevice")
+            print("5. orchestrator")
             while True:
                 try:
                     role_selection = int(
