@@ -47,3 +47,5 @@ sdks:
       expose-tcp5556:
         interface: tunnel
         endpoint: 0.0.0.0:5556  # listen: on the host, all interfaces (external access)
+  # Must stay after docker-ce: setup-base hooks run in declaration order.
+  - name: project-docker-gc
