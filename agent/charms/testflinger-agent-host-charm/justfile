@@ -70,7 +70,7 @@ check: lint format test
 [group('test')]
 [positional-arguments]
 integration *args: pack-host
-    @uvx tox run -e integration -- {{ args }}
+    @uvx tox run -e integration -- "$@"
 
 [doc('Build the charm package (all bases for host architecture)')]
 [group('package')]

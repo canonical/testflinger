@@ -31,7 +31,9 @@ jobs:
     # Multiple bases require one runner per base/arch combination.
     # The charm is pre-built with --destructive-mode on each runner
     # so it can later be uploaded to charmhub for each base/arch combination.
+    # Do not parallelize to prevent charmhub release race conditions.
     strategy:
+      max-parallel: 1
       fail-fast: false
       matrix:
         include:
