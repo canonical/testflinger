@@ -28,9 +28,9 @@ links:
   issues: [https://github.com/canonical/testflinger/issues]
   website: [https://canonical-testflinger.readthedocs-hosted.com/en/latest/]
 
-base: ubuntu@22.04
 platforms:
-  amd64:
+  ubuntu@22.04:amd64:
+  ubuntu@24.04:amd64:
 
 charm-libs:
   - lib: grafana_agent.cos_agent
