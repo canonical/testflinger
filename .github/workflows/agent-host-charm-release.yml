@@ -28,21 +28,16 @@ jobs:
     name: Build and Push Charm
 
     runs-on: ${{ matrix.runner }}
-    # Multiple bases require one runner per base/arch combination.
-    # The charm is pre-built with --destructive-mode on each runner
-    # so it can later be uploaded to charmhub for each base/arch combination.
-    # Do not parallelize to prevent charmhub release race conditions.
+    # The build process uses LXD to pack all bases from the same architecture using single runner.
+    # Additional runners can be added to the matrix to build other architectures.
+    # Do not parallelize to prevent charm release upload race conditions.
     strategy:
       max-parallel: 1
       fail-fast: false
       matrix:
         include:
-          - runner: ubuntu-22.04
+          - runner: ubuntu-latest
             arch: amd64
-            distro: jammy
-          - runner: ubuntu-24.04
-            arch: amd64
-            distro: noble
 
     permissions:
       actions: read # necessary to get the runner information
@@ -54,22 +49,15 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: Install just and charmcraft
-        run: |
-          sudo snap install --classic just
-          sudo snap install --classic charmcraft
-      - name: Pack charm for host platform
-        id: pack
-        working-directory: agent/charms/testflinger-agent-host-charm
-        run: |
-          just pack-host
-          # resolve the charm file name and pass it to the next step
-          echo "charm=$(ls *.charm)" >> "$GITHUB_OUTPUT"
-      - name: Upload charm to charmhub
+      - name: Setup LXD
+        uses: canonical/setup-lxd@8c6a87bfb56aa48f3fb9b830baa18562d8bfd4ee # v1
+        with:
+          channel: latest/stable
+      - name: Build and upload charm to charmhub
         uses: canonical/charming-actions/upload-charm@1753e0803f70445132e92acd45c905aba6473225 # 2.7.0
         with:
           charm-path: agent/charms/testflinger-agent-host-charm
-          built-charm-path: ${{ steps.pack.outputs.charm }}
+          destructive-mode: false
           credentials: "${{ secrets.CHARMHUB_TOKEN }}"
           github-token: "${{ secrets.GITHUB_TOKEN }}"
           channel: ${{ github.event_name == 'push' && 'latest/beta' || github.event.inputs.channel }}
