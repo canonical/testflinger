@@ -1,7 +1,6 @@
 # `testflinger-setup`
 
-This action configures a private endpoint runner environment for interacting with the Testflinger server. 
-It handles network configuration, verifies connectivity, and installs the required CLI tools.
+This action verifies connectivity to the Testflinger server and installs the required CLI tools.
 
 ## Usage
 

@@ -78,6 +78,11 @@ test:
 [group('test')]
 check: lint format test check-schema check-roles-docs
     @echo 'Server checks done!'
+    
+[doc('Remove tox environments (forces full reinstall on next run).')]
+[group('venv')]
+clean:
+    @rm -rf .tox
 
 [doc('Generate the sample users data.')]
 [group('deploy')]

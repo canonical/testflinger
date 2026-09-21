@@ -13,14 +13,14 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
-"""
-Job State and Test Phase Enums
-"""
+"""Job State and Test Phase Enums."""
 
 from strenum import StrEnum
 
 
 class JobState(StrEnum):
+    """Enum of possible job states."""
+
     WAITING = "waiting"
     SETUP = "setup"
     PROVISION = "provision"
@@ -35,6 +35,8 @@ class JobState(StrEnum):
 
 
 class TestPhase(StrEnum):
+    """Enum of test phases."""
+
     __test__ = False
     """Prevents pytest from trying to run this class as a test."""
 
@@ -48,6 +50,8 @@ class TestPhase(StrEnum):
 
 
 class TestEvent(StrEnum):
+    """Enum of test events."""
+
     __test__ = False
     """Prevents pytest from trying to run this class as a test."""
 
@@ -86,6 +90,8 @@ class TestEvent(StrEnum):
 
 
 class AgentState(StrEnum):
+    """Enum of agent states."""
+
     WAITING = "waiting"
     OFFLINE = "offline"
     MAINTENANCE = "maintenance"
@@ -129,6 +135,7 @@ class ServerRoles(StrEnum):
     AGENT = "agent"
 
     def __str__(self):
+        """Return the string value of the role."""
         return self.value
 
     @classmethod
