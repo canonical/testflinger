@@ -26,7 +26,19 @@ concurrency:
 jobs:
   agent-build-and-push-charm:
     name: Build and Push Charm
-    runs-on: ubuntu-22.04
+
+    runs-on: ${{ matrix.runner }}
+    # The build process uses LXD to pack all bases from the same architecture using single runner.
+    # Additional runners can be added to the matrix to build other architectures.
+    # Do not parallelize to prevent charm release upload race conditions.
+    strategy:
+      max-parallel: 1
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            arch: amd64
+
     permissions:
       actions: read # necessary to get the runner information
       contents: write # necessary to create tag(s)
@@ -37,10 +49,15 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: Upload charm to charmhub
+      - name: Setup LXD
+        uses: canonical/setup-lxd@8c6a87bfb56aa48f3fb9b830baa18562d8bfd4ee # v1
+        with:
+          channel: latest/stable
+      - name: Build and upload charm to charmhub
         uses: canonical/charming-actions/upload-charm@1753e0803f70445132e92acd45c905aba6473225 # 2.7.0
         with:
           charm-path: agent/charms/testflinger-agent-host-charm
+          destructive-mode: false
           credentials: "${{ secrets.CHARMHUB_TOKEN }}"
           github-token: "${{ secrets.GITHUB_TOKEN }}"
           channel: ${{ github.event_name == 'push' && 'latest/beta' || github.event.inputs.channel }}
@@ -51,6 +68,16 @@ jobs:
     needs: agent-build-and-push-charm
     name: Scan Charm with Trivy
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - base: ubuntu@22.04
+            arch: amd64
+            distro: jammy
+          - base: ubuntu@24.04
+            arch: amd64
+            distro: noble
     permissions:
       contents: read # for actions/checkout to fetch code
       security-events: write # for github/codeql-action/upload-sarif to upload SARIF results
@@ -60,12 +87,15 @@ jobs:
       - name: Install Juju
         run: sudo snap install juju --classic
       - name: Download and Unpack Charm
+        env:
+          BASE: ${{ matrix.base }}
+          ARCH: ${{ matrix.arch }}
         run: |
           CHANNEL=$(echo "$CHANNEL" | sed "-e s,latest/,,")
-          CHARM=$(juju download testflinger-agent-host --channel=$CHANNEL 2>&1 | grep ".charm$" | sed -e 's/.*\(testflinger.*.charm\)/\1/')
+          CHARM=$(juju download testflinger-agent-host --channel="$CHANNEL" --base="$BASE" --arch="$ARCH" 2>&1 | grep ".charm$" | sed -e 's/.*\(testflinger.*.charm\)/\1/')
 
           # Extract the contents to a local folder
-          unzip -d unpacked-charm $CHARM
+          unzip -d unpacked-charm "$CHARM"
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
@@ -78,7 +108,8 @@ jobs:
           # By default, SARIF format enforces output of all vulnerabilities regardless of configured severities.
           severity: "UNKNOWN,LOW,MEDIUM,CRITICAL,HIGH"
       - name: Upload Trivy scan results to GitHub Security tab
-        uses: github/codeql-action/upload-sarif@f205ea1c3313d32999d8d6a48b4f6530d4437b38 # v4.37.4
+        uses: github/codeql-action/upload-sarif@cdf488f595d80d6e07e03d4674febd5ab45fa938 # v4.37.9
         with:
           sarif_file: "testflinger-agent-host-trivy-results.sarif"
+          category: ${{ matrix.distro }}-${{ matrix.arch }}
           wait-for-processing: "true"

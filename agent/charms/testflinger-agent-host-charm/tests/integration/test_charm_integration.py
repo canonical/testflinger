@@ -9,7 +9,11 @@ import pytest
 import yaml
 from conftest import create_mock_token
 
-from defaults import LOCAL_TESTFLINGER_PATH, VIRTUAL_ENV_PATH
+from defaults import (
+    DEFAULT_TESTFLINGER_REPO,
+    LOCAL_TESTFLINGER_PATH,
+    VIRTUAL_ENV_PATH,
+)
 
 TEST_CONFIG_01 = {
     "config-repo": "https://github.com/canonical/testflinger.git",
@@ -62,8 +66,14 @@ def test_update_testflinger_action(juju: jubilant.Juju):
     )
     assert pip_freeze.return_code == 0
 
+    # testflinger-common is an editable uv source; installed from a path inside
+    # a git clone, pip freeze records it as an editable git direct reference.
+    # The other packages are plain local-path (file://) installs.
+    assert (
+        f"-e git+{DEFAULT_TESTFLINGER_REPO}" in pip_freeze.stdout
+        and "egg=testflinger_common" in pip_freeze.stdout
+    )
     for package, path in (
-        ("testflinger-common", "common"),
         ("testflinger-agent", "agent"),
         ("testflinger-device-connectors", "device-connectors"),
     ):
