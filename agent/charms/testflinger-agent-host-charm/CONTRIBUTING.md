@@ -5,7 +5,7 @@ Host Charm. To learn more about the general contribution guidelines for the
 Testflinger project, refer to the [Testflinger contribution guide].
 
 To make contributions to this charm, you'll need a working [development setup].
-If you are setting up a VM manually, you may want to use [`concierge`]. To get
+If you are setting up a VM manually, you may want to use [`concierge`][concierge]. To get
 started run:
 
 ```shell
@@ -44,8 +44,48 @@ uvx --with tox-uv tox                           # runs 'format', 'lint', and 'un
 Build the charm with [`charmcraft`][charmcraft]:
 
 ```shell
-charmcraft pack
+# On an AMD64 build host:
+charmcraft pack --platform amd64 --use-lxd
+
+# On an ARM64 build host:
+charmcraft pack --platform arm64 --use-lxd
 ```
+
+Both platforms retain the Ubuntu 22.04 base. The build host may run a newer
+Ubuntu release; Charmcraft uses an isolated build environment. These commands
+are native builds, not cross-compilation instructions. Adding ARM64 platform
+metadata does not itself publish an ARM64 revision to Charmhub.
+
+### Validate a native build
+
+Use an existing development machine controller with matching architecture.
+Do not run the destructive `just setup`/Concierge preparation on an established
+lab host merely to run tests; it is intended for disposable development runners.
+
+Select the appropriate controller, then run from this charm directory:
+
+```shell
+# On ARM64; use the amd64 artifact on AMD64:
+CHARM_PATH="$PWD/testflinger-agent-host_arm64.charm" \
+uvx --with tox-uv tox run -e integration -- --juju-dump-logs logs
+```
+
+The suite deploys with a constraint matching the test runner's architecture and
+checks the guest is Ubuntu 22.04. It exercises workload installation, update
+actions, and a transition from one to two agents running under Supervisor.
+Set `CHARM_PATH` explicitly when multiple packed artifacts exist.
+
+Authentication is bypassed using a mock token in this integration suite. Passing
+it is not proof of real server authentication, successful jobs, or USB access.
+Before considering ARM64 release-ready, validate the complete install (including
+the MAAS snap, Docker, uv, and device-connector dependencies) and real smoke jobs
+on an ARM64 host. Keep credentials and tokens out of test reports.
+
+The CI test jobs build and test both native architectures. Charmhub publishing
+and architecture-specific release/security scanning require separate validation;
+the existing release workflow is not extended by this initial test coverage.
+The configuration-repository interface, Supervisor management, and AMD64 base
+are unchanged. Direct multi-agent Juju configuration is separate follow-up work.
 
 [Testflinger contribution guide]: ../../../CONTRIBUTING.md
 [development setup]: https://documentation.ubuntu.com/juju/3.6/howto/manage-your-deployment/#set-up-your-deployment-local-testing-and-development

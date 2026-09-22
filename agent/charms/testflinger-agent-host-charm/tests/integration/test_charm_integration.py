@@ -2,6 +2,8 @@
 # See LICENSE file for licensing details.
 """Integration tests for the charm."""
 
+import os
+import platform
 from pathlib import Path
 
 import jubilant
@@ -30,12 +32,20 @@ SUPERVISOR_CONF_FILE = "/etc/supervisor/conf.d/agent001.conf"
 
 METADATA = yaml.safe_load(Path("charmcraft.yaml").read_text(encoding="utf-8"))
 APP_NAME = METADATA["name"]
+# Build and deploy natively; the runner's OS version is not the charm's base.
+NATIVE_ARCH = {"x86_64": "amd64", "aarch64": "arm64"}[platform.machine()]
+TEST_BASE = os.environ.get("TEST_BASE", "22.04")
 
 
 @pytest.mark.juju_setup
 def test_deploy(charm_path: Path, juju: jubilant.Juju):
     """Deploy the charm under test."""
-    juju.deploy(charm_path.resolve(), app=APP_NAME)
+    juju.deploy(
+        charm_path.resolve(),
+        app=APP_NAME,
+        constraints={"arch": NATIVE_ARCH},
+        base=f"ubuntu@{TEST_BASE}",
+    )
     juju.config(APP_NAME, TEST_CONFIG_01)
     # Wait for install to complete, charm should be in BlockedStatus due to
     # missing credentials.
@@ -52,6 +62,25 @@ def test_deploy(charm_path: Path, juju: jubilant.Juju):
         unit=f"{APP_NAME}/0",
     )
     juju.wait(jubilant.all_active)
+
+
+def test_guest_platform(juju: jubilant.Juju):
+    """The guest must match the selected base and native architecture."""
+    architecture = juju.exec(
+        "dpkg", "--print-architecture", unit=f"{APP_NAME}/0"
+    )
+    assert architecture.return_code == 0
+    assert architecture.stdout.strip() == NATIVE_ARCH
+
+    os_release = juju.exec("cat", "/etc/os-release", unit=f"{APP_NAME}/0")
+    assert os_release.return_code == 0
+    release = dict(
+        line.split("=", 1)
+        for line in os_release.stdout.splitlines()
+        if "=" in line
+    )
+    assert release["ID"].strip('"') == "ubuntu"
+    assert release["VERSION_ID"].strip('"') == TEST_BASE
 
 
 def test_update_testflinger_action(juju: jubilant.Juju):

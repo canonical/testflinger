@@ -31,6 +31,7 @@ links:
 platforms:
   ubuntu@22.04:amd64:
   ubuntu@24.04:amd64:
+  ubuntu@22.04:arm64:
 
 charm-libs:
   - lib: grafana_agent.cos_agent
