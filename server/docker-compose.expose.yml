@@ -1,8 +1,8 @@
 # Debug-only override for exposing the dev server outside the workshop, e.g.
 # behind a reverse proxy at http://<host>/p/5000/.
 #
-#   just serve-exposed            # from server/
-#   just workshop serve-exposed   # from the host (also connects the tunnels)
+#   just serve-expose             # from server/
+#   just workshop serve-expose    # from the host (also connects the tunnels)
 #
 # Functional changes from the default deployment:
 #
@@ -19,7 +19,7 @@
 #   not match the outside-facing hostname/prefix. So the "Sign In" link is
 #   present but will not complete a login.
 #
-#   Instead this variant enables TF_DEV_AUTO_SIGNIN, which adds an
+#   Instead this variant relies on TF_DEV_AUTO_SIGNIN, which adds an
 #   "Auto Sign In as ADMIN" link that bypasses Dex entirely and installs a
 #   session as the well-known dev admin identity. This
 #   is what remote testers use.
@@ -42,4 +42,3 @@ services:
   testflinger:
     environment:
       ENABLE_PROXYFIX: "true"
-      TF_DEV_AUTO_SIGNIN: "1"
