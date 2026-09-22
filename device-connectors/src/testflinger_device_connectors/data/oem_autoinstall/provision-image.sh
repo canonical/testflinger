@@ -354,6 +354,7 @@ $SSH "$TARGET_USER"@"$addr" -- sudo sed -i "s/RP_PARTUUID/${RESET_PARTUUID}/" /h
 BOOT_ID_BEFORE=$($SSH "$TARGET_USER"@"$addr" -- cat /proc/sys/kernel/random/boot_id)
 
 # Reboot the target
+# -i: ignoring active inhibitors
 $SSH "$TARGET_USER"@"$addr" -- sudo systemctl reboot -i || true
 
 # Clear the known hosts
