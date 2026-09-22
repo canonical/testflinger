@@ -82,6 +82,26 @@ class TestOemAutoinstall(unittest.TestCase):
             "http://example.com/test-image.iso",
         )
 
+    def test_stock_ubuntu_boot_helper_matches_default(self):
+        """Test the stock image installs the established boot helper."""
+        device = OemAutoinstall(self.config_file.name, self.job_file.name)
+        script_path = "/usr/bin/set_ubuntu_boot.sh"
+
+        def write_files(path):
+            data = yaml.safe_load(path.read_text(encoding="utf-8"))
+            return {
+                entry["path"]: entry
+                for entry in data["autoinstall"]["user-data"]["write_files"]
+            }
+
+        default_files = write_files(device.data_path / "default-user-data")
+        stock_files = write_files(
+            device.data_path / "stock" / "default-user-data"
+        )
+
+        self.assertIn(script_path, stock_files)
+        self.assertEqual(stock_files[script_path], default_files[script_path])
+
     def test_get_test_data_or_default(self):
         """Test get_test_data_or_default retrieves values correctly."""
         device = OemAutoinstall(self.config_file.name, self.job_file.name)
