@@ -35,7 +35,7 @@ serve: start && connect
 
 [doc('Start the server for exposed testing (ProxyFix enabled; Dex/OIDC browser login may not work behind a reverse proxy/prefix) and connect it to the host.')]
 [group('server')]
-serve-expose: start && connect
+serve-expose: start && connect-expose
     workshop exec dev -- just server::serve-expose
 
 [doc('Disconnect the server from the host and tear it down within the workshop.')]
