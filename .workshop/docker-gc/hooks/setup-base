@@ -1,0 +1,50 @@
+#!/bin/bash
+set -euo pipefail
+
+# Project-local SDK hook. Runs on every `workshop refresh` (declared last in
+# .workshop/dev.yaml, after docker-ce). Two responsibilities:
+#
+#   1. "userland-proxy": false  -> dockerd binds the published ports directly
+#      (no docker-proxy shim). This is load-bearing for external access: the
+#      LXD proxy device dials 127.0.0.1:<port> inside the container's netns,
+#      so dockerd must be listening on loopback, which it does with the
+#      userland proxy disabled.
+#   2. A BuildKit GC policy so the builder self-trims.
+#
+# Idempotent by design: if daemon.json already matches, docker is NOT
+# restarted. That keeps a `workshop refresh` from tearing down a running
+# compose stack mid-refresh.
+
+if ! command -v docker >/dev/null 2>&1; then
+    echo "docker-gc: docker not found. Declare docker-ce before" >&2
+    echo "docker-gc: project-docker-gc in .workshop/dev.yaml." >&2
+    exit 1
+fi
+
+TARGET=/etc/docker/daemon.json
+TMP="$(mktemp)"
+trap 'rm -f "$TMP"' EXIT
+
+cat >"$TMP" <<'EOF'
+{
+  "userland-proxy": false,
+  "builder": {
+    "gc": {
+      "enabled": true,
+      "defaultKeepStorage": "10GB",
+      "policy": [
+        {"keepStorage": "10GB", "all": true}
+      ]
+    }
+  }
+}
+EOF
+
+if [ -f "$TARGET" ] && cmp -s "$TMP" "$TARGET"; then
+    echo "docker-gc: $TARGET already current; leaving docker untouched."
+    exit 0
+fi
+
+install -m 0644 "$TMP" "$TARGET"
+echo "docker-gc: wrote $TARGET; restarting docker."
+systemctl restart docker
