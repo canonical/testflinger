@@ -93,7 +93,6 @@ autoinstall:
 
               echo "Ubuntu boot entry found: $bootnum"
 
-              # Get current boot order and remove USB bootnum from it
               current_order=$(sudo efibootmgr | grep BootOrder | cut -d: -f2 | tr -d '[:space:]')
               current_order=${current_order//${bootnum},/}  # Remove if at beginning
               current_order=${current_order//,${bootnum}/}  # Remove if in middle
