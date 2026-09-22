@@ -167,7 +167,9 @@ class TestOemAutoinstall(unittest.TestCase):
         with self.assertRaises(ProvisioningError) as ctx:
             device.run_deploy_script("http://example.com/image.iso")
 
-        self.assertIn("Deploy script failed", str(ctx.exception))
+        self.assertEqual(
+            "Deploy script failed with return code 1", str(ctx.exception)
+        )
 
     @patch("subprocess.check_call")
     @patch("subprocess.check_output")

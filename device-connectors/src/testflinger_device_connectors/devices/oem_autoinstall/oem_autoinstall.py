@@ -146,10 +146,9 @@ class OemAutoinstall:
             check=False,
         )
         if proc.returncode:
-            logger.error(
-                "Deploy script failed with return code %s", proc.returncode
+            raise ProvisioningError(
+                f"Deploy script failed with return code {proc.returncode}"
             )
-            raise ProvisioningError("Deploy script failed")
 
     def test_ssh_access(self):
         """Verify SSH access available to DUT without any prompts."""
