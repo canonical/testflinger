@@ -85,7 +85,7 @@
    * - ``GET``
      - ``/v1/agents/data/{agent_name}``
      - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
-     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
+     - :octicon:`x-circle-fill;1em;sd-text-danger` :vh:`restricted`
      - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
      - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
      - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`

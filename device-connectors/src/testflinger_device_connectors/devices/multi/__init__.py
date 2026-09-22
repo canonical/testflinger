@@ -101,11 +101,11 @@ class DeviceConnector(DefaultDevice):
     def get_job_list_data(
         self, job_list_file: Path = DEFAULT_JOB_LIST_FILE
     ) -> list:
-        """Read .job_list.json and return the list data.
+        """Read .job-list.json and return the list data.
 
         This file is created by the multi-device connector during
         provisioning phase. The path to the file should be placed
-        on a directory accesible by the tf-test script which has limited
+        on a directory accessible by the tf-test script which has limited
         access to the filesystem.
 
         :param job_list_file: Path to the job list file

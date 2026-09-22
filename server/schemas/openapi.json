@@ -1065,8 +1065,7 @@
           "admin",
           "manager",
           "contributor",
-          "agent",
-          "orchestrator"
+          "agent"
         ]
       },
       "post": {
