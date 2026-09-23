@@ -652,6 +652,20 @@ class TestflingerCli:
             action="store_true",
             help="Do not print table headers",
         )
+        parser.add_argument(
+            "--fields",
+            default=[
+                "event_name",
+                "timestamp",
+                "message",
+            ],
+            type=helpers.parse_comma_list(choices=consts.EVENTS_CHOICES),
+            help=(
+                "Fields to display in the events table (comma-separated)."
+                f" Available fields: {', '.join(consts.EVENTS_CHOICES)}."
+                " Default: event_name,timestamp,message"
+            ),
+        )
         self._add_auth_args(parser)
 
     def status(self):
@@ -1987,7 +2001,7 @@ class TestflingerCli:
         if self.args.format == "json":
             print(json.dumps(formatted_events, sort_keys=True, indent=4))
         else:
-            headers = ["event_name", "phase", "timestamp", "message"]
+            headers = self.args.fields
             # Extract event data for each header
             rows = [
                 [str(event.get(header, "")) for header in headers]
