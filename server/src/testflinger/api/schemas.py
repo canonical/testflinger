@@ -796,6 +796,7 @@ class Event(Schema):
     message = fields.String(required=False)
     detail = fields.String(required=False)
     status = fields.Integer(required=False, allow_none=True)
+    phase = fields.String(required=False, allow_none=True)
 
 
 class JobEventsOut(Schema):

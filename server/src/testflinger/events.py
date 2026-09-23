@@ -77,6 +77,9 @@ def build_event(
     # Preserve the status key in the event if it's present in the context
     if "status" in context:
         event["status"] = context["status"]
+    # Preserve the phase key in the event if it's present in the context
+    if "phase" in context:
+        event["phase"] = context["phase"]
     return event
 
 
