@@ -52,6 +52,8 @@ from testflinger_cli.auth import TestflingerCliAuth
 from testflinger_cli.consts import (
     DEFAULT_RESERVE_TIMEOUT,
     DEFAULT_SECRET_EXPIRATION,
+    STYLE_BOLD,
+    STYLE_RESET_ALL,
 )
 from testflinger_cli.enums import LogType, TestPhase
 from testflinger_cli.errors import (
@@ -69,9 +71,6 @@ logger = logging.getLogger(__name__)
 basedir = os.path.abspath(os.path.join(__file__, ".."))
 if os.path.exists(os.path.join(basedir, "setup.py")):
     sys.path.insert(0, basedir)
-
-STYLE_BOLD = "\033[1m"
-STYLE_RESET_ALL = "\033[0m"
 
 # Top-level (gross) states
 VALID_STATES = frozenset({"online", "offline", "maintenance"})
@@ -207,6 +206,7 @@ class TestflingerCli:
         self._add_show_args(subparsers)
         self._add_submit_args(subparsers)
         self._add_secret_args(subparsers)
+        self._add_job_events_args(subparsers)
 
         argcomplete.autocomplete(parser)
         try:
@@ -634,6 +634,25 @@ class TestflingerCli:
             type=helpers.regex_path,
         )
         self._add_auth_args(delete_parser)
+
+    def _add_job_events_args(self, subparsers):
+        parser = subparsers.add_parser(
+            "job-events", help="Show events for a specified job"
+        )
+        parser.set_defaults(func=self.job_events)
+        parser.add_argument("job_id", help="ID of the job")
+        parser.add_argument(
+            "--format",
+            choices=["table", "json"],
+            default="table",
+            help="Output format to display events",
+        )
+        parser.add_argument(
+            "--no-headers",
+            action="store_true",
+            help="Do not print table headers",
+        )
+        self._add_auth_args(parser)
 
     def status(self):
         """Show the status of a specified JOB_ID."""
@@ -1941,3 +1960,42 @@ class TestflingerCli:
         except client.HTTPError as exc:
             sys.exit(f"Error deleting secret: [{exc.status}] {exc.msg}")
         print(f"Secret '{self.args.path}' deleted successfully")
+
+    def job_events(self):
+        """Show events for a specified job."""
+        try:
+            response = self.client.get_job_events(self.args.job_id)
+        except client.HTTPError as exc:
+            if exc.status == HTTPStatus.NOT_FOUND:
+                # Error message is specified on server side
+                sys.exit(exc.msg)
+
+        # Extract events from the response
+        events = response["events"]
+
+        # Convert timestamps as human-readable strings
+        formatted_events = [
+            {
+                **event,
+                "timestamp": helpers.datetime_to_str(
+                    event.get("timestamp", "")
+                ),
+            }
+            for event in events
+        ]
+
+        if self.args.format == "json":
+            print(json.dumps(formatted_events, sort_keys=True, indent=4))
+        else:
+            headers = ["event_name", "phase", "timestamp", "message"]
+            # Extract event data for each header
+            rows = [
+                [str(event.get(header, "")) for header in headers]
+                for event in formatted_events
+            ]
+            helpers.print_table(
+                item="events",
+                headers=headers,
+                rows=rows,
+                hide_headers=self.args.no_headers,
+            )
