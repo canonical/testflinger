@@ -19,3 +19,12 @@ DEFAULT_SECRET_EXPIRATION = 60 * 60 * 24 * 365  # year in seconds
 
 STYLE_BOLD = "\033[1m"
 STYLE_RESET_ALL = "\033[0m"
+
+EVENTS_CHOICES = [
+    "event_name",
+    "timestamp",
+    "message",
+    "detail",
+    "status",
+    "phase",
+]
