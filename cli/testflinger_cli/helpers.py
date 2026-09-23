@@ -9,8 +9,14 @@ from pathlib import Path
 from typing import Optional
 
 import yaml
+from tabulate import tabulate
 
-from testflinger_cli.consts import SNAP_NAME, SNAP_PRIVATE_DIRS
+from testflinger_cli.consts import (
+    SNAP_NAME,
+    SNAP_PRIVATE_DIRS,
+    STYLE_BOLD,
+    STYLE_RESET_ALL,
+)
 from testflinger_cli.errors import SnapPrivateFileError
 
 # Only accept paths that are separated by forward slashes
@@ -256,3 +262,43 @@ def regex_path(value, pattern: re.Pattern = PATH_PATTERN):
             "paths must not start or end with a forward slash (/)."
         )
     return value
+
+
+def print_table(
+    item=str, headers=list[str], rows=list[list[str]], hide_headers=False
+) -> None:
+    """Print a table with headers and rows.
+
+    :param item: The item being displayed as a table
+    :param headers: List of header strings
+    :param rows: List of rows, where each row is a list of strings
+    :param hide_headers: If True, do not print the headers
+    """
+    if not rows:
+        print(f"No {item} found matching specified criteria.")
+        return
+
+    headers = [header.upper() for header in headers]
+    formatted_headers = [
+        f"{STYLE_BOLD}{header}{STYLE_RESET_ALL}" for header in headers
+    ]
+    if not hide_headers:
+        print(tabulate(rows, headers=formatted_headers, tablefmt="plain"))
+    else:
+        print(tabulate(rows, tablefmt="plain"))
+
+
+def datetime_to_str(timestamp: dict) -> str:
+    """Format serialized Datetime object for human reading.
+
+    Timestamps are serialized as dictionaries with a "$date" key,
+    which contains the ISO format timestamp string. Asides from
+    conversion, this also add human-readable formatting to the timestamp.
+
+    :param timestamp: Timestamp dictionary
+    :return: Formatted timestamp string or original as a string if not dict
+        or not containing "$date" key
+    """
+    if isinstance(timestamp, dict) and "$date" in timestamp:
+        return format_timestamp(timestamp["$date"])
+    return str(timestamp)
