@@ -75,6 +75,16 @@ checks the guest is Ubuntu 22.04. It exercises workload installation, update
 actions, and a transition from one to two agents running under Supervisor.
 Set `CHARM_PATH` explicitly when multiple packed artifacts exist.
 
+The initial deployment wait allows 20 minutes for cold image provisioning and
+dependency installation, including on SD-backed hosts. This is a test deadline,
+not a delay added to every run. If it expires, inspect the captured install logs
+before retrying. Package checks use installed source metadata so both regular
+and editable local installs are accepted, but installs from another source fail.
+Use pytest's `-x` option to stop at the first failure and avoid cascading tests
+after an incomplete deployment, for example by appending it after `--` in the
+tox command above. The workload is installed from upstream at runtime; packing
+the charm does not pin that workload to the feature branch's source revision.
+
 Authentication is bypassed using a mock token in this integration suite. Passing
 it is not proof of real server authentication, successful jobs, or USB access.
 Before considering ARM64 release-ready, validate the complete install (including
