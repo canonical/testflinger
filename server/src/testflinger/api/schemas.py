@@ -857,8 +857,13 @@ class JobStatisticsDaily(Schema):
     count = fields.Integer(required=True)
 
 
-class JobStatisticsOut(Schema):
-    """Class to represent job statistics output response."""
+class JobStatisticsTotalsOut(Schema):
+    """Class to represent job statistics totals output response."""
 
     totals = fields.List(fields.Nested(JobStatisticsTotal), required=True)
+
+
+class JobStatisticsDailyOut(Schema):
+    """Class to represent job statistics daily output response."""
+
     daily = fields.List(fields.Nested(JobStatisticsDaily), required=True)
