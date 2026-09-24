@@ -40,6 +40,8 @@ from testflinger.database import get_mongo_uri
 from sample_users import (
     SAMPLE_CLIENTS,
     TESTFLINGER_ADMIN,
+    TESTFLINGER_AGENT_ID,
+    TESTFLINGER_AGENT_SECRET,
 )
 
 # testflinger-admin is both the OIDC identity (via Dex) and a credential-based
@@ -63,6 +65,21 @@ def main():
         )
         db.client_permissions.insert_one(admin_doc)
         print(f"Created admin credential '{admin_client_id}'")
+
+    if not db.client_permissions.find_one({"client_id": TESTFLINGER_AGENT_ID}):
+        db.client_permissions.insert_one(
+            {
+                "client_id": TESTFLINGER_AGENT_ID,
+                "client_secret_hash": _make_secret_hash(
+                    TESTFLINGER_AGENT_SECRET
+                ),
+                "role": "agent",
+                "max_priority": {"*": 0},
+                "allowed_queues": [],
+                "max_reservation_time": {},
+            }
+        )
+        print(f"Created agent credential '{TESTFLINGER_AGENT_ID}'")
 
     for client in SAMPLE_CLIENTS:
         client_id = client["client_id"]
