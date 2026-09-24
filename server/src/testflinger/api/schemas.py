@@ -803,3 +803,67 @@ class JobEventsOut(Schema):
 
     job_id = fields.String(required=True)
     events = fields.List(fields.Nested(Event), required=True)
+
+
+class JobStatisticsQuery(Schema):
+    """Class to validate query parameters for job statistics."""
+
+    group_by = fields.String(
+        required=False,
+        validate=OneOf(["queue", "submitted_by"]),
+        load_default="submitted_by",
+        metadata={
+            "description": "Group statistics by 'queue' or 'submitted_by'."
+        },
+    )
+    queues = fields.List(
+        fields.String(),
+        required=False,
+        metadata={"description": "Filter statistics by specific queues."},
+    )
+    submitters = fields.List(
+        fields.String(),
+        required=False,
+        metadata={"description": "Filter statistics by specific submitters."},
+    )
+    start_at = fields.DateTime(
+        required=False,
+        metadata={
+            "description": "Filter statistics for jobs created "
+            "at or after this datetime (ISO 8601)."
+        },
+    )
+    end_at = fields.DateTime(
+        required=False,
+        metadata={
+            "description": "Filter statistics for jobs created "
+            "before this datetime (ISO 8601)."
+        },
+    )
+
+
+class JobStatisticsTotal(Schema):
+    """Class to represent total job statistics."""
+
+    key = fields.String(required=True)
+    count = fields.Integer(required=True)
+
+
+class JobStatisticsDaily(Schema):
+    """Class to represent daily job statistics."""
+
+    date = fields.String(required=True)  # Not an ISO 8601 Datetime object
+    key = fields.String(required=True)
+    count = fields.Integer(required=True)
+
+
+class JobStatisticsTotalsOut(Schema):
+    """Class to represent job statistics totals output response."""
+
+    totals = fields.List(fields.Nested(JobStatisticsTotal), required=True)
+
+
+class JobStatisticsDailyOut(Schema):
+    """Class to represent job statistics daily output response."""
+
+    daily = fields.List(fields.Nested(JobStatisticsDaily), required=True)
