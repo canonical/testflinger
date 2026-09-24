@@ -1644,38 +1644,49 @@ def get_job_events(job_id):
     return jsonify({"job_id": job_id, "events": job_events})
 
 
-@v1.get("/statistics/jobs")
+@v1.get("/statistics/jobs/totals")
 @authenticate
 @require_role(ServerRoles.ADMIN, ServerRoles.MANAGER, ServerRoles.CONTRIBUTOR)
 @v1.input(schemas.JobStatisticsQuery, location="query")
-@v1.output(schemas.JobStatisticsOut)
-def get_jobs_statistics(query_data: dict) -> dict:
-    """Get job submission statistics grouped by queue or submitter.
+@v1.output(schemas.JobStatisticsTotalsOut)
+def get_jobs_statistics_totals(query_data: dict) -> dict:
+    """Get total job submission counts grouped by queue or submitter.
 
     This supports additional filtering by date range, queues or submitter.
 
     :param query_data: Dictionary containing query parameters for filtering
-    :return: Both totals and daily counts based on specified filter.
+    :return: Total counts based on specified filter.
     """
-    group_by = query_data["group_by"]
-    queues = query_data.get("queues")
-    submitters = query_data.get("submitters")
-    start_at = query_data.get("start_at")
-    end_at = query_data.get("end_at")
-
     return jsonify(
         totals=database.get_job_statistics_totals(
-            group_by=group_by,
-            start_at=start_at,
-            end_at=end_at,
-            queues=queues,
-            submitters=submitters,
+            group_by=query_data["group_by"],
+            start_at=query_data.get("start_at"),
+            end_at=query_data.get("end_at"),
+            queues=query_data.get("queues"),
+            submitters=query_data.get("submitters"),
         ),
+    )
+
+
+@v1.get("/statistics/jobs/daily")
+@authenticate
+@require_role(ServerRoles.ADMIN, ServerRoles.MANAGER, ServerRoles.CONTRIBUTOR)
+@v1.input(schemas.JobStatisticsQuery, location="query")
+@v1.output(schemas.JobStatisticsDailyOut)
+def get_jobs_statistics_daily(query_data: dict) -> dict:
+    """Get per-day job submission counts grouped by queue or submitter.
+
+    This supports additional filtering by date range, queues or submitter.
+
+    :param query_data: Dictionary containing query parameters for filtering
+    :return: Daily counts based on specified filter.
+    """
+    return jsonify(
         daily=database.get_job_statistics_daily(
-            group_by=group_by,
-            start_at=start_at,
-            end_at=end_at,
-            queues=queues,
-            submitters=submitters,
+            group_by=query_data["group_by"],
+            start_at=query_data.get("start_at"),
+            end_at=query_data.get("end_at"),
+            queues=query_data.get("queues"),
+            submitters=query_data.get("submitters"),
         ),
     )

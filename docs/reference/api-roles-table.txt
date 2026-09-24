@@ -204,7 +204,13 @@
      - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
      - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
    * - ``GET``
-     - ``/v1/statistics/jobs``
+     - ``/v1/statistics/jobs/daily``
+     - :octicon:`x-circle-fill;1em;sd-text-danger` :vh:`restricted`
+     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
+     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
+     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
+   * - ``GET``
+     - ``/v1/statistics/jobs/totals``
      - :octicon:`x-circle-fill;1em;sd-text-danger` :vh:`restricted`
      - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
      - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
