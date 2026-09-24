@@ -89,6 +89,12 @@ clean:
 serve:
     @docker compose up --build --detach testflinger
 
+[doc('Run the server for exposed testing: ProxyFix enabled (Dex/OIDC browser login may not work behind a reverse proxy/prefix). See docker-compose.expose.yml.')]
+[group('deploy')]
+serve-expose:
+    @docker compose -f docker-compose.yml -f docker-compose.expose.yml \
+        up --build --detach --force-recreate testflinger
+
 [doc('Tear down and restart the local deployment.')]
 [group('deploy')]
 restart: teardown serve
