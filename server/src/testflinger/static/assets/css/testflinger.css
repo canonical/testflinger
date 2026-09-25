@@ -97,6 +97,83 @@ main {
     overflow: visible !important;
 }
 
+/* Agent-state chips – colours come from Vanilla's semantic chip classes:
+   p-chip--positive (green), p-chip--caution (amber), p-chip--negative (red).
+   Vanilla defaults: lead 1rem, value 0.875rem. We shrink both to 9pt. */
+.agent-state-chip { margin-bottom: 0; }
+button.agent-state-chip { cursor: pointer; display: inline-flex; align-items: center; }
+.agent-state-chip .p-chip__lead,
+.agent-state-chip .p-chip__value { font-size: 9pt; }
+
+/* Pending-mode transition pair: current chip on line 1,
+   arrow + commanded chip on line 2 — stacks vertically to save row width. */
+.agent-mode-transition {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.1rem;
+    background: none;
+    border: none;
+    margin-bottom: 0;
+    padding: 0;
+    cursor: pointer;
+    font: inherit;
+    color: inherit;
+    text-decoration: none;
+}
+.agent-mode-transition.p-tooltip--right { position: relative; }
+.agent-mode-pending-row {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.2rem;
+}
+/* Vendored additional icon: change-version (circular arrows / version transition).
+   Not included in the Vanilla CDN bundle. */
+.p-icon--change-version {
+    background-image: url("data:image/svg+xml,%3Csvg width='16' height='16' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M5.948 9.012v1.5l-2.458.001A5.163 5.163 0 0012.76 10h1.596a6.665 6.665 0 01-11.839 1.785v2.158h-1.5v-4.93h4.93zM8 1.338a6.655 6.655 0 015.516 2.925V2.11h1.5v4.93h-4.93v-1.5h2.453A5.163 5.163 0 003.24 6H1.643A6.665 6.665 0 018 1.338z' fill='%23000' fill-rule='evenodd'/%3E%3C/svg%3E");
+}
+
+[class*="--dark"] .p-icon--change-version,
+body.is-dark .p-icon--change-version,
+.p-icon--change-version.is-light {
+    background-image: url("data:image/svg+xml,%3Csvg width='16' height='16' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M5.948 9.012v1.5l-2.458.001A5.163 5.163 0 0012.76 10h1.596a6.665 6.665 0 01-11.839 1.785v2.158h-1.5v-4.93h4.93zM8 1.338a6.655 6.655 0 015.516 2.925V2.11h1.5v4.93h-4.93v-1.5h2.453A5.163 5.163 0 003.24 6H1.643A6.665 6.665 0 018 1.338z' fill='hsl(0%2C0%25%2C100%25)' fill-rule='evenodd'/%3E%3C/svg%3E");
+}
+
+/* Vendored additional icon: revisions (clock/history — used for pending commanded mode).
+   Not included in the Vanilla CDN bundle. */
+.p-icon--revisions {
+    background-image: url("data:image/svg+xml,%3Csvg width='16' height='16' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M2.583 3.566l1.019 1.131a5.5 5.5 0 109.847 4.056h1.51A7.001 7.001 0 112.584 3.567zM5.748 4.74l2.221 2.51L12 7.25v1.5H7.294l-2.67-3.018 1.124-.993zm8.014-.714c.493.712.856 1.52 1.058 2.39h-1.552a5.47 5.47 0 00-.56-1.26l1.054-1.13zM9.504 1.162a6.967 6.967 0 012.626 1.186l-1.033 1.106a5.475 5.475 0 00-1.594-.746V1.162zm-2.34-.113l.001 1.514a5.462 5.462 0 00-1.795.605L4.344 2.03a6.956 6.956 0 012.82-.98z' fill='%23000' fill-rule='nonzero'/%3E%3C/svg%3E");
+}
+
+[class*="--dark"] .p-icon--revisions,
+body.is-dark .p-icon--revisions,
+.p-icon--revisions.is-light {
+    background-image: url("data:image/svg+xml,%3Csvg width='16' height='16' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M2.583 3.566l1.019 1.131a5.5 5.5 0 109.847 4.056h1.51A7.001 7.001 0 112.584 3.567zM5.748 4.74l2.221 2.51L12 7.25v1.5H7.294l-2.67-3.018 1.124-.993zm8.014-.714c.493.712.856 1.52 1.058 2.39h-1.552a5.47 5.47 0 00-.56-1.26l1.054-1.13zM9.504 1.162a6.967 6.967 0 012.626 1.186l-1.033 1.106a5.475 5.475 0 00-1.594-.746V1.162zm-2.34-.113l.001 1.514a5.462 5.462 0 00-1.795.605L4.344 2.03a6.956 6.956 0 012.82-.98z' fill='hsl(0%2C0%25%2C100%25)' fill-rule='nonzero'/%3E%3C/svg%3E");
+}
+
+/* Vanilla's edit icon is an additional icon, not part of the CDN bundle. */
+.p-icon--edit {
+    background-image: url("data:image/svg+xml,%3Csvg width='16' height='16' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M14 13.25v1.5H2v-1.5h12zM11.907 1.676l.58.58a2 2 0 010 2.829l-5.133 5.133c-.038.038-.079.073-.122.104l.01.008a3.77 3.77 0 01-1.718.983l-3.52.914.863-3.583c.138-.57.41-1.099.795-1.54l.17-.183.01.01c.03-.043.065-.084.103-.122l5.133-5.133a2 2 0 012.829 0zm-3.309 2.6L5.036 7.84l-.593.82 1.062 1.063.814-.591 3.567-3.568-1.288-1.288zm1.61-1.597l-.07.057-.479.48 1.288 1.288.48-.48a.5.5 0 00.057-.638l-.057-.069-.581-.58a.5.5 0 00-.638-.058z' fill='%23000' fill-rule='nonzero'/%3E%3C/svg%3E");
+}
+
+[class*="--dark"] .p-icon--edit,
+body.is-dark .p-icon--edit,
+.p-icon--edit.is-light,
+.p-icon--edit.is-dark {
+    background-image: url("data:image/svg+xml,%3Csvg width='16' height='16' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M14 13.25v1.5H2v-1.5h12zM11.907 1.676l.58.58a2 2 0 010 2.829l-5.133 5.133c-.038.038-.079.073-.122.104l.01.008a3.77 3.77 0 01-1.718.983l-3.52.914.863-3.583c.138-.57.41-1.099.795-1.54l.17-.183.01.01c.03-.043.065-.084.103-.122l5.133-5.133a2 2 0 012.829 0zm-3.309 2.6L5.036 7.84l-.593.82 1.062 1.063.814-.591 3.567-3.568-1.288-1.288zm1.61-1.597l-.07.057-.479.48 1.288 1.288.48-.48a.5.5 0 00.057-.638l-.057-.069-.581-.58a.5.5 0 00-.638-.058z' fill='hsl(0%2C0%%2C100%)' fill-rule='nonzero'/%3E%3C/svg%3E");
+}
+
+/* Job-state chips – colours come from Vanilla's semantic chip classes:
+   p-chip (neutral grey), p-chip--information (blue), p-chip--positive (green),
+   p-chip--caution (amber), p-chip--negative (red).
+   Vanilla defaults: lead 1rem, value 0.875rem. We shrink to lead 11px / value 10px. */
+.job-state-chip { margin-bottom: 0; }
+.job-state-chip.is-read-only { border: 0; }
+/* "waiting" jobs use p-chip (default), which is near-white; nudge to light grey. */
+.job-state-chip.p-chip { background-color: #d9d9d9; }
+.job-state-chip .p-chip__lead { font-size: 0.6875rem; }
+.job-state-chip .p-chip__value { font-size: 0.625rem; }
+
 /* Heading row with a trailing action button (e.g. copy job YAML) */
 .section-heading-bar {
     display: flex;

@@ -922,6 +922,18 @@ def get_restricted_queues_owners() -> dict[str, list[str]]:
 # TODO: when `views.py` is updated to use the v2 data format this function
 #  can be switched over to the v2 footprint.
 def get_agents(queue: str | None = None) -> list[dict]:
+<<<<<<< HEAD
+=======
+    """Return a list of agents with active job info attached.
+
+    This is a wrapper for the UI views which need v2 nested format
+    (mode/state/commanded_mode structure).
+    """
+    return get_agents_v2(queue)
+
+
+def get_agents_v1(queue: str | None = None) -> list[dict]:
+>>>>>>> e4bf9152 (rebase onto feat/server-agent-mode-api, no stacking)
     """Return a list of agents in v1 flat format for v1 API clients.
 
     Retrieves all agents and applies appropriate transformation based on

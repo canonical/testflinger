@@ -86,7 +86,10 @@
      - ``/v1/agents/queues``
      - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
      - :octicon:`x-circle-fill;1em;sd-text-danger` :vh:`restricted`
+<<<<<<< HEAD
      - :octicon:`x-circle-fill;1em;sd-text-danger` :vh:`restricted`
+=======
+>>>>>>> e4bf9152 (rebase onto feat/server-agent-mode-api, no stacking)
      - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
      - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
    * - ``GET``
