@@ -23,7 +23,7 @@ from typing import Any
 from flask_pymongo import PyMongo
 from gridfs import GridFS, errors
 from pymongo import ReturnDocument
-from testflinger_common.enums import ServerRoles
+from testflinger_common.enums import AgentMode, AgentState, ServerRoles
 
 # Constants for TTL indexes
 REFRESH_TOKEN_IDEL_EXPIRATION = 60 * 60 * 24 * 90  # 90 days
@@ -513,6 +513,38 @@ def _active_job_pipeline_stages() -> list[dict]:
     ]
 
 
+def _normalise_agent_mode(agent: dict) -> dict:
+    """Fold a v1-shaped agent record into the canonical mode/state shape.
+
+    The canonical record has an explicit ``mode`` (the server-commanded
+    operating mode) and, for the modes that carry one, a sub-state.  A
+    v1 client, and any record written before modes existed, carries a
+    ``state`` and no ``mode``: three legacy state values named a mode
+    directly, everything else is what an agent does while ``ONLINE``.
+
+    This is called on write to normalise v1 input into the canonical
+    shape stored in the database, and on read as a data-age fallback
+    for pre-mode records that have not yet been rewritten.  It never
+    hides canonical fields on the way out: v2 reads them directly, and
+    v1's ``AgentOut`` schema simply does not list them.
+
+    :param agent: Agent record; ``mode`` filled in in place if absent.
+    :return: The same record.
+    """
+    if agent.get("mode") is not None:
+        return agent
+
+    state = agent.get("state")
+    if state in (AgentMode.OFFLINE, AgentMode.RESTART):
+        agent["mode"] = state
+    elif state == AgentMode.MAINTENANCE:
+        agent["mode"] = AgentMode.MAINTENANCE
+        agent["state"] = AgentState.WAITING
+    else:
+        agent["mode"] = AgentMode.ONLINE
+    return agent
+
+
 def get_agent_info(agent: str) -> dict | None:
     """Return the information for a specified agent, with active job attached.
 
@@ -527,7 +559,7 @@ def get_agent_info(agent: str) -> dict | None:
         *_active_job_pipeline_stages(),
     ]
     results = list(mongo.db.agents.aggregate(pipeline))
-    return results[0] if results else None
+    return _normalise_agent_mode(results[0]) if results else None
 
 
 def set_agent_job(agent_name: str, job_id: str) -> None:
@@ -539,6 +571,22 @@ def set_agent_job(agent_name: str, job_id: str) -> None:
     mongo.db.agents.update_one(
         {"name": agent_name},
         {"$set": {"job_id": job_id}},
+    )
+
+
+def set_agent_mode(
+    agent_name: str, mode: str, comment: str, changed_by: str | None
+) -> None:
+    """Set an agent mode and optional operator comment.
+
+    An empty comment clears any existing comment. Transition timestamps and
+    attribution are maintained by ``upsert_agent_document``.
+    """
+    upsert_agent_document(
+        agent_name,
+        {"mode": mode, "comment": comment, "updated_at": _now()},
+        [],
+        changed_by=changed_by,
     )
 
 
@@ -606,7 +654,10 @@ def get_agents(queue: str | None = None) -> list[dict]:
         {"$project": {"_id": False, "log": False}},
         *_active_job_pipeline_stages(),
     ]
-    return list(mongo.db.agents.aggregate(pipeline))
+    return [
+        _normalise_agent_mode(agent)
+        for agent in mongo.db.agents.aggregate(pipeline)
+    ]
 
 
 def add_restricted_queue(queue: str, client_id: str):
@@ -843,17 +894,58 @@ def set_queue_images(queue: str, image_data: dict) -> None:
     )
 
 
-def upsert_agent_document(agent_name: str, data: dict, log: list[str]) -> None:
+def upsert_agent_document(
+    agent_name: str,
+    data: dict,
+    log: list[str],
+    *,
+    changed_by: str | None = None,
+    upsert: bool = True,
+    unset: list[str] | None = None,
+) -> None:
     """Insert or update an agent record.
+
+    Accepts input in either the canonical mode/state shape (v2) or the
+    legacy state-only shape (v1); the latter is folded into the former
+    by :func:`_normalise_agent_mode` before it reaches storage, but
+    only when there is no commanded mode already on file.  Once an
+    admin has set a mode through v2, a v1 agent reporting only a state
+    can update the sub-state but cannot overwrite the mode.
 
     :param agent_name: Name of the agent.
     :param data: Agent data fields to set.
     :param log: Log lines to push (kept to last 100).
+    :param changed_by: Identity changing the mode, if supplied.
+    :param upsert: Whether to create the record when it does not exist.
     """
+    existing = mongo.db.agents.find_one(
+        {"name": agent_name}, {"mode": 1, "state": 1}
+    )
+    if "mode" in data:
+        data.setdefault("comment", "")
+        if (existing or {}).get("mode") != data["mode"]:
+            data["mode_changed_at"] = data["updated_at"]
+            data["mode_changed_by"] = changed_by
+    elif "state" in data and (existing or {}).get("mode") is None:
+        # v1 write into a record that has never had a mode: fold state
+        # into the canonical shape so storage is always canonical.
+        _normalise_agent_mode(data)
+
+    if "state" in data and (existing or {}).get("state") != data["state"]:
+        data["state_changed_at"] = data["updated_at"]
+        data["state_changed_by"] = changed_by
+
+    update: dict = {
+        "$set": data,
+        "$push": {"log": {"$each": log, "$slice": -100}},
+    }
+    if unset:
+        update["$unset"] = dict.fromkeys(unset, "")
+
     mongo.db.agents.update_one(
         {"name": agent_name},
-        {"$set": data, "$push": {"log": {"$each": log, "$slice": -100}}},
-        upsert=True,
+        update,
+        upsert=upsert,
     )
 
 
