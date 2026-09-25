@@ -52,6 +52,65 @@
         },
         "type": "object"
       },
+      "AgentIn1": {
+        "additionalProperties": false,
+        "properties": {
+          "comment": {
+            "type": "string"
+          },
+          "identifier": {
+            "type": "string"
+          },
+          "job_id": {
+            "type": "string"
+          },
+          "location": {
+            "type": "string"
+          },
+          "log": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "mode": {
+            "enum": [
+              "online",
+              "maintenance",
+              "offline",
+              "restart"
+            ],
+            "type": "string"
+          },
+          "provision_type": {
+            "type": "string"
+          },
+          "queues": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "state": {
+            "enum": [
+              "setup",
+              "provision",
+              "firmware_update",
+              "test",
+              "allocate",
+              "reserve",
+              "cleanup",
+              "waiting",
+              "offline",
+              "maintenance",
+              "restart",
+              "unknown"
+            ],
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
       "AgentJob": {
         "additionalProperties": false,
         "properties": {
@@ -132,6 +191,71 @@
             "type": "object"
           },
           "state": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "type": "object"
+      },
+      "AgentOut1": {
+        "additionalProperties": false,
+        "properties": {
+          "comment": {
+            "type": "string"
+          },
+          "job": {
+            "anyOf": [
+              {
+                "nullable": true,
+                "type": "object"
+              },
+              {
+                "$ref": "#/components/schemas/AgentJob"
+              }
+            ]
+          },
+          "job_id": {
+            "type": "string"
+          },
+          "location": {
+            "type": "string"
+          },
+          "mode": {
+            "type": "string"
+          },
+          "mode_changed_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "mode_changed_by": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "provision_type": {
+            "type": "string"
+          },
+          "queues": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "restricted_to": {
+            "additionalProperties": {},
+            "type": "object"
+          },
+          "state": {
+            "type": "string"
+          },
+          "state_changed_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "state_changed_by": {
             "type": "string"
           }
         },
@@ -2930,11 +3054,148 @@
           "admin"
         ]
       }
+    },
+    "/v2/agents/data": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentOut1"
+                }
+              }
+            },
+            "description": "Successful response"
+          }
+        },
+        "summary": "Get all agent data.",
+        "tags": [
+          "V2"
+        ],
+        "x-permission-roles": [
+          "admin",
+          "manager",
+          "contributor"
+        ]
+      }
+    },
+    "/v2/agents/{agent_name}/data": {
+      "get": {
+        "description": ":param agent_name:\nString with the name of the agent to retrieve information from.\n:return:\nJSON data with the specified agent information.",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "agent_name",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentOut1"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          }
+        },
+        "summary": "Get the information from a specified agent.",
+        "tags": [
+          "V2"
+        ],
+        "x-permission-roles": [
+          "admin",
+          "manager",
+          "contributor",
+          "agent"
+        ]
+      },
+      "post": {
+        "description": "The json sent to this endpoint may contain data such as the following:\n{\n\"mode\": string,  # Commanded operating mode of the agent\n\"state\": string, # Sub-state within that mode, where applicable\n\"queues\": array[string], # Queues the device is listening on\n\"location\": string, # Location of the device\n\"job_id\": string, # Job ID the device is running, if any\n\"log\": array[string], # push and keep only the last 100 lines\n}",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "agent_name",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentIn1"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "summary": "Post information about the agent to the server.",
+        "tags": [
+          "V2"
+        ],
+        "x-permission-roles": [
+          "admin",
+          "manager",
+          "agent"
+        ]
+      }
     }
   },
   "tags": [
     {
       "name": "V1"
+    },
+    {
+      "name": "V2"
     },
     {
       "name": "Oidc_Api"
