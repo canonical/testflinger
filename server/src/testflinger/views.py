@@ -23,20 +23,65 @@ from apiflask import APIBlueprint
 from flask import (
     current_app,
     make_response,
+    redirect,
     render_template,
     request,
     session,
+    url_for,
 )
 from markupsafe import Markup
 from pygments import highlight as pygments_highlight
 from pygments.formatters import HtmlFormatter
 from pygments.lexers import BashLexer, YamlLexer
+from testflinger_common.enums import AgentMode, ServerRoles
 
 from testflinger import database
 from testflinger.api.schemas import Job
 from testflinger.logs import MongoLogHandler
 
 views = APIBlueprint("testflinger", __name__, enable_openapi=False)
+
+
+def _state_duration(state_changed_at) -> str:
+    """Return a human-readable duration since the agent entered the
+    current state.
+
+    :param state_changed_at: UTC datetime of the last state change, or None.
+    :return: Formatted duration string such as "2d 3h 15m", "3h", "0m",
+             or "—" if unknown.
+    """
+    if not state_changed_at:
+        return "—"
+    if state_changed_at.tzinfo is None:
+        state_changed_at = state_changed_at.replace(tzinfo=timezone.utc)
+    delta = datetime.now(timezone.utc) - state_changed_at
+    total_seconds = int(delta.total_seconds())
+    if total_seconds < 0:
+        return "—"
+    days, remainder = divmod(total_seconds, 86400)
+    hours, remainder = divmod(remainder, 3600)
+    minutes, _ = divmod(remainder, 60)
+    parts = []
+    if days:
+        parts.append(f"{days}d")
+    if hours:
+        parts.append(f"{hours}h")
+    if minutes or not parts:
+        parts.append(f"{minutes}m")
+    return " ".join(parts)
+
+
+def _enrich_agent(agent: dict) -> dict:
+    """Add display-only fields to an agent dict for portal rendering.
+
+    Computes ``mode_duration`` (time since mode last changed) and
+    ``state_duration`` (time since sub-state last changed). The active
+    job and its ``job_state`` are attached by the database layer's
+    active-job aggregation and exposed as ``agent["job"]``.
+    """
+    agent["mode_duration"] = _state_duration(agent.get("mode_changed_at"))
+    agent["state_duration"] = _state_duration(agent.get("state_changed_at"))
+    return agent
 
 
 @views.before_request
@@ -145,11 +190,31 @@ def home():
     return render_template("homepage.html")
 
 
+def _is_admin():
+    """Return True if the current session user is a logged-in admin.
+
+    UI edits require OIDC to be configured and the logged-in user to hold
+    the admin role. When OIDC is disabled there is no authenticated user,
+    so no UI edits are permitted.
+    """
+    if current_app.oauth is None:
+        return False
+    user_email = session.get("user_email", "")
+    if not user_email:
+        return False
+    perms = database.get_client_permissions(user_email)
+    return perms.get("role") == ServerRoles.ADMIN
+
+
 @views.route("/agents")
 def agents():
     """Agents view."""
     agent_info = database.get_agents()
-    return render_template("agents.html", agents=agent_info)
+    for agent in agent_info:
+        _enrich_agent(agent)
+    return render_template(
+        "agents.html", agents=agent_info, is_admin=_is_admin()
+    )
 
 
 @views.route("/agents/<agent_id>")
@@ -163,7 +228,6 @@ def agent_detail(agent_id):
     start_date = request.args.get("start", default_start_date)
     stop_date = request.args.get("stop", default_stop_date)
 
-    # Convert start and stop dates to datetime objects for the query
     start_datetime = datetime.strptime(start_date, "%Y-%m-%d").replace(
         tzinfo=timezone.utc
     )
@@ -193,7 +257,6 @@ def agent_detail(agent_id):
     for queue_name in agent_info.pop("queues", []):
         queue_data = database.get_queue_document(queue_name)
         if not queue_data:
-            # If it's not an advertised queue, create some dummy data
             queue_data = {"description": ""}
         queue_data["name"] = queue_name
         queue_data["numjobs"] = database.get_num_incomplete_jobs_on_queue(
@@ -202,11 +265,10 @@ def agent_detail(agent_id):
         queue_info.append(queue_data)
 
     agent_info["queues"] = queue_info
-
-    # We want to include the start/stop dates so that default values
-    # can be filled in for the date pickers
     agent_info["start"] = start_date
     agent_info["stop"] = stop_date
+
+    _enrich_agent(agent_info)
 
     agent_info["provision_log"] = database.get_provision_log(
         agent_id,
@@ -227,10 +289,45 @@ def agent_detail(agent_id):
             / len(agent_info["provision_log"])
         )
     else:
-        # Avoid division by zero
         agent_info["provision_success_rate"] = 0
 
-    return render_template("agent_detail.html", agent=agent_info)
+    return render_template(
+        "agent_detail.html", agent=agent_info, is_admin=_is_admin()
+    )
+
+
+@views.route("/agents/<agent_id>/state", methods=["POST"])
+def agent_state_update(agent_id):
+    """UI endpoint for an admin to update an agent's mode."""
+    if current_app.oauth is not None:
+        user_email = session.get("user_email", "")
+        if not user_email:
+            return make_response(
+                render_template("401_unauthorized.html"),
+                HTTPStatus.UNAUTHORIZED,
+            )
+        perms = database.get_client_permissions(user_email)
+        if perms.get("role") != ServerRoles.ADMIN:
+            return make_response("Forbidden", HTTPStatus.FORBIDDEN)
+    else:
+        return make_response("Forbidden", HTTPStatus.FORBIDDEN)
+
+    new_mode = request.form.get("mode", "").strip()
+    comment = request.form.get("comment", "").strip()
+
+    allowed_modes = {m.value for m in AgentMode}
+    if new_mode not in allowed_modes:
+        return make_response("Invalid mode", HTTPStatus.BAD_REQUEST)
+
+    database.set_agent_mode(agent_id, new_mode, comment, user_email)
+
+    # Return to the page the change was initiated from (e.g. the agents
+    # list) when a safe, local `next` target is supplied; otherwise fall
+    # back to the agent detail page.
+    next_url = request.form.get("next", "")
+    if next_url.startswith("/") and not next_url.startswith("//"):
+        return redirect(next_url)
+    return redirect(url_for("testflinger.agent_detail", agent_id=agent_id))
 
 
 @views.route("/jobs")
@@ -324,6 +421,8 @@ def queue_detail(queue_name):
         queue_percentile_data[key] = seconds_to_hms(value)
 
     agents_data = database.get_agents(queue=queue_name)
+    for agent in agents_data:
+        _enrich_agent(agent)
 
     return render_template(
         "queue_detail.html",
@@ -331,6 +430,7 @@ def queue_detail(queue_name):
         jobs=job_data,
         queue_percentile_data=queue_percentile_data,
         agents=agents_data,
+        is_admin=_is_admin(),
     )
 
 

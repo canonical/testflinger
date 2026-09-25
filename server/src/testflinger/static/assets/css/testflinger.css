@@ -104,6 +104,35 @@ main {
     overflow: visible !important;
 }
 
+/* Agent-state chips – colours come from Vanilla's semantic chip classes:
+   p-chip--positive (green), p-chip--caution (amber), p-chip--negative (red).
+   Vanilla defaults: lead 1rem, value 0.875rem. We shrink to lead 11px / value 10px. */
+.agent-state-chip { margin-bottom: 0; }
+button.agent-state-chip { cursor: pointer; display: inline-flex; align-items: center; }
+.agent-state-chip .p-chip__lead { font-size: 0.6875rem; }
+.agent-state-chip .p-chip__value { font-size: 0.625rem; }
+
+/* Vanilla's edit icon is an additional icon, not part of the CDN bundle. */
+.p-icon--edit {
+    background-image: url("data:image/svg+xml,%3Csvg width='16' height='16' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M14 13.25v1.5H2v-1.5h12zM11.907 1.676l.58.58a2 2 0 010 2.829l-5.133 5.133c-.038.038-.079.073-.122.104l.01.008a3.77 3.77 0 01-1.718.983l-3.52.914.863-3.583c.138-.57.41-1.099.795-1.54l.17-.183.01.01c.03-.043.065-.084.103-.122l5.133-5.133a2 2 0 012.829 0zm-3.309 2.6L5.036 7.84l-.593.82 1.062 1.063.814-.591 3.567-3.568-1.288-1.288zm1.61-1.597l-.07.057-.479.48 1.288 1.288.48-.48a.5.5 0 00.057-.638l-.057-.069-.581-.58a.5.5 0 00-.638-.058z' fill='%23000' fill-rule='nonzero'/%3E%3C/svg%3E");
+}
+
+[class*="--dark"] .p-icon--edit,
+body.is-dark .p-icon--edit,
+.p-icon--edit.is-light,
+.p-icon--edit.is-dark {
+    background-image: url("data:image/svg+xml,%3Csvg width='16' height='16' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M14 13.25v1.5H2v-1.5h12zM11.907 1.676l.58.58a2 2 0 010 2.829l-5.133 5.133c-.038.038-.079.073-.122.104l.01.008a3.77 3.77 0 01-1.718.983l-3.52.914.863-3.583c.138-.57.41-1.099.795-1.54l.17-.183.01.01c.03-.043.065-.084.103-.122l5.133-5.133a2 2 0 012.829 0zm-3.309 2.6L5.036 7.84l-.593.82 1.062 1.063.814-.591 3.567-3.568-1.288-1.288zm1.61-1.597l-.07.057-.479.48 1.288 1.288.48-.48a.5.5 0 00.057-.638l-.057-.069-.581-.58a.5.5 0 00-.638-.058z' fill='hsl(0%2C0%%2C100%)' fill-rule='nonzero'/%3E%3C/svg%3E");
+}
+
+/* Job-state chips – colours come from Vanilla's semantic chip classes:
+   p-chip (neutral grey), p-chip--information (blue), p-chip--positive (green),
+   p-chip--caution (amber), p-chip--negative (red).
+   Vanilla defaults: lead 1rem, value 0.875rem. We shrink to lead 11px / value 10px. */
+.job-state-chip { margin-bottom: 0; }
+.job-state-chip.is-read-only { border: 0; }
+.job-state-chip .p-chip__lead { font-size: 0.6875rem; }
+.job-state-chip .p-chip__value { font-size: 0.625rem; }
+
 /* Heading row with a trailing action button (e.g. copy job YAML) */
 .section-heading-bar {
     display: flex;
