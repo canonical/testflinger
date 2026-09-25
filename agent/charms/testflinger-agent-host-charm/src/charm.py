@@ -87,7 +87,7 @@ class TestflingerAgentHostCharm(ops.charm.CharmBase):
         try:
             charm_utils.install_agent_packages()
         except (apt.PackageNotFoundError, apt.PackageError):
-            self.logger.error("An error occured while installing dependencies")
+            self.logger.error("An error occurred while installing dependencies")
             self._block("Failed to install dependencies")
             return
         run_with_logged_errors(["pipx", "install", "uv"])
