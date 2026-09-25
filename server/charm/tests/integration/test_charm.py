@@ -19,7 +19,13 @@ from pathlib import Path
 import jubilant
 import pytest
 
-from .consts import APP_NAME, DEFAULT_HTTP_PORT, MONGODB_CHARM, UPSTREAM_SOURCE
+from .consts import (
+    APP_NAME,
+    DEFAULT_HTTP_PORT,
+    JUBILANT_WAIT_TIMEOUT,
+    MONGODB_CHARM,
+    UPSTREAM_SOURCE,
+)
 from .helpers import app_is_up, retry
 
 
@@ -46,7 +52,7 @@ def test_deploy(charm_path: Path, k8s_juju: jubilant.Juju):
     k8s_juju.integrate(
         f"{APP_NAME}:mongodb_keyvault", f"{MONGODB_CHARM}:database"
     )
-    k8s_juju.wait(jubilant.all_active)
+    k8s_juju.wait(jubilant.all_active, timeout=JUBILANT_WAIT_TIMEOUT)
 
 
 @retry(retry_num=10, retry_sleep_sec=3)
