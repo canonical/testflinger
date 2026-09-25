@@ -5,7 +5,6 @@
 charm/
 tests/
 terraform/
-devel/
 
 # Unit test / coverage reports
 .tox/
