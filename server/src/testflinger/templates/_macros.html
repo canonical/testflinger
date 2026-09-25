@@ -9,8 +9,8 @@
     - mode=online   → label "online: <state>",     green chip
     - mode=maintenance → label "maintenance: <state>", amber chip
 
-  When a timestamp or comment is available, the chip is wrapped in a tooltip
-  showing the active mode/state timestamp and the operator comment.
+  When a timestamp or comment is available, the chip shows a right-side tooltip
+  with the active mode/state timestamp and the operator comment.
 
   When is_admin is true the chip is a <button> that opens the shared state
   modal (id "state-modal"); the agent-specific mode/comment/POST-action are
@@ -54,32 +54,36 @@
   {%- if agent.get("comment") -%}
     {%- set tooltip_text = tooltip_text ~ ("\n" if tooltip_text else "") ~ agent.comment -%}
   {%- endif -%}
-  {% if tooltip_text %}<span class="p-tooltip--top-left" aria-describedby="{{ tooltip_id }}">{% endif %}
-    {% if is_admin %}
-      <button class="{{ colour }} agent-state-chip is-dense"
-              aria-label="Change agent mode"
-              aria-controls="state-modal"
-              data-agent="{{ agent.name }}"
-              data-mode="{{ agent.get('mode') or 'online' }}"
-              data-comment="{{ agent.comment or '' }}"
-              data-action="{{ url_for('testflinger.agent_state_update', agent_id=agent.name) }}">
-        <i class="p-icon--edit" aria-hidden="true"></i>
-        <span class="p-chip__lead">{{ mode }}</span>
-        {% if state %}<span class="p-chip__value">{{ state }}</span>{% endif %}
+  {%- set chip_classes = colour ~ " agent-state-chip is-dense" ~ (" p-tooltip--right" if tooltip_text else "") -%}
+  {%- set chip_attrs %}
+    {% if tooltip_text %}aria-describedby="{{ tooltip_id }}"{% endif %}
+  {% endset -%}
+  {% if is_admin %}
+    <button class="{{ chip_classes }}"
+            aria-label="Change agent mode"
+            aria-controls="state-modal"
+            {{ chip_attrs }}
+            data-agent="{{ agent.name }}"
+            data-mode="{{ agent.get('mode') or 'online' }}"
+            data-comment="{{ agent.comment or '' }}"
+            data-action="{{ url_for('testflinger.agent_state_update', agent_id=agent.name) }}">
+    {%- else %}
+      <span class="{{ chip_classes }} is-inline is-read-only" {{ chip_attrs }}>
+      {%- endif %}
+      <i class="p-icon--{{ 'edit' if is_admin else 'information' }}"
+         aria-hidden="true"></i>
+      <span class="p-chip__lead">{{ mode }}</span>
+      {% if state %}<span class="p-chip__value">{{ state }}</span>{% endif %}
+      {% if tooltip_text %}
+        <span class="p-tooltip__message"
+              role="tooltip"
+              id="{{ tooltip_id }}"
+              style="white-space: pre-line;
+                     text-align: left">{{ tooltip_text }}</span>
+      {% endif %}
+      {% if is_admin %}
       </button>
     {% else %}
-      <span class="{{ colour }} agent-state-chip is-dense is-inline is-read-only">
-        <i class="p-icon--information" aria-hidden="true"></i>
-        <span class="p-chip__lead">{{ mode }}</span>
-        {% if state %}<span class="p-chip__value">{{ state }}</span>{% endif %}
-      </span>
-    {% endif %}
-    {% if tooltip_text %}
-      <span class="p-tooltip__message"
-            role="tooltip"
-            id="{{ tooltip_id }}"
-            style="white-space: pre-line;
-                   text-align: left">{{ tooltip_text }}</span>
     </span>
   {% endif %}
 {% endmacro %}
