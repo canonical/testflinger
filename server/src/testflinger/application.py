@@ -26,6 +26,12 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 
 from testflinger.api.v1 import LogTypeConverter, v1
 from testflinger.database import setup_mongodb
+from testflinger.dev_signin import (
+    DEV_AUTO_SIGNIN_ENV_VAR,
+    DEV_SIGNIN_IDENTITIES,
+    dev_auto_signin_enabled,
+    dev_signin,
+)
 from testflinger.extensions import metrics
 from testflinger.oidc import app_register_oidc
 from testflinger.oidc.api import oidc_api
@@ -107,7 +113,12 @@ def create_flask_app(config=None, secrets_store=None):
 
     @tf_app.context_processor
     def inject_oidc_status():
-        return {"oidc_enabled": tf_app.oauth is not None}
+        enabled = tf_app.oauth is not None and dev_auto_signin_enabled()
+        return {
+            "oidc_enabled": tf_app.oauth is not None,
+            "dev_auto_signin": enabled,
+            "dev_signin_identities": DEV_SIGNIN_IDENTITIES if enabled else [],
+        }
 
     @tf_app.context_processor
     def inject_vanilla_framework_version():
@@ -128,5 +139,14 @@ def create_flask_app(config=None, secrets_store=None):
     if tf_app.oauth:
         tf_app.register_blueprint(oidc_views, url_prefix="/auth")
         tf_app.register_blueprint(oidc_api, url_prefix="/oidc")
+        if dev_auto_signin_enabled():
+            tf_app.register_blueprint(dev_signin, url_prefix="/auth")
+            tf_app.owasp_logger.warning(
+                "Auto sign-in enabled: POST /auth/dev-signin (email=<addr>) "
+                "will unconditionally create a session as one of the "
+                "well-known dev identities. DO NOT enable "
+                "%s on any non-development instance.",
+                DEV_AUTO_SIGNIN_ENV_VAR,
+            )
 
     return tf_app
