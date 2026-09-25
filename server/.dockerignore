@@ -1,1 +1,19 @@
+# Environment
 .venv/
+
+# Testflinger directories not needed in the image
+charm/
+tests/
+terraform/
+devel/
+
+# Unit test / coverage reports
+.tox/
+.pytest_cache/
+.ruff_cache/
+coverage.xml
+.coverage
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
