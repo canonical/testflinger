@@ -77,13 +77,17 @@ class StatusLine:
     def stop(cls):
         """Stop the status line timer thread and restore original builtins."""
         cls._running = False
-        if cls._timer_thread:
-            cls._timer_thread.join(timeout=2.0)
-        if cls._started:
-            sys.stdout.write("\n")
-        sys.stdout.flush()
-        builtins.print = _original_print
-        builtins.input = _original_input
+        try:
+            if cls._timer_thread:
+                cls._timer_thread.join(timeout=2.0)
+            if cls._started:
+                sys.stdout.write("\n")
+            sys.stdout.flush()
+        except (BrokenPipeError, KeyboardInterrupt):
+            pass
+        finally:
+            builtins.print = _original_print
+            builtins.input = _original_input
 
     @classmethod
     def _timer_loop(cls):
