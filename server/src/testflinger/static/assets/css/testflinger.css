@@ -130,6 +130,8 @@ body.is-dark .p-icon--edit,
    Vanilla defaults: lead 1rem, value 0.875rem. We shrink to lead 11px / value 10px. */
 .job-state-chip { margin-bottom: 0; }
 .job-state-chip.is-read-only { border: 0; }
+/* "waiting" jobs use p-chip (default), which is near-white; nudge to light grey. */
+.job-state-chip.p-chip { background-color: #d9d9d9; }
 .job-state-chip .p-chip__lead { font-size: 0.6875rem; }
 .job-state-chip .p-chip__value { font-size: 0.625rem; }
 
