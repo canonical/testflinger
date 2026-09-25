@@ -18,8 +18,6 @@ Sample user data for use in local testing and development.
 # This is the single handwritten source for local accounts. Entries with a
 # dex_user_id are rendered into dex-config.yaml. Entries with dev_auto_signin
 # are also rendered into testflinger.dev_signin_identities.
-TESTFLINGER_AGENT_ID = "testflinger-sample-agent"
-TESTFLINGER_AGENT_SECRET = "testflinger"
 SAMPLE_CLIENTS = [
     {
         "client_id": "testflinger-admin",
