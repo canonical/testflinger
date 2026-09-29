@@ -13,7 +13,6 @@ import yaml
 from conftest import create_mock_token
 
 from defaults import (
-    DEFAULT_TESTFLINGER_REPO,
     LOCAL_TESTFLINGER_PATH,
     VIRTUAL_ENV_PATH,
 )
@@ -35,7 +34,9 @@ METADATA = yaml.safe_load(Path("charmcraft.yaml").read_text(encoding="utf-8"))
 APP_NAME = METADATA["name"]
 # Build and deploy natively; the runner's OS version is not the charm's base.
 NATIVE_ARCH = {"x86_64": "amd64", "aarch64": "arm64"}[platform.machine()]
-TEST_BASE = os.environ.get("TEST_BASE", "22.04")
+TEST_BASE = os.environ.get(
+    "TEST_BASE", platform.freedesktop_os_release()["VERSION_ID"]
+)
 
 
 @pytest.mark.juju_setup

@@ -45,13 +45,17 @@ Build the charm with [`charmcraft`][charmcraft]:
 
 ```shell
 # On an AMD64 build host:
-charmcraft pack --platform amd64 --use-lxd
+charmcraft pack --platform ubuntu@22.04:amd64 --use-lxd
+
+# Ubuntu 24.04 remains supported on AMD64:
+charmcraft pack --platform ubuntu@24.04:amd64 --use-lxd
 
 # On an ARM64 build host:
-charmcraft pack --platform arm64 --use-lxd
+charmcraft pack --platform ubuntu@22.04:arm64 --use-lxd
 ```
 
-Both platforms retain the Ubuntu 22.04 base. The build host may run a newer
+ARM64 targets Ubuntu 22.04; AMD64 retains both Ubuntu 22.04 and Ubuntu 24.04.
+The build host may run a newer
 Ubuntu release; Charmcraft uses an isolated build environment. These commands
 are native builds, not cross-compilation instructions. Adding ARM64 platform
 metadata does not itself publish an ARM64 revision to Charmhub.
@@ -66,12 +70,15 @@ Select the appropriate controller, then run from this charm directory:
 
 ```shell
 # On ARM64; use the amd64 artifact on AMD64:
-CHARM_PATH="$PWD/testflinger-agent-host_arm64.charm" \
+TEST_BASE=22.04 CHARM_PATH="/absolute/path/to/the/packed.charm" \
 uvx --with tox-uv tox run -e integration -- --juju-dump-logs logs
 ```
 
 The suite deploys with a constraint matching the test runner's architecture and
-checks the guest is Ubuntu 22.04. It exercises workload installation, update
+checks the guest matches `TEST_BASE`. Use `TEST_BASE=24.04` for the Noble AMD64
+artifact. If unset, the base defaults to the test runner's OS version, matching
+`just integration`/`pack-host`; explicitly set it when host and guest bases differ.
+It exercises workload installation, update
 actions, and a transition from one to two agents running under Supervisor.
 Set `CHARM_PATH` explicitly when multiple packed artifacts exist.
 
@@ -91,10 +98,13 @@ Before considering ARM64 release-ready, validate the complete install (including
 the MAAS snap, Docker, uv, and device-connector dependencies) and real smoke jobs
 on an ARM64 host. Keep credentials and tokens out of test reports.
 
-The CI test jobs build and test both native architectures. Charmhub publishing
+The CI integration matrix covers Jammy AMD64, Noble AMD64, and Jammy ARM64.
+Each clean CI job builds exactly one platform and uses automatic single-artifact
+discovery; local directories containing multiple artifacts require `CHARM_PATH`.
+Charmhub publishing
 and architecture-specific release/security scanning require separate validation;
 the existing release workflow is not extended by this initial test coverage.
-The configuration-repository interface, Supervisor management, and AMD64 base
+The configuration-repository interface, Supervisor management, and AMD64 bases
 are unchanged. Direct multi-agent Juju configuration is separate follow-up work.
 
 [Testflinger contribution guide]: ../../../CONTRIBUTING.md
