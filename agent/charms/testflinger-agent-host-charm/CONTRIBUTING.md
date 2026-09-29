@@ -52,11 +52,12 @@ charmcraft pack --platform ubuntu@24.04:amd64 --use-lxd
 
 # On an ARM64 build host:
 charmcraft pack --platform ubuntu@22.04:arm64 --use-lxd
+charmcraft pack --platform ubuntu@24.04:arm64 --use-lxd
 ```
 
-ARM64 targets Ubuntu 22.04; AMD64 retains both Ubuntu 22.04 and Ubuntu 24.04.
-The build host may run a newer
-Ubuntu release; Charmcraft uses an isolated build environment. These commands
+Both ARM64 and AMD64 target Ubuntu 22.04 and Ubuntu 24.04.
+The build host may run a newer Ubuntu release; Charmcraft uses an isolated
+build environment. These commands
 are native builds, not cross-compilation instructions. Adding ARM64 platform
 metadata does not itself publish an ARM64 revision to Charmhub.
 
@@ -75,8 +76,8 @@ uvx --with tox-uv tox run -e integration -- --juju-dump-logs logs
 ```
 
 The suite deploys with a constraint matching the test runner's architecture and
-checks the guest matches `TEST_BASE`. Use `TEST_BASE=24.04` for the Noble AMD64
-artifact. If unset, the base defaults to the test runner's OS version, matching
+checks the guest matches `TEST_BASE`. Use `TEST_BASE=24.04` for a Noble artifact
+on either architecture. If unset, the base defaults to the test runner's OS version, matching
 `just integration`/`pack-host`; explicitly set it when host and guest bases differ.
 It exercises workload installation, update
 actions, and a transition from one to two agents running under Supervisor.
@@ -98,7 +99,7 @@ Before considering ARM64 release-ready, validate the complete install (including
 the MAAS snap, Docker, uv, and device-connector dependencies) and real smoke jobs
 on an ARM64 host. Keep credentials and tokens out of test reports.
 
-The CI integration matrix covers Jammy AMD64, Noble AMD64, and Jammy ARM64.
+The CI integration matrix covers Jammy and Noble on both AMD64 and ARM64.
 Each clean CI job builds exactly one platform and uses automatic single-artifact
 discovery; local directories containing multiple artifacts require `CHARM_PATH`.
 Charmhub publishing

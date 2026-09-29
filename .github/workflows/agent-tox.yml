@@ -108,6 +108,10 @@ jobs:
             runner: ubuntu-24.04-arm
             distro: jammy
             base: '22.04'
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+            distro: noble
+            base: '24.04'
     defaults:
       run:
         working-directory: agent/charms/testflinger-agent-host-charm
