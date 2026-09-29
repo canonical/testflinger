@@ -32,6 +32,10 @@ from testflinger_device_connectors.devices.maas2.maas_storage import (
     MaasStorage,
     MaasStorageError,
 )
+from testflinger_device_connectors.devices.maas2.uc_storage import (
+    apply_data_disk,
+    plan_data_disks,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -452,6 +456,8 @@ class Maas2:
                     raise ProvisioningError(exception_msg)
 
                 if self.check_test_image_booted():
+                    if self.is_ubuntu_core_deployment(distro):
+                        self.prepare_ubuntu_core_storage()
                     self._logger_info("Deployed and booted.")
                     return
 
@@ -497,6 +503,118 @@ class Maas2:
             return False
         # If we get here, then the above command proved we are booted
         return True
+
+    def run_uc_ssh(self, command: str, input_data: str | None = None):
+        """Run a non-interactive command on the deployed Ubuntu Core device."""
+        cmd = [
+            "ssh",
+            "-o",
+            "BatchMode=yes",
+            "-o",
+            "ConnectTimeout=10",
+            "-o",
+            "StrictHostKeyChecking=no",
+            "-o",
+            "UserKnownHostsFile=/dev/null",
+            f"ubuntu@{self.config['device_ip']}",
+            command,
+        ]
+        try:
+            result = subprocess.run(
+                cmd,
+                input=input_data,
+                text=True,
+                capture_output=True,
+                timeout=60,
+                check=False,
+            )
+        except subprocess.TimeoutExpired as error:
+            raise ProvisioningError(
+                f"UC SSH command timed out: {command}"
+            ) from error
+        if result.returncode:
+            raise ProvisioningError(
+                f"UC SSH command failed: {command}: {result.stderr.strip()}"
+            )
+        return result
+
+    def wait_for_uc_refresh_idle(self) -> None:
+        """Wait for snap seeding, refresh completion, and any reboot."""
+        deadline = time.monotonic() + 600
+        while time.monotonic() < deadline:
+            try:
+                boot_id = self.run_uc_ssh(
+                    "cat /proc/sys/kernel/random/boot_id"
+                ).stdout
+                self.run_uc_ssh("sudo -n snap wait system seed.loaded")
+                changes = self.run_uc_ssh("sudo -n snap changes").stdout
+                active = any(
+                    len(fields := line.split()) > 1
+                    and fields[1] in {"Do", "Doing", "Wait", "Undo", "Undoing"}
+                    for line in changes.splitlines()[1:]
+                )
+                current_id = self.run_uc_ssh(
+                    "cat /proc/sys/kernel/random/boot_id"
+                ).stdout
+                if not active and boot_id == current_id:
+                    return
+            except ProvisioningError:
+                # snapd/SSH can disappear temporarily during a refresh reboot.
+                pass
+            time.sleep(10)
+        raise ProvisioningError(
+            "UC snap refresh did not settle within 10 minutes"
+        )
+
+    def is_ubuntu_core_deployment(self, distro: str) -> bool:
+        """Use MAAS's deployed OS for bare series such as core24-latest."""
+        if distro == "ubuntu-core" or distro.startswith("ubuntu-core/"):
+            return True
+        cmd = ["maas", self.maas_user, "machine", "read", self.node_id]
+        machine = json.loads(self.run_maas_cmd_with_retry(cmd).stdout)
+        return machine.get("osystem") == "ubuntu-core"
+
+    def apply_uc_disk(self, disk: dict) -> None:
+        """Apply one pre-validated MAAS data disk layout via SSH."""
+        apply_data_disk(self.run_uc_ssh, disk)
+
+    def prepare_ubuntu_core_storage(self) -> None:
+        """Hold refresh while applying supported UC data disk layouts."""
+        machine_cmd = [
+            "maas",
+            self.maas_user,
+            "machine",
+            "read",
+            self.node_id,
+        ]
+        disks_cmd = [
+            "maas",
+            self.maas_user,
+            "block-devices",
+            "read",
+            self.node_id,
+        ]
+        machine = json.loads(self.run_maas_cmd_with_retry(machine_cmd).stdout)
+        disks = json.loads(self.run_maas_cmd_with_retry(disks_cmd).stdout)
+        plans = plan_data_disks(machine, disks)
+        if not plans:
+            return
+
+        self.run_uc_ssh("sudo -n snap refresh --hold=2h")
+        try:
+            self.wait_for_uc_refresh_idle()
+            for disk in plans:
+                self.apply_uc_disk(disk)
+                self._logger_info(
+                    f"UC data disk {disk['serial']} verified as ext4"
+                )
+        finally:
+            try:
+                self.run_uc_ssh("sudo -n snap refresh --unhold")
+            except ProvisioningError as error:
+                self._logger_warning(
+                    f"Could not remove UC refresh hold: {error}"
+                )
 
     def node_addresses(self) -> str | None:
         """Return IP addresses for node according to maas."""
