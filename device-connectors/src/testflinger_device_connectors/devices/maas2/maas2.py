@@ -372,6 +372,8 @@ class Maas2:
                     )
                     raise ProvisioningError from error
 
+            self.format_non_os_disks()
+
         self._logger_info("Acquiring node")
         cmd = [
             "maas",
@@ -625,6 +627,110 @@ class Maas2:
             # set-storage-layout failed, log the output if not already done
             if not self.debug:
                 self._logger_error(output)
+
+    def format_non_os_disks(self) -> None:
+        """Create and format one ext4 partition on every unused data disk.
+
+        The MAAS boot disk is treated as the OS disk and is never modified.
+        Disks with an existing filesystem or partition layout are skipped.
+        This method must be called while the machine is in the Ready state.
+        """
+
+        def run_json_command(cmd, description):
+            proc = self.run_maas_cmd_with_retry(cmd)
+            try:
+                return json.loads(proc.stdout.decode())
+            except (
+                AttributeError,
+                UnicodeDecodeError,
+                json.JSONDecodeError,
+            ) as error:
+                raise ProvisioningError(
+                    f"Unable to read MAAS response while {description}"
+                ) from error
+
+        machine = run_json_command(
+            [
+                "maas",
+                self.maas_user,
+                "machine",
+                "read",
+                self.node_id,
+            ],
+            "reading the machine",
+        )
+        boot_disk = machine.get("boot_disk") or {}
+        boot_disk_id = boot_disk.get("id")
+        if boot_disk_id is None:
+            raise ProvisioningError("MAAS machine has no boot disk")
+
+        block_devices = run_json_command(
+            [
+                "maas",
+                self.maas_user,
+                "block-devices",
+                "read",
+                self.node_id,
+            ],
+            "reading block devices",
+        )
+
+        for block_device in block_devices:
+            block_device_id = block_device.get("id")
+            if block_device.get("type") != "physical":
+                continue
+            if str(block_device_id) == str(boot_disk_id):
+                continue
+            if block_device.get("used_for") != "Unused":
+                self._logger_info(
+                    "Skipping non-OS disk {} because it is already "
+                    "in use".format(block_device.get("name", block_device_id))
+                )
+                continue
+            if block_device.get("partitions") or block_device.get(
+                "filesystem"
+            ):
+                self._logger_info(
+                    "Skipping non-OS disk {} because it has a storage "
+                    "layout".format(block_device.get("name", block_device_id))
+                )
+                continue
+
+            partition = run_json_command(
+                [
+                    "maas",
+                    self.maas_user,
+                    "partitions",
+                    "create",
+                    self.node_id,
+                    str(block_device_id),
+                ],
+                "creating a data partition",
+            )
+            partition_id = partition.get("id")
+            if partition_id is None:
+                raise ProvisioningError(
+                    "MAAS did not return an ID for the new data partition"
+                )
+
+            self.run_maas_cmd_with_retry(
+                [
+                    "maas",
+                    self.maas_user,
+                    "partition",
+                    "format",
+                    self.node_id,
+                    str(block_device_id),
+                    str(partition_id),
+                    "fstype=ext4",
+                    "label=data",
+                ]
+            )
+            self._logger_info(
+                "Formatted non-OS disk {} as ext4".format(
+                    block_device.get("name", block_device_id)
+                )
+            )
 
     def get_maas_version(self) -> tuple[int, ...] | None:
         """Get MAAS instance version.
