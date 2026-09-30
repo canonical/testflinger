@@ -55,6 +55,15 @@
       "AgentIn1": {
         "additionalProperties": false,
         "properties": {
+          "commanded_mode": {
+            "enum": [
+              "online",
+              "maintenance",
+              "offline",
+              "restart"
+            ],
+            "type": "string"
+          },
           "comment": {
             "type": "string"
           },
@@ -202,6 +211,16 @@
       "AgentOut1": {
         "additionalProperties": false,
         "properties": {
+          "commanded_mode": {
+            "type": "string"
+          },
+          "commanded_mode_changed_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "commanded_mode_changed_by": {
+            "type": "string"
+          },
           "comment": {
             "type": "string"
           },
@@ -229,9 +248,6 @@
             "format": "date-time",
             "type": "string"
           },
-          "mode_changed_by": {
-            "type": "string"
-          },
           "name": {
             "type": "string"
           },
@@ -253,9 +269,6 @@
           },
           "state_changed_at": {
             "format": "date-time",
-            "type": "string"
-          },
-          "state_changed_by": {
             "type": "string"
           }
         },
@@ -3128,7 +3141,7 @@
         ]
       },
       "post": {
-        "description": "The json sent to this endpoint may contain data such as the following:\n{\n\"mode\": string,  # Commanded operating mode of the agent\n\"state\": string, # Sub-state within that mode, where applicable\n\"queues\": array[string], # Queues the device is listening on\n\"location\": string, # Location of the device\n\"job_id\": string, # Job ID the device is running, if any\n\"log\": array[string], # push and keep only the last 100 lines\n}",
+        "description": "The json sent to this endpoint may contain data such as the following:\n{\n\"mode\": string,          # Agent's current operating mode\n\"commanded_mode\": string,# Mode commanded by admin/UI/CLI\n\"state\": string,         # Sub-state within that mode, where applicable\n\"queues\": array[string], # Queues the device is listening on\n\"location\": string,      # Location of the device\n\"job_id\": string,        # Job ID the device is running, if any\n\"log\": array[string],    # push and keep only the last 100 lines\n}",
         "parameters": [
           {
             "in": "path",

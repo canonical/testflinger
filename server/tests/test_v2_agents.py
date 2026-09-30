@@ -24,7 +24,9 @@ from tests.utilities import get_access_token_header
 
 
 def test_agents_post_mode_change_is_timestamped(mongo_app, agent_auth_header):
-    """Posting a mode change stamps mode_changed_at and mode_changed_by."""
+    """Posting a mode change stamps mode_changed_at (no attribution for agent
+    reports).
+    """
     app, mongo = mongo_app
     agent_name = "agent1"
 
@@ -38,7 +40,7 @@ def test_agents_post_mode_change_is_timestamped(mongo_app, agent_auth_header):
     record = mongo.agents.find_one({"name": agent_name})
     assert record["mode"] == "offline"
     assert record["comment"] == "downtime"
-    assert record["mode_changed_by"] == "agent-id"
+    assert "mode_changed_by" not in record
     assert record["mode_changed_at"] is not None
 
 
@@ -72,7 +74,7 @@ def test_agents_post_admin_cannot_create_agent(mongo_app):
 
     output = app.post(
         "/v2/agents/new-agent/data",
-        json={"mode": "offline"},
+        json={"commanded_mode": "offline"},
         headers=admin_header,
     )
 
@@ -80,19 +82,24 @@ def test_agents_post_admin_cannot_create_agent(mongo_app):
 
 
 def test_agents_post_admin_updates_existing_agent(mongo_app):
-    """An administrator can change mode on an existing agent record."""
+    """An administrator can command a mode change on an existing agent
+    record.
+    """
     app, mongo = mongo_app
     mongo.agents.insert_one({"name": "agent1", "state": "waiting"})
     admin_header = get_access_token_header("admin-id", ServerRoles.ADMIN)
 
     output = app.post(
         "/v2/agents/agent1/data",
-        json={"mode": "offline"},
+        json={"commanded_mode": "offline"},
         headers=admin_header,
     )
 
     assert output.status_code == HTTPStatus.OK
-    assert mongo.agents.find_one({"name": "agent1"})["mode"] == "offline"
+    assert (
+        mongo.agents.find_one({"name": "agent1"})["commanded_mode"]
+        == "offline"
+    )
 
 
 def test_agents_post_admin_does_not_recreate_deleted_agent(
@@ -114,7 +121,7 @@ def test_agents_post_admin_does_not_recreate_deleted_agent(
 
     output = app.post(
         "/v2/agents/agent1/data",
-        json={"mode": "offline"},
+        json={"commanded_mode": "offline"},
         headers=admin_header,
     )
 
@@ -123,34 +130,41 @@ def test_agents_post_admin_does_not_recreate_deleted_agent(
 
 
 def test_agents_post_manager_updates_existing_agent(mongo_app):
-    """A manager can change mode on an existing agent record."""
+    """A manager can command a mode change on an existing agent record."""
     app, mongo = mongo_app
     mongo.agents.insert_one({"name": "agent1", "state": "waiting"})
     manager_header = get_access_token_header("manager-id", ServerRoles.MANAGER)
 
     output = app.post(
         "/v2/agents/agent1/data",
-        json={"mode": "offline"},
+        json={"commanded_mode": "offline"},
         headers=manager_header,
     )
 
     assert output.status_code == HTTPStatus.OK
-    assert mongo.agents.find_one({"name": "agent1"})["mode"] == "offline"
+    assert (
+        mongo.agents.find_one({"name": "agent1"})["commanded_mode"]
+        == "offline"
+    )
 
 
 def test_agents_post_empty_comment_clears_existing_comment(
     mongo_app, agent_auth_header
 ):
-    """An explicitly empty comment clears the stored comment."""
+    """An explicitly empty commanded_mode comment clears the stored comment."""
     app, mongo = mongo_app
     agent_name = "agent1"
     mongo.agents.insert_one(
-        {"name": agent_name, "mode": "maintenance", "comment": "repair"}
+        {
+            "name": agent_name,
+            "commanded_mode": "maintenance",
+            "comment": "repair",
+        }
     )
 
     output = app.post(
         f"/v2/agents/{agent_name}/data",
-        json={"mode": "online", "comment": ""},
+        json={"commanded_mode": "online", "comment": ""},
         headers=agent_auth_header,
     )
 
@@ -159,19 +173,23 @@ def test_agents_post_empty_comment_clears_existing_comment(
     assert record["comment"] == ""
 
 
-def test_agents_post_mode_without_comment_clears_existing_comment(
+def test_agents_post_commanded_mode_without_comment_clears_existing_comment(
     mongo_app, agent_auth_header
 ):
-    """A mode update without comment clears the stored comment."""
+    """A commanded_mode update without comment clears the stored comment."""
     app, mongo = mongo_app
     agent_name = "agent1"
     mongo.agents.insert_one(
-        {"name": agent_name, "mode": "maintenance", "comment": "repair"}
+        {
+            "name": agent_name,
+            "commanded_mode": "maintenance",
+            "comment": "repair",
+        }
     )
 
     output = app.post(
         f"/v2/agents/{agent_name}/data",
-        json={"mode": "online"},
+        json={"commanded_mode": "online"},
         headers=agent_auth_header,
     )
 
@@ -180,26 +198,30 @@ def test_agents_post_mode_without_comment_clears_existing_comment(
     assert record["comment"] == ""
 
 
-def test_agents_post_unchanged_mode_not_restamped(
+def test_agents_post_unchanged_commanded_mode_not_restamped(
     mongo_app, agent_auth_header
 ):
-    """Re-posting the same mode does not update mode_changed_by."""
+    """Re-posting the same commanded_mode does not update its timestamp."""
     app, mongo = mongo_app
     agent_name = "agent1"
     mongo.agents.insert_one(
-        {"name": agent_name, "mode": "offline", "mode_changed_by": "someone"}
+        {
+            "name": agent_name,
+            "commanded_mode": "offline",
+            "commanded_mode_changed_by": "someone",
+        }
     )
 
     output = app.post(
         f"/v2/agents/{agent_name}/data",
-        json={"mode": "offline"},
+        json={"commanded_mode": "offline"},
         headers=agent_auth_header,
     )
 
     assert HTTPStatus.OK == output.status_code
     record = mongo.agents.find_one({"name": agent_name})
-    assert record["mode"] == "offline"
-    assert record["mode_changed_by"] == "someone"
+    assert record["commanded_mode"] == "offline"
+    assert record["commanded_mode_changed_by"] == "someone"
 
 
 def test_agents_post_substate_free_mode_rejects_a_state(

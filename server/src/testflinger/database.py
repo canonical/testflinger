@@ -577,14 +577,16 @@ def set_agent_job(agent_name: str, job_id: str) -> None:
 def set_agent_mode(
     agent_name: str, mode: str, comment: str, changed_by: str | None
 ) -> None:
-    """Set an agent mode and optional operator comment.
+    """Command an agent to change its operating mode.
 
-    An empty comment clears any existing comment. Transition timestamps and
-    attribution are maintained by ``upsert_agent_document``.
+    Sets ``commanded_mode`` (the server-to-agent instruction) and an optional
+    operator comment.  An empty comment clears any existing comment.
+    Transition timestamps and attribution are maintained by
+    ``upsert_agent_document``.
     """
     upsert_agent_document(
         agent_name,
-        {"mode": mode, "comment": comment, "updated_at": _now()},
+        {"commanded_mode": mode, "comment": comment, "updated_at": _now()},
         [],
         changed_by=changed_by,
     )
@@ -919,13 +921,18 @@ def upsert_agent_document(
     :param upsert: Whether to create the record when it does not exist.
     """
     existing = mongo.db.agents.find_one(
-        {"name": agent_name}, {"mode": 1, "state": 1}
+        {"name": agent_name}, {"commanded_mode": 1, "mode": 1, "state": 1}
     )
-    if "mode" in data:
+    if "commanded_mode" in data:
+        # An admin/UI/CLI is commanding a new mode.
         data.setdefault("comment", "")
+        if (existing or {}).get("commanded_mode") != data["commanded_mode"]:
+            data["commanded_mode_changed_at"] = data["updated_at"]
+            data["commanded_mode_changed_by"] = changed_by
+    if "mode" in data:
+        # The agent itself is reporting its current mode.
         if (existing or {}).get("mode") != data["mode"]:
             data["mode_changed_at"] = data["updated_at"]
-            data["mode_changed_by"] = changed_by
     elif "state" in data and (existing or {}).get("mode") is None:
         # v1 write into a record that has never had a mode: fold state
         # into the canonical shape so storage is always canonical.
@@ -933,7 +940,6 @@ def upsert_agent_document(
 
     if "state" in data and (existing or {}).get("state") != data["state"]:
         data["state_changed_at"] = data["updated_at"]
-        data["state_changed_by"] = changed_by
 
     update: dict = {
         "$set": data,

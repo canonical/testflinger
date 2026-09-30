@@ -28,11 +28,13 @@ ValidAgentStates = [state.value for state in AgentState]
 class AgentIn(Schema):
     """Agent data input schema.
 
-    ``mode`` is the server-commanded operating mode.  ``state`` is the
-    sub-state within that mode and is only meaningful for
+    ``mode`` is the agent's current operating mode (reported by the agent).
+    ``commanded_mode`` is the mode an admin/UI/CLI is instructing the agent
+    to adopt (written by non-agent callers).  ``state`` is the sub-state
+    within the active mode and is only meaningful for
     :attr:`AgentMode.ONLINE` and :attr:`AgentMode.MAINTENANCE`;
     :attr:`AgentMode.OFFLINE` and :attr:`AgentMode.RESTART` carry no
-    sub-state.  The combination is checked in the route handler.
+    sub-state.  The mode/state combination is checked in the route handler.
     """
 
     identifier = fields.String(required=False)
@@ -42,6 +44,9 @@ class AgentIn(Schema):
     provision_type = fields.String(required=False)
     queues = fields.List(fields.String(), required=False)
     mode = fields.String(required=False, validate=OneOf(ValidAgentModes))
+    commanded_mode = fields.String(
+        required=False, validate=OneOf(ValidAgentModes)
+    )
     state = fields.String(required=False, validate=OneOf(ValidAgentStates))
     comment = fields.String(required=False)
 
@@ -52,10 +57,11 @@ class AgentOut(Schema):
     name = fields.String(required=True)
     mode = fields.String(required=False)
     mode_changed_at = fields.DateTime(required=False)
-    mode_changed_by = fields.String(required=False)
+    commanded_mode = fields.String(required=False)
+    commanded_mode_changed_at = fields.DateTime(required=False)
+    commanded_mode_changed_by = fields.String(required=False)
     state = fields.String(required=False)
     state_changed_at = fields.DateTime(required=False)
-    state_changed_by = fields.String(required=False)
     job_id = fields.String(required=False)
     queues = fields.List(fields.String(), required=False)
     location = fields.String(required=False)

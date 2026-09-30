@@ -15,7 +15,7 @@
 #
 """Agent endpoints for the v2 API.
 
-Adds `mode` to agent data.
+Adds `mode`, `commanded_mode`, and `state` to agent data.
 """
 
 from datetime import datetime, timezone
@@ -112,12 +112,13 @@ def agents_post(agent_name, json_data):
 
     The json sent to this endpoint may contain data such as the following:
     {
-        "mode": string,  # Commanded operating mode of the agent
-        "state": string, # Sub-state within that mode, where applicable
+        "mode": string,          # Agent's current operating mode
+        "commanded_mode": string,# Mode commanded by admin/UI/CLI
+        "state": string,         # Sub-state within that mode, where applicable
         "queues": array[string], # Queues the device is listening on
-        "location": string, # Location of the device
-        "job_id": string, # Job ID the device is running, if any
-        "log": array[string], # push and keep only the last 100 lines
+        "location": string,      # Location of the device
+        "job_id": string,        # Job ID the device is running, if any
+        "log": array[string],    # push and keep only the last 100 lines
     }
     """
     unset = _check_mode_state(json_data)

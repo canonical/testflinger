@@ -245,50 +245,56 @@ def test_new_job_events_preserve_insertion_order(mock_mongo):
 
 @patch("testflinger.database.mongo", new_callable=mongomock.MongoClient)
 def test_set_agent_mode_stamps_change_when_mode_differs(mock_mongo):
-    """A changed mode stamps mode_changed_at and mode_changed_by."""
-    mock_mongo.db.agents.insert_one({"name": "agent1", "mode": "online"})
+    """A changed commanded_mode stamps commanded_mode_changed_at and _by."""
+    mock_mongo.db.agents.insert_one(
+        {"name": "agent1", "commanded_mode": "online"}
+    )
 
     set_agent_mode("agent1", "offline", "downtime", "admin@example.com")
 
     record = mock_mongo.db.agents.find_one({"name": "agent1"})
-    assert record["mode"] == "offline"
+    assert record["commanded_mode"] == "offline"
     assert record["comment"] == "downtime"
-    assert record["mode_changed_by"] == "admin@example.com"
-    assert record["mode_changed_at"] is not None
+    assert record["commanded_mode_changed_by"] == "admin@example.com"
+    assert record["commanded_mode_changed_at"] is not None
     assert record["updated_at"] is not None
 
 
 @patch("testflinger.database.mongo", new_callable=mongomock.MongoClient)
 def test_set_agent_mode_no_stamp_when_mode_unchanged(mock_mongo):
-    """An unchanged mode updates timestamp but not change attribution."""
-    mock_mongo.db.agents.insert_one({"name": "agent1", "mode": "online"})
+    """An unchanged commanded_mode updates timestamp but not attribution."""
+    mock_mongo.db.agents.insert_one(
+        {"name": "agent1", "commanded_mode": "online"}
+    )
 
     set_agent_mode("agent1", "online", "", "admin@example.com")
 
     record = mock_mongo.db.agents.find_one({"name": "agent1"})
-    assert record["mode"] == "online"
-    assert "mode_changed_by" not in record
-    assert "mode_changed_at" not in record
+    assert record["commanded_mode"] == "online"
+    assert "commanded_mode_changed_by" not in record
+    assert "commanded_mode_changed_at" not in record
     assert record["comment"] == ""
     assert record["updated_at"] is not None
 
 
 @patch("testflinger.database.mongo", new_callable=mongomock.MongoClient)
 def test_set_agent_mode_creates_and_stamps_new_agent(mock_mongo):
-    """A first-time agent is upserted with its initial mode stamped."""
+    """A first-time agent is upserted with its initial commanded_mode
+    stamped.
+    """
     set_agent_mode("newagent", "offline", "downtime", "admin@example.com")
 
     record = mock_mongo.db.agents.find_one({"name": "newagent"})
     assert record is not None
-    assert record["mode"] == "offline"
+    assert record["commanded_mode"] == "offline"
     assert record["comment"] == "downtime"
-    assert record["mode_changed_by"] == "admin@example.com"
-    assert record["mode_changed_at"] is not None
+    assert record["commanded_mode_changed_by"] == "admin@example.com"
+    assert record["commanded_mode_changed_at"] is not None
 
 
 @patch("testflinger.database.mongo", new_callable=mongomock.MongoClient)
 def test_upsert_agent_document_stamps_state_change(mock_mongo):
-    """A state transition records its own timestamp and actor."""
+    """A state transition records its own timestamp."""
     timestamp = datetime.datetime(2026, 1, 1, tzinfo=datetime.timezone.utc)
     mock_mongo.db.agents.insert_one(
         {"name": "agent1", "mode": "online", "state": "waiting"}
@@ -303,4 +309,3 @@ def test_upsert_agent_document_stamps_state_change(mock_mongo):
 
     record = mock_mongo.db.agents.find_one({"name": "agent1"})
     assert record["state_changed_at"] == timestamp.replace(tzinfo=None)
-    assert record["state_changed_by"] == "agent1"
