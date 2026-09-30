@@ -2,6 +2,7 @@
 # See LICENSE file for licensing details.
 """Integration tests for the charm."""
 
+import platform
 from pathlib import Path
 
 import jubilant
@@ -30,12 +31,17 @@ SUPERVISOR_CONF_FILE = "/etc/supervisor/conf.d/agent001.conf"
 
 METADATA = yaml.safe_load(Path("charmcraft.yaml").read_text(encoding="utf-8"))
 APP_NAME = METADATA["name"]
+NATIVE_ARCH = {"x86_64": "amd64"}.get(platform.machine(), platform.machine())
 
 
 @pytest.mark.juju_setup
 def test_deploy(charm_path: Path, juju: jubilant.Juju):
     """Deploy the charm under test."""
-    juju.deploy(charm_path.resolve(), app=APP_NAME)
+    juju.deploy(
+        charm_path.resolve(),
+        app=APP_NAME,
+        constraints={"arch": NATIVE_ARCH},
+    )
     juju.config(APP_NAME, TEST_CONFIG_01)
     # Wait for install to complete, charm should be in BlockedStatus due to
     # missing credentials.

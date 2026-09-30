@@ -37,6 +37,9 @@ jobs:
           - base: ubuntu@24.04
             arch: amd64
             distro: noble
+          - base: ubuntu@24.04
+            arch: s390x
+            distro: noble
     permissions:
       contents: read # for actions/checkout to fetch code
       security-events: write # for github/codeql-action/upload-sarif to upload SARIF results
