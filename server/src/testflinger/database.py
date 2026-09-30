@@ -540,8 +540,11 @@ def _normalise_agent_mode(agent: dict) -> dict:
     elif state == AgentMode.MAINTENANCE:
         agent["mode"] = AgentMode.MAINTENANCE
         agent["state"] = AgentState.WAITING
-    else:
+    elif state is not None:
+        # A v1 agent reporting a sub-state implicitly means it is online.
         agent["mode"] = AgentMode.ONLINE
+    # state is None: no mode and no state — leave mode absent so the UI
+    # can display "unknown" rather than synthesising a misleading "online".
     return agent
 
 
