@@ -21,6 +21,7 @@ import re
 import subprocess
 import time
 from collections import OrderedDict
+from datetime import datetime, timedelta, timezone
 
 import yaml
 
@@ -532,6 +533,10 @@ class Maas2:
             raise ProvisioningError(
                 f"UC SSH command timed out: {command}"
             ) from error
+        except OSError as error:
+            raise ProvisioningError(
+                f"UC SSH command could not start: {command}: {error}"
+            ) from error
         if result.returncode:
             raise ProvisioningError(
                 f"UC SSH command failed: {command}: {result.stderr.strip()}"
@@ -600,7 +605,46 @@ class Maas2:
         if not plans:
             return
 
-        self.run_uc_ssh("sudo -n snap refresh --hold=2h")
+        try:
+            config = json.loads(
+                self.run_uc_ssh("sudo -n snap get -d system").stdout
+            )
+            refresh = config.get("refresh") or {}
+            existing_hold = refresh.get("hold")
+        except (AttributeError, TypeError, ValueError) as error:
+            raise ProvisioningError(
+                "Unable to read the existing UC snap refresh hold"
+            ) from error
+        if existing_hold:
+            if existing_hold != "forever":
+                try:
+                    expiry = datetime.fromisoformat(
+                        existing_hold.replace("Z", "+00:00")
+                    )
+                    if expiry.tzinfo is None:
+                        raise ValueError("refresh hold has no timezone")
+                except (AttributeError, TypeError, ValueError) as error:
+                    raise ProvisioningError(
+                        "Invalid existing UC snap refresh hold"
+                    ) from error
+                if expiry <= datetime.now(timezone.utc) + timedelta(
+                    minutes=30
+                ):
+                    raise ProvisioningError(
+                        "Existing UC snap refresh hold expires too soon"
+                    )
+        else:
+            try:
+                self.run_uc_ssh("sudo -n snap refresh --hold=2h")
+            except ProvisioningError:
+                # A timed-out SSH response may follow a successful remote hold.
+                # Leave its bounded two-hour expiry rather than clearing a hold
+                # whose ownership cannot be confirmed.
+                self._logger_warning(
+                    "UC refresh hold result is uncertain; a hold may "
+                    "remain until its two-hour expiry"
+                )
+                raise
         try:
             self.wait_for_uc_refresh_idle()
             for disk in plans:
@@ -609,12 +653,13 @@ class Maas2:
                     f"UC data disk {disk['serial']} verified as ext4"
                 )
         finally:
-            try:
-                self.run_uc_ssh("sudo -n snap refresh --unhold")
-            except ProvisioningError as error:
-                self._logger_warning(
-                    f"Could not remove UC refresh hold: {error}"
-                )
+            if not existing_hold:
+                try:
+                    self.run_uc_ssh("sudo -n snap refresh --unhold")
+                except ProvisioningError as error:
+                    self._logger_warning(
+                        f"Could not remove UC refresh hold: {error}"
+                    )
 
     def node_addresses(self) -> str | None:
         """Return IP addresses for node according to maas."""
@@ -792,6 +837,17 @@ class Maas2:
             ],
             "reading block devices",
         )
+
+        if not isinstance(block_devices, list) or any(
+            not isinstance(device, dict) for device in block_devices
+        ):
+            raise ProvisioningError("Invalid MAAS block devices response")
+        if any(
+            device.get("id") is None
+            for device in block_devices
+            if device.get("type") == "physical"
+        ):
+            raise ProvisioningError("MAAS physical block device has no ID")
 
         for block_device in block_devices:
             block_device_id = block_device.get("id")

@@ -388,6 +388,151 @@ def test_format_non_os_disks_skips_disks_that_are_not_unused(
     assert mock_run_cmd.call_count == 2
 
 
+@pytest.mark.parametrize(
+    ("machine_response", "error_pattern"),
+    [
+        (b"invalid-json", "Unable to read MAAS response"),
+        (b"{}", "no boot disk"),
+    ],
+)
+@patch.object(Maas2, "run_maas_cmd_with_retry")
+def test_format_non_os_disks_rejects_bad_machine_before_writing(
+    mock_run_cmd, mock_config_file, machine_response, error_pattern
+):
+    job_json = mock_config_file.parent / "job.json"
+    job_json.write_text("{}")
+    device = Maas2(mock_config_file, job_json)
+    mock_run_cmd.return_value.stdout = machine_response
+    with pytest.raises(ProvisioningError, match=error_pattern):
+        device.format_non_os_disks()
+    assert all(
+        call.args[0][2] not in {"partitions", "partition", "machines"}
+        for call in mock_run_cmd.call_args_list
+    )
+
+
+@patch.object(Maas2, "run_maas_cmd_with_retry")
+def test_format_non_os_disks_rejects_invalid_block_devices_before_writing(
+    mock_run_cmd, mock_config_file
+):
+    job_json = mock_config_file.parent / "job.json"
+    job_json.write_text("{}")
+    device = Maas2(mock_config_file, job_json)
+    mock_run_cmd.side_effect = [
+        subprocess.CompletedProcess([], 0, b'{"boot_disk":{"id":1}}'),
+        subprocess.CompletedProcess([], 0, b"invalid-json"),
+    ]
+    with pytest.raises(
+        ProvisioningError, match="Unable to read MAAS response"
+    ):
+        device.format_non_os_disks()
+    assert mock_run_cmd.call_count == 2
+
+
+@pytest.mark.parametrize("disks", [{"id": 2}, [None]])
+def test_format_non_os_disks_rejects_wrong_device_shape_before_writing(
+    mock_config_file, disks
+):
+    job_json = mock_config_file.parent / "job.json"
+    job_json.write_text("{}")
+    device = Maas2(mock_config_file, job_json)
+    with patch.object(
+        device,
+        "run_maas_cmd_with_retry",
+        side_effect=[
+            subprocess.CompletedProcess([], 0, b'{"boot_disk":{"id":1}}'),
+            subprocess.CompletedProcess([], 0, json.dumps(disks).encode()),
+        ],
+    ) as run_maas:
+        with pytest.raises(
+            ProvisioningError, match="Invalid MAAS block devices"
+        ):
+            device.format_non_os_disks()
+    assert run_maas.call_count == 2
+
+
+def test_format_non_os_disks_rejects_late_missing_id_before_any_write(
+    mock_config_file,
+):
+    job_json = mock_config_file.parent / "job.json"
+    job_json.write_text("{}")
+    device = Maas2(mock_config_file, job_json)
+    disks = [
+        {"id": 2, "type": "physical", "used_for": "Unused"},
+        {"type": "physical", "used_for": "Unused"},
+    ]
+    with patch.object(
+        device,
+        "run_maas_cmd_with_retry",
+        side_effect=[
+            subprocess.CompletedProcess([], 0, b'{"boot_disk":{"id":1}}'),
+            subprocess.CompletedProcess([], 0, json.dumps(disks).encode()),
+        ],
+    ) as run_maas:
+        with pytest.raises(ProvisioningError, match="no ID"):
+            device.format_non_os_disks()
+    assert run_maas.call_count == 2
+
+
+@pytest.mark.parametrize(
+    ("partition_response", "error_pattern"),
+    [
+        (b"{}", "did not return an ID"),
+        (ProvisioningError("format failed"), "format failed"),
+    ],
+)
+@patch.object(Maas2, "run_maas_cmd_with_retry")
+def test_format_non_os_disks_stops_on_partition_failure(
+    mock_run_cmd, mock_config_file, partition_response, error_pattern
+):
+    job_json = mock_config_file.parent / "job.json"
+    job_json.write_text("{}")
+    device = Maas2(mock_config_file, job_json)
+    disks = [
+        {"id": disk_id, "type": "physical", "used_for": "Unused"}
+        for disk_id in (2, 3)
+    ]
+    responses = [
+        subprocess.CompletedProcess([], 0, b'{"boot_disk":{"id":1}}'),
+        subprocess.CompletedProcess([], 0, json.dumps(disks).encode()),
+        subprocess.CompletedProcess([], 0, b'{"id":10}'),
+    ]
+    if isinstance(partition_response, bytes):
+        responses[2] = subprocess.CompletedProcess([], 0, partition_response)
+    else:
+        responses.append(partition_response)
+    mock_run_cmd.side_effect = responses
+    with pytest.raises(ProvisioningError, match=error_pattern):
+        device.format_non_os_disks()
+    assert not any(
+        call.args[0][2:4] == ["partitions", "create"]
+        and call.args[0][5] == "3"
+        for call in mock_run_cmd.call_args_list
+    )
+
+
+def test_deploy_does_not_allocate_when_disk_preparation_fails(
+    mock_config_file,
+):
+    job_json = mock_config_file.parent / "job.json"
+    job_json.write_text("{}")
+    device = Maas2(mock_config_file, job_json)
+    with (
+        patch.object(device, "recover"),
+        patch.object(device, "node_status", return_value="Ready"),
+        patch.object(device, "set_flat_storage_layout"),
+        patch.object(
+            device,
+            "format_non_os_disks",
+            side_effect=ProvisioningError("storage unsafe"),
+        ),
+        patch.object(device, "run_maas_cmd_with_retry") as run_maas,
+        pytest.raises(ProvisioningError, match="storage unsafe"),
+    ):
+        device.deploy_node()
+    run_maas.assert_not_called()
+
+
 def test_provision_defaults_to_jammy(mock_config_file):
     """Test that provision defaults to jammy when no distro is specified."""
     job_json = mock_config_file.parent / "job.json"

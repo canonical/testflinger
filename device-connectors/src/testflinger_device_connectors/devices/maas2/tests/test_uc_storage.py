@@ -14,6 +14,52 @@ from testflinger_device_connectors.devices.maas2.uc_storage import (
 )
 
 
+def test_run_uc_ssh_passes_input_and_returns_output(mock_config_file):
+    job_file = mock_config_file.parent / "job.json"
+    job_file.write_text("{}")
+    device = Maas2(mock_config_file, job_file)
+    result = subprocess.CompletedProcess([], 0, "partitioned", "")
+    with patch("subprocess.run", return_value=result) as run:
+        assert device.run_uc_ssh("sudo -n sfdisk", "layout\n") is result
+    args, kwargs = run.call_args
+    assert args[0][-2:] == [
+        f"ubuntu@{device.config['device_ip']}",
+        "sudo -n sfdisk",
+    ]
+    assert kwargs["input"] == "layout\n"
+    assert kwargs["timeout"] == 60
+    assert kwargs["check"] is False
+
+
+def test_run_uc_ssh_reports_nonzero_exit_and_timeout(mock_config_file):
+    job_file = mock_config_file.parent / "job.json"
+    job_file.write_text("{}")
+    device = Maas2(mock_config_file, job_file)
+    with patch(
+        "subprocess.run",
+        return_value=subprocess.CompletedProcess(
+            [], 1, "", "permission denied"
+        ),
+    ):
+        with pytest.raises(ProvisioningError, match="permission denied"):
+            device.run_uc_ssh("sudo -n lsblk")
+    with patch(
+        "subprocess.run",
+        side_effect=subprocess.TimeoutExpired(["ssh"], 60),
+    ):
+        with pytest.raises(ProvisioningError, match="timed out"):
+            device.run_uc_ssh("sudo -n lsblk")
+
+
+def test_run_uc_ssh_reports_process_launch_error(mock_config_file):
+    job_file = mock_config_file.parent / "job.json"
+    job_file.write_text("{}")
+    device = Maas2(mock_config_file, job_file)
+    with patch("subprocess.run", side_effect=OSError("ssh unavailable")):
+        with pytest.raises(ProvisioningError, match="ssh unavailable"):
+            device.run_uc_ssh("sudo -n lsblk")
+
+
 def test_plan_handles_multiple_physical_data_disks():
     machine = {"boot_disk": {"id": 1}}
     devices = [
@@ -495,6 +541,220 @@ def test_wait_for_refresh_skips_pending_reboot(mock_config_file):
     sleep.assert_called_once_with(10)
 
 
+def test_wait_for_refresh_reconnects_after_ssh_failure(mock_config_file):
+    job_file = mock_config_file.parent / "job.json"
+    job_file.write_text("{}")
+    device = Maas2(mock_config_file, job_file)
+    responses = [
+        ProvisioningError("rebooting"),
+        subprocess.CompletedProcess([], 0, "boot-id"),
+        subprocess.CompletedProcess([], 0, ""),
+        subprocess.CompletedProcess([], 0, "ID Status\n1 Done\n"),
+        subprocess.CompletedProcess([], 0, "boot-id"),
+    ]
+    with (
+        patch.object(device, "run_uc_ssh", side_effect=responses),
+        patch("time.sleep") as sleep,
+    ):
+        device.wait_for_uc_refresh_idle()
+    sleep.assert_called_once_with(10)
+
+
+def test_wait_for_refresh_times_out_after_repeated_ssh_failure(
+    mock_config_file,
+):
+    job_file = mock_config_file.parent / "job.json"
+    job_file.write_text("{}")
+    device = Maas2(mock_config_file, job_file)
+    with (
+        patch.object(
+            device, "run_uc_ssh", side_effect=ProvisioningError("offline")
+        ),
+        patch("time.monotonic", side_effect=[0, 0, 600]),
+        patch("time.sleep") as sleep,
+        pytest.raises(ProvisioningError, match="did not settle"),
+    ):
+        device.wait_for_uc_refresh_idle()
+    sleep.assert_called_once_with(10)
+
+
+def test_uc_preserves_existing_refresh_hold(mock_config_file):
+    job_file = mock_config_file.parent / "job.json"
+    job_file.write_text("{}")
+    device = Maas2(mock_config_file, job_file)
+    commands = []
+
+    def ssh(command):
+        commands.append(command)
+        return subprocess.CompletedProcess(
+            [], 0, '{"refresh":{"hold":"forever"}}', ""
+        )
+
+    with (
+        patch.object(
+            device,
+            "run_maas_cmd_with_retry",
+            return_value=subprocess.CompletedProcess([], 0, b"{}"),
+        ),
+        patch(
+            "testflinger_device_connectors.devices.maas2.maas2.plan_data_disks",
+            return_value=[{"serial": "DATA"}],
+        ),
+        patch.object(device, "run_uc_ssh", side_effect=ssh),
+        patch.object(device, "wait_for_uc_refresh_idle"),
+        patch.object(device, "apply_uc_disk") as apply,
+    ):
+        device.prepare_ubuntu_core_storage()
+    assert commands == ["sudo -n snap get -d system"]
+    apply.assert_called_once_with({"serial": "DATA"})
+
+
+@pytest.mark.parametrize(
+    ("hold", "allowed"),
+    [
+        ("2099-01-01T00:00:00Z", True),
+        ("2000-01-01T00:00:00Z", False),
+        ("invalid", False),
+    ],
+)
+def test_uc_existing_refresh_hold_must_be_valid_and_long_enough(
+    mock_config_file, hold, allowed
+):
+    job_file = mock_config_file.parent / "job.json"
+    job_file.write_text("{}")
+    device = Maas2(mock_config_file, job_file)
+    commands = []
+
+    def ssh(command):
+        commands.append(command)
+        return subprocess.CompletedProcess(
+            [], 0, json.dumps({"refresh": {"hold": hold}}), ""
+        )
+
+    with (
+        patch.object(
+            device,
+            "run_maas_cmd_with_retry",
+            return_value=subprocess.CompletedProcess([], 0, b"{}"),
+        ),
+        patch(
+            "testflinger_device_connectors.devices.maas2.maas2.plan_data_disks",
+            return_value=[{"serial": "DATA"}],
+        ),
+        patch.object(device, "run_uc_ssh", side_effect=ssh),
+        patch.object(device, "wait_for_uc_refresh_idle"),
+        patch.object(device, "apply_uc_disk") as apply,
+    ):
+        if allowed:
+            device.prepare_ubuntu_core_storage()
+        else:
+            with pytest.raises(ProvisioningError, match="refresh hold"):
+                device.prepare_ubuntu_core_storage()
+    assert commands == ["sudo -n snap get -d system"]
+    assert apply.call_count == int(allowed)
+
+
+def test_uc_rejects_unreadable_refresh_configuration(mock_config_file):
+    job_file = mock_config_file.parent / "job.json"
+    job_file.write_text("{}")
+    device = Maas2(mock_config_file, job_file)
+    with (
+        patch.object(
+            device,
+            "run_maas_cmd_with_retry",
+            return_value=subprocess.CompletedProcess([], 0, b"{}"),
+        ),
+        patch(
+            "testflinger_device_connectors.devices.maas2.maas2.plan_data_disks",
+            return_value=[{"serial": "DATA"}],
+        ),
+        patch.object(
+            device,
+            "run_uc_ssh",
+            return_value=subprocess.CompletedProcess([], 0, "invalid-json"),
+        ) as ssh,
+        patch.object(device, "apply_uc_disk") as apply,
+        pytest.raises(ProvisioningError, match="Unable to read"),
+    ):
+        device.prepare_ubuntu_core_storage()
+    ssh.assert_called_once_with("sudo -n snap get -d system")
+    apply.assert_not_called()
+
+
+def test_uc_ambiguous_hold_timeout_keeps_bounded_hold(mock_config_file):
+    job_file = mock_config_file.parent / "job.json"
+    job_file.write_text("{}")
+    device = Maas2(mock_config_file, job_file)
+    commands = []
+
+    def ssh(command):
+        commands.append(command)
+        if command == "sudo -n snap get -d system":
+            return subprocess.CompletedProcess([], 0, "{}", "")
+        raise ProvisioningError("UC SSH command timed out: hold")
+
+    with (
+        patch.object(
+            device,
+            "run_maas_cmd_with_retry",
+            return_value=subprocess.CompletedProcess([], 0, b"{}"),
+        ),
+        patch(
+            "testflinger_device_connectors.devices.maas2.maas2.plan_data_disks",
+            return_value=[{"serial": "DATA"}],
+        ),
+        patch.object(device, "run_uc_ssh", side_effect=ssh),
+        patch.object(device, "apply_uc_disk") as apply,
+        pytest.raises(ProvisioningError, match="timed out"),
+    ):
+        device.prepare_ubuntu_core_storage()
+    assert commands == [
+        "sudo -n snap get -d system",
+        "sudo -n snap refresh --hold=2h",
+    ]
+    apply.assert_not_called()
+
+
+def test_uc_warns_when_its_own_hold_cannot_be_removed(
+    mock_config_file, caplog
+):
+    job_file = mock_config_file.parent / "job.json"
+    job_file.write_text("{}")
+    device = Maas2(mock_config_file, job_file)
+    commands = []
+
+    def ssh(command):
+        commands.append(command)
+        if command == "sudo -n snap get -d system":
+            return subprocess.CompletedProcess([], 0, "{}", "")
+        if command == "sudo -n snap refresh --unhold":
+            raise ProvisioningError("connection lost")
+        return subprocess.CompletedProcess([], 0, "", "")
+
+    with (
+        patch.object(
+            device,
+            "run_maas_cmd_with_retry",
+            return_value=subprocess.CompletedProcess([], 0, b"{}"),
+        ),
+        patch(
+            "testflinger_device_connectors.devices.maas2.maas2.plan_data_disks",
+            return_value=[{"serial": "DATA"}],
+        ),
+        patch.object(device, "run_uc_ssh", side_effect=ssh),
+        patch.object(device, "wait_for_uc_refresh_idle"),
+        patch.object(device, "apply_uc_disk") as apply,
+    ):
+        device.prepare_ubuntu_core_storage()
+    apply.assert_called_once()
+    assert commands == [
+        "sudo -n snap get -d system",
+        "sudo -n snap refresh --hold=2h",
+        "sudo -n snap refresh --unhold",
+    ]
+    assert "Could not remove UC refresh hold" in caplog.text
+
+
 def test_uc_without_data_disks_does_not_hold_refresh(mock_config_file):
     job_file = mock_config_file.parent / "job.json"
     job_file.write_text(json.dumps({}))
@@ -548,7 +808,8 @@ def test_uc_holds_refresh_before_applying_all_data_disks(mock_config_file):
 
     def ssh_result(command, **kwargs):
         events.append(command)
-        return subprocess.CompletedProcess(command, 0, b"")
+        output = "{}" if command == "sudo -n snap get -d system" else ""
+        return subprocess.CompletedProcess(command, 0, output)
 
     with (
         patch.object(
@@ -565,6 +826,7 @@ def test_uc_holds_refresh_before_applying_all_data_disks(mock_config_file):
         device.prepare_ubuntu_core_storage()
 
     assert events == [
+        "sudo -n snap get -d system",
         "sudo -n snap refresh --hold=2h",
         "DATA-2",
         "DATA-3",
@@ -602,7 +864,8 @@ def test_uc_rejects_unsupported_layout_before_holding_refresh(
 
     def ssh(command, **kwargs):
         commands.append(command)
-        return subprocess.CompletedProcess([], 0, "")
+        output = "{}" if command == "sudo -n snap get -d system" else ""
+        return subprocess.CompletedProcess([], 0, output)
 
     with (
         patch.object(
@@ -648,7 +911,12 @@ def test_uc_hold_failure_never_touches_storage(mock_config_file):
             ],
         ),
         patch.object(
-            device, "run_uc_ssh", side_effect=ProvisioningError("hold failed")
+            device,
+            "run_uc_ssh",
+            side_effect=[
+                subprocess.CompletedProcess([], 0, "{}"),
+                ProvisioningError("hold failed"),
+            ],
         ),
         patch.object(device, "apply_uc_disk") as apply,
         pytest.raises(ProvisioningError, match="hold failed"),
@@ -665,7 +933,8 @@ def test_uc_unholds_refresh_after_disk_error(mock_config_file):
 
     def ssh(command, **kwargs):
         commands.append(command)
-        return subprocess.CompletedProcess([], 0, "")
+        output = "{}" if command == "sudo -n snap get -d system" else ""
+        return subprocess.CompletedProcess([], 0, output)
 
     with (
         patch.object(
@@ -704,6 +973,7 @@ def test_uc_unholds_refresh_after_disk_error(mock_config_file):
     ):
         device.prepare_ubuntu_core_storage()
     assert commands == [
+        "sudo -n snap get -d system",
         "sudo -n snap refresh --hold=2h",
         "sudo -n snap refresh --unhold",
     ]
