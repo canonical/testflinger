@@ -2,12 +2,12 @@
 # See LICENSE file for licensing details.
 """Integration tests for the charm."""
 
+import platform
 from pathlib import Path
 
 import jubilant
 import pytest
 import yaml
-import platform
 from conftest import create_mock_token
 
 from defaults import (
@@ -84,7 +84,8 @@ def test_update_testflinger_action(juju: jubilant.Juju):
         ("testflinger-device-connectors", "device-connectors"),
     ):
         assert (
-            f"{package} @ file://{LOCAL_TESTFLINGER_PATH}/{path}" in pip_freeze.stdout
+            f"{package} @ file://{LOCAL_TESTFLINGER_PATH}/{path}"
+            in pip_freeze.stdout
         )
 
 
@@ -144,7 +145,9 @@ def test_supervisord_agent_running(juju: jubilant.Juju):
     assert action.status == "completed"
 
     # check that agent001 is RUNNING in supervisord
-    supervisor_status = juju.exec("supervisorctl", "status", unit=f"{APP_NAME}/0")
+    supervisor_status = juju.exec(
+        "supervisorctl", "status", unit=f"{APP_NAME}/0"
+    )
     assert supervisor_status.return_code == 0
     running_agents = [
         line
@@ -159,10 +162,14 @@ def test_supervisord_agent_running(juju: jubilant.Juju):
     assert action.status == "completed"
 
     # Check that the number of running agents is now 2
-    supervisor_status = juju.exec("supervisorctl", "status", unit=f"{APP_NAME}/0")
+    supervisor_status = juju.exec(
+        "supervisorctl", "status", unit=f"{APP_NAME}/0"
+    )
     assert supervisor_status.return_code == 0
     running_agents = [
-        line for line in supervisor_status.stdout.splitlines() if "RUNNING" in line
+        line
+        for line in supervisor_status.stdout.splitlines()
+        if "RUNNING" in line
     ]
     assert len(running_agents) == 2
 
