@@ -377,6 +377,20 @@ def test_format_non_os_disks_skips_disks_that_are_not_unused(
                         "partitions": [{"id": 2}],
                         "filesystem": None,
                     },
+                    {
+                        "id": 286,
+                        "type": "physical",
+                        "used_for": "Unused",
+                        "partitions": [{"id": 3}],
+                        "filesystem": None,
+                    },
+                    {
+                        "id": 287,
+                        "type": "physical",
+                        "used_for": "Unused",
+                        "partitions": [],
+                        "filesystem": {"fstype": "ext4"},
+                    },
                     {"id": 99, "type": "virtual", "used_for": "Unused"},
                 ]
             ).encode(),

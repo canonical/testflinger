@@ -31,6 +31,18 @@ def test_run_uc_ssh_passes_input_and_returns_output(mock_config_file):
     assert kwargs["check"] is False
 
 
+def test_apply_uc_disk_delegates_to_data_disk_setup(mock_config_file):
+    job_file = mock_config_file.parent / "job.json"
+    job_file.write_text("{}")
+    device = Maas2(mock_config_file, job_file)
+    disk = {"serial": "DATA", "path": "/dev/disk/by-id/ata-data"}
+    with patch(
+        "testflinger_device_connectors.devices.maas2.maas2.apply_data_disk"
+    ) as apply:
+        device.apply_uc_disk(disk)
+    apply.assert_called_once_with(device.run_uc_ssh, disk)
+
+
 def test_run_uc_ssh_reports_nonzero_exit_and_timeout(mock_config_file):
     job_file = mock_config_file.parent / "job.json"
     job_file.write_text("{}")
@@ -242,11 +254,171 @@ def test_plan_skips_unconfigured_disks_and_rejects_missing_boot_disk():
     )
 
 
-def test_apply_data_disk_creates_only_verified_blank_disk():
+@pytest.mark.parametrize(
+    ("machine_change", "data_change", "extra_data", "message"),
+    [
+        ({"serial": "OTHER"}, {}, None, "boot disk serial"),
+        ({}, {"serial": None}, None, "serial and a stable"),
+        ({}, {"id_path": None}, None, "serial and a stable"),
+        ({}, {"id_path": "/dev/sdb"}, None, "serial and a stable"),
+        (
+            {},
+            {"id_path": "/dev/disk/by-id/ata-boot"},
+            None,
+            "boot disk serial or path",
+        ),
+        ({}, {"bootable": True}, None, "bootable or mounted"),
+        ({}, {"mount_point": "/data"}, None, "bootable or mounted"),
+        ({}, {"label": "x" * 17}, None, "ext4 label"),
+        ({}, {"label": "bad/name"}, None, "ext4 label"),
+        ({}, {"label": "bad\nname"}, None, "ext4 label"),
+        ({}, {"label": "bad\rname"}, None, "ext4 label"),
+        ({}, {"filesystem": {"fstype": "ext4"}}, None, "one partition"),
+        ({}, {}, {}, "Duplicate data disk identity"),
+        (
+            {},
+            {},
+            {"serial": "DATA", "id_path": "/dev/disk/by-id/ata-other"},
+            "Duplicate data disk identity",
+        ),
+    ],
+)
+def test_plan_rejects_unsafe_disk_identity_or_layout(
+    machine_change, data_change, extra_data, message
+):
+    machine = {"boot_disk": {"id": 1, **machine_change}}
+    boot = {
+        "id": 1,
+        "type": "physical",
+        "serial": "BOOT",
+        "id_path": "/dev/disk/by-id/ata-boot",
+    }
+    data = {
+        "id": 2,
+        "type": "physical",
+        "serial": "DATA",
+        "id_path": "/dev/disk/by-id/ata-data",
+        "partitions": [{"filesystem": {"fstype": "ext4"}}],
+    }
+    if "bootable" in data_change:
+        data["partitions"][0]["bootable"] = data_change["bootable"]
+    if "mount_point" in data_change:
+        data["partitions"][0]["filesystem"]["mount_point"] = data_change[
+            "mount_point"
+        ]
+    if "label" in data_change:
+        data["partitions"][0]["filesystem"]["label"] = data_change["label"]
+    data.update(
+        {
+            key: value
+            for key, value in data_change.items()
+            if key not in {"bootable", "mount_point", "label"}
+        }
+    )
+    devices = [boot, data]
+    if extra_data is not None:
+        devices.append({**data, "id": 3, "serial": "OTHER", **extra_data})
+    with pytest.raises(ProvisioningError, match=message):
+        plan_data_disks(machine, devices)
+
+
+@pytest.mark.parametrize(
+    ("lsblk_result", "wipe_signature", "message"),
+    [
+        ("{", "", "Invalid lsblk response"),
+        ("{}", "", "Invalid lsblk response"),
+        ({"blockdevices": []}, "", "not a single physical disk"),
+        (
+            {"blockdevices": [{"type": "part", "serial": "DATA"}]},
+            "",
+            "not a single physical disk",
+        ),
+        (
+            {"blockdevices": [{"type": "disk", "serial": "DATA"}] * 2},
+            "",
+            "not a single physical disk",
+        ),
+        (
+            {"blockdevices": [{"type": "disk", "serial": "OTHER"}]},
+            "",
+            "serial does not match",
+        ),
+        (
+            {
+                "blockdevices": [
+                    {
+                        "type": "disk",
+                        "serial": "DATA",
+                        "children": [{"label": "ubuntu-data"}],
+                    }
+                ]
+            },
+            "",
+            "system disk",
+        ),
+        (
+            {
+                "blockdevices": [
+                    {"type": "disk", "serial": "DATA", "fstype": "ext4"}
+                ]
+            },
+            "",
+            "already formatted or mounted",
+        ),
+        (
+            {
+                "blockdevices": [
+                    {
+                        "type": "disk",
+                        "serial": "DATA",
+                        "mountpoints": ["/data"],
+                    }
+                ]
+            },
+            "",
+            "already formatted or mounted",
+        ),
+        (
+            {"blockdevices": [{"type": "disk", "serial": "DATA"}]},
+            "gpt signature",
+            "partition table or signature",
+        ),
+    ],
+)
+def test_apply_data_disk_rejects_unsafe_disk_before_writes(
+    lsblk_result, wipe_signature, message
+):
     disk = {
         "serial": "DATA",
         "path": "/dev/disk/by-id/ata-data",
         "label": "data",
+    }
+    commands = []
+
+    def ssh(command, input_data=None):
+        commands.append(command)
+        output = wipe_signature if "wipefs --no-act" in command else ""
+        if "lsblk" in command:
+            output = (
+                lsblk_result
+                if isinstance(lsblk_result, str)
+                else json.dumps(lsblk_result)
+            )
+        return subprocess.CompletedProcess([], 0, output)
+
+    with pytest.raises(ProvisioningError, match=message):
+        apply_data_disk(ssh, disk)
+    assert not any(
+        "sfdisk" in command or "mkfs" in command for command in commands
+    )
+
+
+@pytest.mark.parametrize("label", ["data", ""])
+def test_apply_data_disk_creates_only_verified_blank_disk(label):
+    disk = {
+        "serial": "DATA",
+        "path": "/dev/disk/by-id/ata-data",
+        "label": label,
     }
     before = {
         "blockdevices": [
@@ -289,7 +461,7 @@ def test_apply_data_disk_creates_only_verified_blank_disk():
                         "path": "/dev/sdb1",
                         "type": "part",
                         "fstype": "ext4",
-                        "label": "data",
+                        "label": label,
                         "size": 1999000000,
                     }
                 ],
@@ -303,18 +475,134 @@ def test_apply_data_disk_creates_only_verified_blank_disk():
         commands.append((command, input_data))
         if "lsblk" in command:
             state = next(states)
-            if " -T " not in command:
-                # PATH without --tree makes partitions sibling entries.
-                root = state["blockdevices"][0].copy()
-                children = root.pop("children", [])
-                state = {"blockdevices": [root, *children]}
             return subprocess.CompletedProcess([], 0, json.dumps(state))
         return subprocess.CompletedProcess([], 0, "")
 
     apply_data_disk(ssh, disk)
     assert any("sfdisk" in cmd and data for cmd, data in commands)
     assert any("mkfs.ext4" in cmd for cmd, _ in commands)
+    assert all(
+        (" -L " in cmd) == bool(label)
+        for cmd, _ in commands
+        if "mkfs.ext4" in cmd
+    )
     assert commands[-1][0].startswith("sudo -n lsblk -T -J")
+
+
+@pytest.mark.parametrize(
+    ("partition", "message"),
+    [
+        (None, "partition was not created"),
+        ({"path": "/dev/sdb1", "type": "disk"}, "partition was not created"),
+        (
+            {"path": "/dev/sdb1", "type": "part", "fstype": "ext4"},
+            "partition was not created",
+        ),
+        ({"path": "", "type": "part"}, "no block device path"),
+        ({"path": "sdb1", "type": "part"}, "no block device path"),
+    ],
+)
+def test_apply_data_disk_rejects_bad_partition_after_sfdisk(
+    partition, message
+):
+    disk = {
+        "serial": "DATA",
+        "path": "/dev/disk/by-id/ata-data",
+        "label": "data",
+    }
+    bare = {"path": "/dev/sdb", "type": "disk", "serial": "DATA"}
+    partitioned = {
+        **bare,
+        "children": [partition] if partition is not None else [],
+    }
+    scans = iter([bare, partitioned])
+    commands = []
+
+    def ssh(command, input_data=None):
+        commands.append(command)
+        if "lsblk" in command:
+            return subprocess.CompletedProcess(
+                [], 0, json.dumps({"blockdevices": [next(scans)]})
+            )
+        return subprocess.CompletedProcess([], 0, "")
+
+    with pytest.raises(ProvisioningError, match=message):
+        apply_data_disk(ssh, disk)
+    assert sum("sfdisk" in command for command in commands) == 1
+    assert not any("mkfs.ext4" in command for command in commands)
+
+
+def test_apply_data_disk_fails_if_layout_changes_during_verification():
+    disk = {
+        "serial": "DATA",
+        "path": "/dev/disk/by-id/ata-data",
+        "label": "data",
+    }
+    bare = {"path": "/dev/sdb", "type": "disk", "serial": "DATA"}
+    partition = {"path": "/dev/sdb1", "type": "part"}
+    scans = iter(
+        [
+            bare,
+            {**bare, "children": [partition]},
+            {**bare, "children": [{**partition, "path": "/dev/sdb2"}]},
+        ]
+    )
+    commands = []
+
+    def ssh(command, input_data=None):
+        commands.append(command)
+        if "lsblk" in command:
+            return subprocess.CompletedProcess(
+                [], 0, json.dumps({"blockdevices": [next(scans)]})
+            )
+        return subprocess.CompletedProcess([], 0, "")
+
+    with pytest.raises(ProvisioningError, match="verification failed"):
+        apply_data_disk(ssh, disk)
+    assert sum("sfdisk" in command for command in commands) == 1
+    assert sum("mkfs.ext4" in command for command in commands) == 1
+    assert not any("blkid" in command for command in commands)
+
+
+def test_apply_data_disk_does_not_rewrite_after_transient_blkid_failure():
+    disk = {
+        "serial": "DATA",
+        "path": "/dev/disk/by-id/ata-data",
+        "label": "data",
+    }
+    bare = {"path": "/dev/sdb", "type": "disk", "serial": "DATA"}
+    partitioned = {
+        **bare,
+        "children": [{"path": "/dev/sdb1", "type": "part"}],
+    }
+    scans = iter([bare, partitioned, partitioned, partitioned])
+    commands = []
+    probes = iter(
+        [
+            ProvisioningError("probe temporarily unavailable"),
+            "TYPE=ext4\nLABEL=data\n",
+        ]
+    )
+
+    def ssh(command, input_data=None):
+        commands.append(command)
+        if "lsblk" in command:
+            return subprocess.CompletedProcess(
+                [], 0, json.dumps({"blockdevices": [next(scans)]})
+            )
+        if "blkid -p" in command:
+            output = next(probes)
+            if isinstance(output, Exception):
+                raise output
+            return subprocess.CompletedProcess([], 0, output)
+        return subprocess.CompletedProcess([], 0, "")
+
+    with patch("time.sleep") as sleep:
+        apply_data_disk(ssh, disk)
+    sleep.assert_called_once_with(1)
+    assert sum("sfdisk" in command for command in commands) == 1
+    assert sum("mkfs.ext4" in command for command in commands) == 1
+    assert sum("blkid -p" in command for command in commands) == 2
 
 
 def test_apply_data_disk_verifies_ext4_when_lsblk_is_temporarily_stale():
@@ -614,6 +902,7 @@ def test_uc_preserves_existing_refresh_hold(mock_config_file):
     [
         ("2099-01-01T00:00:00Z", True),
         ("2000-01-01T00:00:00Z", False),
+        ("2099-01-01T00:00:00", False),
         ("invalid", False),
     ],
 )
@@ -855,29 +1144,23 @@ def test_uc_rejects_unsupported_layout_before_holding_refresh(
             ],
         ]
     )
-    commands = []
 
     def maas_result(command):
         return subprocess.CompletedProcess(
             command, 0, json.dumps(next(responses)).encode()
         )
 
-    def ssh(command, **kwargs):
-        commands.append(command)
-        output = "{}" if command == "sudo -n snap get -d system" else ""
-        return subprocess.CompletedProcess([], 0, output)
-
     with (
         patch.object(
             device, "run_maas_cmd_with_retry", side_effect=maas_result
         ),
-        patch.object(device, "run_uc_ssh", side_effect=ssh),
+        patch.object(device, "run_uc_ssh") as ssh,
         patch.object(device, "apply_uc_disk") as apply,
         pytest.raises(ProvisioningError, match="Unsupported"),
     ):
         device.prepare_ubuntu_core_storage()
     apply.assert_not_called()
-    assert commands == []
+    ssh.assert_not_called()
 
 
 def test_uc_hold_failure_never_touches_storage(mock_config_file):
