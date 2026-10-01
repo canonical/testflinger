@@ -33,7 +33,9 @@ SUPERVISOR_CONF_FILE = "/etc/supervisor/conf.d/agent001.conf"
 METADATA = yaml.safe_load(Path("charmcraft.yaml").read_text(encoding="utf-8"))
 APP_NAME = METADATA["name"]
 # Build and deploy natively; the runner's OS version is not the charm's base.
-NATIVE_ARCH = {"x86_64": "amd64", "aarch64": "arm64"}[platform.machine()]
+NATIVE_ARCH = {"x86_64": "amd64", "aarch64": "arm64"}.get(
+    platform.machine(), platform.machine()
+)
 TEST_BASE = os.environ.get(
     "TEST_BASE", platform.freedesktop_os_release()["VERSION_ID"]
 )

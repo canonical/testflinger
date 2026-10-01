@@ -100,6 +100,11 @@ the MAAS snap, Docker, uv, and device-connector dependencies) and real smoke job
 on an ARM64 host. Keep credentials and tokens out of test reports.
 
 The CI integration matrix covers Jammy and Noble on both AMD64 and ARM64.
+It also preserves upstream's Noble s390x coverage. Matching host/base jobs use
+`just integration` and its destructive-mode CI build. Jammy ARM64 runs on a
+Noble ARM64 host, so only that job builds in LXD with an explicit Jammy target.
+Charm unit tests run once on the AMD64 runner; native build and integration
+jobs provide architecture-specific coverage.
 Each clean CI job builds exactly one platform and uses automatic single-artifact
 discovery; local directories containing multiple artifacts require `CHARM_PATH`.
 Charmhub publishing

@@ -65,19 +65,11 @@ jobs:
           sarif_file: agent/results.sarif
 
   test_charm:
-    name: Run charm unit tests (${{ matrix.arch }})
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - arch: amd64
-            runner: ubuntu-latest
-          - arch: arm64
-            runner: ubuntu-24.04-arm
+    name: Run charm unit tests
     defaults:
       run:
         working-directory: agent/charms/testflinger-agent-host-charm
-    runs-on: ${{ matrix.runner }}
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -112,6 +104,10 @@ jobs:
             runner: ubuntu-24.04-arm
             distro: noble
             base: '24.04'
+          - arch: s390x
+            runner: [self-hosted, linux, s390x, noble]
+            distro: noble
+            base: '24.04'
     defaults:
       run:
         working-directory: agent/charms/testflinger-agent-host-charm
@@ -125,10 +121,20 @@ jobs:
         uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
       - run: sudo snap install --classic just
       - run: just --yes setup
-      - run: charmcraft pack --platform "$CHARM_PLATFORM" --use-lxd
+      - name: Build and test the host platform
+        if: ${{ !(matrix.arch == 'arm64' && matrix.base == '22.04') }}
+        run: just integration --juju-dump-logs logs
+        env:
+          TEST_BASE: ${{ matrix.base }}
+      # Jammy ARM64 uses a Noble host; destructive mode would build for the wrong base.
+      - name: Build Jammy ARM64 in LXD
+        if: ${{ matrix.arch == 'arm64' && matrix.base == '22.04' }}
+        run: charmcraft pack --platform "$CHARM_PLATFORM" --use-lxd
         env:
           CHARM_PLATFORM: ubuntu@${{ matrix.base }}:${{ matrix.arch }}
-      - run: uvx tox run -e integration -- --juju-dump-logs logs
+      - name: Test Jammy ARM64
+        if: ${{ matrix.arch == 'arm64' && matrix.base == '22.04' }}
+        run: uvx tox run -e integration -- --juju-dump-logs logs
         env:
           TEST_BASE: ${{ matrix.base }}
       - name: Upload charm as an artifact
