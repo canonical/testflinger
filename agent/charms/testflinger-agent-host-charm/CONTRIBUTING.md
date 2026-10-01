@@ -107,9 +107,18 @@ Charm unit tests run once on the AMD64 runner; native build and integration
 jobs provide architecture-specific coverage.
 Each clean CI job builds exactly one platform and uses automatic single-artifact
 discovery; local directories containing multiple artifacts require `CHARM_PATH`.
-Charmhub publishing
-and architecture-specific release/security scanning require separate validation;
-the existing release workflow is not extended by this initial test coverage.
+The release workflow builds all declared bases for each architecture using LXD.
+Its runner matrix lists AMD64, ARM64, then s390x and retains `max-parallel: 1`
+to avoid concurrent release uploads. The native ARM64 runner builds both Jammy
+and Noble. Post-release and scheduled security scans cover all five platforms.
+Scans download the requested architecture and base and inspect the unpacked
+charm; they do not execute its ARM64 or s390x code on the AMD64 scan runner.
+
+Release and scan jobs are not exercised by pull-request integration tests.
+Post-release scans inspect the released channel; weekly scans inspect stable.
+The target channel must contain revisions for each platform, so the first ARM64
+stable promotion must be coordinated with maintainers before weekly scans can
+succeed for ARM64. Adding these workflows does not itself publish a release.
 The configuration-repository interface, Supervisor management, and AMD64 bases
 are unchanged. Direct multi-agent Juju configuration is separate follow-up work.
 
