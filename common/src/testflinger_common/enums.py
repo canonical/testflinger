@@ -37,6 +37,8 @@ class TestPhase(StrEnum):
 
     This is the minimal set — only the phases the agent actually runs.
     Use ``AgentState`` or ``JobState`` when you need the full lifecycle.
+
+    Must be iterable and maintain order.
     """
 
     __test__ = False
