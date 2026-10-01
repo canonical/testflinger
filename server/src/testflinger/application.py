@@ -25,6 +25,7 @@ from werkzeug.exceptions import NotFound
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 from testflinger.api.v1 import LogTypeConverter, v1
+from testflinger.api.v2 import v2
 from testflinger.database import setup_mongodb
 from testflinger.dev_signin import (
     DEV_AUTO_SIGNIN_ENV_VAR,
@@ -136,6 +137,7 @@ def create_flask_app(config=None, secrets_store=None):
 
     tf_app.register_blueprint(views)
     tf_app.register_blueprint(v1, url_prefix="/v1")
+    tf_app.register_blueprint(v2, url_prefix="/v2")
     if tf_app.oauth:
         tf_app.register_blueprint(oidc_views, url_prefix="/auth")
         tf_app.register_blueprint(oidc_api, url_prefix="/oidc")

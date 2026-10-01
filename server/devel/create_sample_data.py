@@ -30,6 +30,8 @@ from typing import Iterator, Optional, Tuple
 import requests
 from sample_users import (
     SAMPLE_CLIENTS,
+    TESTFLINGER_AGENT_ID,
+    TESTFLINGER_AGENT_SECRET,
     TESTFLINGER_ADMIN_ID,
     TESTFLINGER_ADMIN_SECRET,
 )
@@ -123,12 +125,20 @@ class AgentDataGenerator:  # pylint: disable=too-few-public-methods
 
     def __iter__(self):
         for agent_num in range(self.num_agents):
-            agent_data = {
-                "state": "waiting",
-            }
+            if agent_num == 0:
+                agent_data = {"mode": "offline"}
+            elif agent_num == 1:
+                agent_data = {
+                    "mode": "maintenance",
+                    "state": "waiting",
+                    "comment": "Scheduled hardware swap",
+                }
+            else:
+                agent_data = {"mode": "online", "state": "waiting"}
             if self.queue_list:
                 agent_data["queues"] = random.sample(
-                    self.queue_list, random.randint(1, min(3, len(self.queue_list)))
+                    self.queue_list,
+                    random.randint(1, min(3, len(self.queue_list))),
                 )
             yield (f"{self.prefix}{agent_num}", agent_data)
 
@@ -138,6 +148,30 @@ SAMPLE_PROVISION_DATA = (
     {"url": "http://cdimage.example/ubuntu-24.04-amd64.img.xz"},
     {"distro": "jammy"},
 )
+
+SAMPLE_JOB_STATES = (
+    "waiting",
+    "setup",
+    "provision",
+    "firmware_update",
+    "test",
+    "allocate",
+    "allocated",
+    "reserve",
+    "cleanup",
+    "cancelled",
+    "completed",
+)
+AGENT_STATE_FOR_JOB_STATE = {
+    "setup": "setup",
+    "provision": "provision",
+    "firmware_update": "firmware_update",
+    "test": "test",
+    "allocate": "allocate",
+    "allocated": "allocate",
+    "reserve": "reserve",
+    "cleanup": "cleanup",
+}
 
 
 class JobDataGenerator:  # pylint: disable=too-few-public-methods
@@ -228,20 +262,22 @@ class TestflingerClient:
         :param queues: Iterator of queue data to post
         """
         for queue in queues:
-            self.session.post(
+            response = self.session.post(
                 f"{self.server_url}/v1/agents/queues",
                 json=queue,
             )
+            response.raise_for_status()
 
     def post_agent_data(self, agents: Iterator):
         """Post agent data to Testflinger server
         :param agents: Iterator of agent data to post
         """
         for agent_name, agent_data in agents:
-            self.session.post(
-                f"{self.server_url}/v1/agents/data/{agent_name}",
+            response = self.session.post(
+                f"{self.server_url}/v2/agents/{agent_name}/data",
                 json=agent_data,
             )
+            response.raise_for_status()
 
             # Add failed provision logs with obviously fake job_id for testing
             exit_code = random.choice((0, 1))
@@ -253,40 +289,46 @@ class TestflingerClient:
                 "exit_code": exit_code,
                 "detail": exit_detail,
             }
-            self.session.post(
+            response = self.session.post(
                 f"{self.server_url}/v1/agents/provision_logs/{agent_name}",
                 json=provision_log,
             )
+            response.raise_for_status()
 
-    def assign_job_to_agent(self, agent_name: str, job_id: str) -> None:
+    def assign_job_to_agent(
+        self, agent_name: str, job_id: str, agent_state: str
+    ) -> None:
         """Record a running job on an agent, setting an active state.
 
-        Sets both job_id and a random active state so the agent record is
-        consistent with actually executing a job.
+        Sets both job_id and agent state so the agent record agrees with the
+        associated job's lifecycle phase.
 
         :param agent_name: Name of the agent
         :param job_id: UUID of the job to associate
+        :param agent_state: Agent phase corresponding to the job state
         """
-        active_state = random.choice(
-            ("setup", "provision", "test", "allocate", "reserve")
+        response = self.session.post(
+            f"{self.server_url}/v2/agents/{agent_name}/data",
+            json={"job_id": job_id, "state": agent_state},
         )
-        self.session.post(
-            f"{self.server_url}/v1/agents/data/{agent_name}",
-            json={"job_id": job_id, "state": active_state},
-        )
+        response.raise_for_status()
 
     def post_job_results(
-        self, job_id: str, agent_name: str, job_state: str
+        self, job_id: str, job_state: str, agent_name: str | None = None
     ) -> None:
         """Post result data for a job, recording agent and final state.
         :param job_id: UUID of the job
-        :param agent_name: Name of the agent that ran the job
-        :param job_state: Final state for the job (e.g. 'complete', 'running')
+        :param job_state: Lifecycle state to record
+        :param agent_name: Name of the associated agent, when active
         """
-        self.session.post(
+        result_data = {"job_state": job_state}
+        if agent_name:
+            result_data["agent_id"] = agent_name
+        response = self.session.post(
             f"{self.server_url}/v1/result/{job_id}",
-            json={"agent_id": agent_name, "job_state": job_state},
+            json=result_data,
         )
+        response.raise_for_status()
 
     def post_job_data(self, jobs: Iterator) -> list:
         """Post job data to Testflinger server
@@ -299,10 +341,11 @@ class TestflingerClient:
                 f"{self.server_url}/v1/job",
                 json=job,
             )
-            if response.ok:
-                job_id = response.json().get("job_id")
-                if job_id:
-                    results.append((job_id, job["job_queue"]))
+            response.raise_for_status()
+            job_id = response.json().get("job_id")
+            if not job_id:
+                raise ValueError("Server did not return a job_id")
+            results.append((job_id, job["job_queue"]))
         return results
 
 
@@ -326,12 +369,14 @@ def main():
         client_id=os.environ.get("TESTFLINGER_CLIENT_ID", TESTFLINGER_ADMIN_ID),
         client_key=os.environ.get("TESTFLINGER_SECRET_KEY", TESTFLINGER_ADMIN_SECRET),
     )
+    agent_client = TestflingerClient(
+        server_url=args.server,
+        client_id=TESTFLINGER_AGENT_ID,
+        client_key=TESTFLINGER_AGENT_SECRET,
+    )
 
     queues = QueueDataGenerator(num_queues=args.queues)
-    # configure "advertised" queues:
-    admin_client.post_queue_data(
-        random.sample(tuple(queues), random.randint(1, args.advertised_queues))
-    )
+    admin_client.post_queue_data(queues)
     logging.info("Created %s queues", args.queues)
 
     valid_queue_names = extract_queue_names(queues=queues)
@@ -340,7 +385,7 @@ def main():
         num_agents=args.agents, queue_list=valid_queue_names
     )
     agent_list = list(agents)
-    admin_client.post_agent_data(iter(agent_list))
+    agent_client.post_agent_data(iter(agent_list))
     logging.info("Created %s agents", args.agents)
 
     # Only post jobs to queues that at least one agent actually serves —
@@ -358,11 +403,7 @@ def main():
     # job is stamped with a realistic client_id by the server.  The client
     # IDs here must match the credential-based accounts created by
     # create_sample_users.py (from the SAMPLE_CLIENTS list).
-    job_client_ids = [
-        sample["client_id"]
-        for sample
-        in SAMPLE_CLIENTS
-    ]
+    job_client_ids = [sample["client_id"] for sample in SAMPLE_CLIENTS]
     job_clients = [
         TestflingerClient(
             server_url=args.server,
@@ -372,54 +413,56 @@ def main():
         for client_id in job_client_ids
     ]
 
-    jobs = JobDataGenerator(num_jobs=args.jobs, queue_list=served_queues)
+    jobs = JobDataGenerator(
+        num_jobs=max(args.jobs, len(SAMPLE_JOB_STATES)),
+        queue_list=served_queues,
+    )
     # Collect (job_id, queue) so we can match agents by their queues
     job_results = []
     for job in jobs:
         job_results.extend(random.choice(job_clients).post_job_data([job]))
     logging.info("Created %s jobs", args.jobs)
 
-    # Build a queue → [agent_names] map covering ALL agents regardless of
-    # state, since completed/cancelled jobs can have run on any agent.
+    # Active jobs can be associated only with online agents.
     queue_to_agents: dict = defaultdict(list)
     for agent_name, agent_data in agent_list:
-        for queue in agent_data.get("queues", []):
-            queue_to_agents[queue].append(agent_name)
+        if agent_data["mode"] == "online":
+            for queue in agent_data.get("queues", []):
+                queue_to_agents[queue].append(agent_name)
 
     # Track which agents currently have a running job so we don't assign two.
     agent_running_job: dict = {}
 
-    # Job states with realistic weights:
-    #   most jobs are complete, a handful are running or still waiting
-    job_states = ("complete", "running", "waiting", "cancelled")
-    job_state_weights = (60, 15, 20, 5)
+    seeded_states = iter(SAMPLE_JOB_STATES)
 
     associations = 0
     for job_id, queue in job_results:
-        job_state = random.choices(job_states, weights=job_state_weights)[0]
+        job_state = next(seeded_states, random.choice(SAMPLE_JOB_STATES))
 
-        if job_state == "waiting":
-            # Still queued — no agent assigned yet
+        if job_state not in AGENT_STATE_FOR_JOB_STATE:
+            if job_state != "waiting":
+                agent_client.post_job_results(job_id, job_state)
             continue
 
         # Pick a random agent that serves this queue
         candidates = queue_to_agents.get(queue, [])
         if not candidates:
+            agent_client.post_job_results(job_id, job_state)
             continue
 
-        if job_state == "running":
-            # Only assign to agents not already running a job; skip this job
-            # if every candidate is occupied (one active job per agent, always)
-            free = [a for a in candidates if a not in agent_running_job]
-            if not free:
-                continue
-            agent_name = random.choice(free)
-            admin_client.assign_job_to_agent(agent_name, job_id)
-            agent_running_job[agent_name] = job_id
-        else:
-            agent_name = random.choice(candidates)
+        free = [
+            agent for agent in candidates if agent not in agent_running_job
+        ]
+        if not free:
+            agent_client.post_job_results(job_id, job_state)
+            continue
 
-        admin_client.post_job_results(job_id, agent_name, job_state)
+        agent_name = random.choice(free)
+        agent_client.assign_job_to_agent(
+            agent_name, job_id, AGENT_STATE_FOR_JOB_STATE[job_state]
+        )
+        agent_running_job[agent_name] = job_id
+        agent_client.post_job_results(job_id, job_state, agent_name)
         associations += 1
 
     logging.info("Associated %s jobs with agents", associations)
