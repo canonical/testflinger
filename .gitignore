@@ -8,6 +8,9 @@ docs/.sphinx/warnings.txt
 docs/.sphinx/.wordlist.dic
 docs/.sphinx/.doctrees/
 
+# generated agent configs for development
+agent/devel/.testflinger
+
 .coverage*
 .swp
 .tox
