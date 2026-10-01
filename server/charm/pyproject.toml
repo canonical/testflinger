@@ -6,7 +6,7 @@ readme = "README.md"
 dependencies = [
     "ops >= 2.2.0",
     "bcrypt>=4.2.0",
-    "pymongo<4.17.1",
+    "pymongo<4.18.2",
     "urllib3>=2.6.3",
     "cosl>=0.0.53",
     "pydantic>=2.12,<3",
