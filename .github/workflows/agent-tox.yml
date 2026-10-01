@@ -83,25 +83,35 @@ jobs:
       - run: just test
 
   test_charm_integration:
-    name: Run charm integration tests
-    defaults:
-      run:
-        working-directory: agent/charms/testflinger-agent-host-charm
-
-    runs-on: ${{ matrix.runner }}
+    name: Run charm integration tests (${{ matrix.distro }}, ${{ matrix.arch }})
     strategy:
       fail-fast: false
       matrix:
         include:
-          - runner: ubuntu-22.04
+          - arch: amd64
+            runner: ubuntu-22.04
             distro: jammy
-            arch: amd64
-          - runner: ubuntu-24.04
+            base: '22.04'
+          - arch: amd64
+            runner: ubuntu-24.04
             distro: noble
-            arch: amd64
-          - runner: [self-hosted, linux, s390x, noble]
+            base: '24.04'
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+            distro: jammy
+            base: '22.04'
+          - arch: arm64
+            runner: ubuntu-24.04-arm
             distro: noble
-            arch: s390x
+            base: '24.04'
+          - arch: s390x
+            runner: [self-hosted, linux, s390x, noble]
+            distro: noble
+            base: '24.04'
+    defaults:
+      run:
+        working-directory: agent/charms/testflinger-agent-host-charm
+    runs-on: ${{ matrix.runner }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -111,7 +121,22 @@ jobs:
         uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
       - run: sudo snap install --classic just
       - run: just --yes setup
-      - run: just integration --juju-dump-logs logs
+      - name: Build and test the host platform
+        if: ${{ !(matrix.arch == 'arm64' && matrix.base == '22.04') }}
+        run: just integration --juju-dump-logs logs
+        env:
+          TEST_BASE: ${{ matrix.base }}
+      # Jammy ARM64 uses a Noble host; destructive mode would build for the wrong base.
+      - name: Build Jammy ARM64 in LXD
+        if: ${{ matrix.arch == 'arm64' && matrix.base == '22.04' }}
+        run: charmcraft pack --platform "$CHARM_PLATFORM" --use-lxd
+        env:
+          CHARM_PLATFORM: ubuntu@${{ matrix.base }}:${{ matrix.arch }}
+      - name: Test Jammy ARM64
+        if: ${{ matrix.arch == 'arm64' && matrix.base == '22.04' }}
+        run: uvx tox run -e integration -- --juju-dump-logs logs
+        env:
+          TEST_BASE: ${{ matrix.base }}
       - name: Upload charm as an artifact
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

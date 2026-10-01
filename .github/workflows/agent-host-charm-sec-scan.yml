@@ -37,6 +37,12 @@ jobs:
           - base: ubuntu@24.04
             arch: amd64
             distro: noble
+          - base: ubuntu@22.04
+            arch: arm64
+            distro: jammy
+          - base: ubuntu@24.04
+            arch: arm64
+            distro: noble
           - base: ubuntu@24.04
             arch: s390x
             distro: noble
