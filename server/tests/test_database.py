@@ -30,7 +30,7 @@ from testflinger.database import (
     create_indexes,
     retrieve_file,
     save_file,
-    set_agent_mode,
+    set_agent_commanded_mode,
     update_job_results,
     upsert_agent_document,
 )
@@ -250,7 +250,9 @@ def test_set_agent_mode_stamps_change_when_mode_differs(mock_mongo):
         {"name": "agent1", "commanded_mode": "online"}
     )
 
-    set_agent_mode("agent1", "offline", "downtime", "admin@example.com")
+    set_agent_commanded_mode(
+        "agent1", "offline", "downtime", "admin@example.com"
+    )
 
     record = mock_mongo.db.agents.find_one({"name": "agent1"})
     assert record["commanded_mode"] == "offline"
@@ -267,7 +269,7 @@ def test_set_agent_mode_no_stamp_when_mode_unchanged(mock_mongo):
         {"name": "agent1", "commanded_mode": "online"}
     )
 
-    set_agent_mode("agent1", "online", "", "admin@example.com")
+    set_agent_commanded_mode("agent1", "online", "", "admin@example.com")
 
     record = mock_mongo.db.agents.find_one({"name": "agent1"})
     assert record["commanded_mode"] == "online"
@@ -282,7 +284,9 @@ def test_set_agent_mode_creates_and_stamps_new_agent(mock_mongo):
     """A first-time agent is upserted with its initial commanded_mode
     stamped.
     """
-    set_agent_mode("newagent", "offline", "downtime", "admin@example.com")
+    set_agent_commanded_mode(
+        "newagent", "offline", "downtime", "admin@example.com"
+    )
 
     record = mock_mongo.db.agents.find_one({"name": "newagent"})
     assert record is not None

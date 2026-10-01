@@ -577,7 +577,7 @@ def set_agent_job(agent_name: str, job_id: str) -> None:
     )
 
 
-def set_agent_mode(
+def set_agent_commanded_mode(
     agent_name: str, mode: str, comment: str, changed_by: str | None
 ) -> None:
     """Command an agent to change its operating mode.
