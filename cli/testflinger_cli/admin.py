@@ -202,11 +202,12 @@ class TestflingerAdminCLI:
                 self.main_cli.client.set_agent_status(agent, mode, comment)
                 if agent_state in test_status:
                     print(
-                        f"Agent {agent} processing job. "
-                        f"Mode {mode} deferred until job completion"
+                        f"Agent {agent} is processing a job. "
+                        f"Commanded mode '{mode}' will take effect "
+                        f"on job completion."
                     )
                 else:
-                    print(f"Agent {agent} status is now: {mode}")
+                    print(f"Agent {agent} commanded to mode '{mode}'.")
             except client.HTTPError as exc:
                 if exc.status == HTTPStatus.NOT_FOUND:
                     print(f"Agent {agent} does not exist.")

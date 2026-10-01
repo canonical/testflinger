@@ -4,76 +4,81 @@ Manage Testflinger Agents
 =========================
 
 For disambiguation between Agents from Agent Host Charms see :ref:`explain_agents`
-and for guidance on Agent Host Charm administration see: :ref:`howto-manage-agent-host`.
+and for guidance on Agent Host Charm administration see:
+:ref:`howto-manage-agent-host`.
 
 .. _handling-agent-status:
 
 Agent Administration
 --------------------
 
-Agents can be set to ``online``, ``offline``, or ``maintenance`` using the CLI.
-
-Set an Agent Offline
-~~~~~~~~~~~~~~~~~~~~
+Agents can be commanded to ``online``, ``offline``, ``maintenance``, or
+``restart`` mode using the CLI. Because agents poll the server for instructions,
+a mode change takes effect on the agent's next poll after its current job
+completes. The server stores the instruction as ``commanded_mode``; once the
+agent adopts it, ``mode`` is updated to match.
 
 .. note::
-   The following action require an authenticated ``client_id`` with admin privileges, 
-   for more information please refer to :doc:`Create or edit Testflinger admin credentials <../create-admin-user>`,
-   if needed, to set an initial admin ``client_id``.
+   The following actions require an authenticated ``client_id`` with admin
+   privileges. See :doc:`Create or edit Testflinger admin credentials
+   <../create-admin-user>` if needed.
 
-Each agent is designed to process jobs indefinitely by listening for jobs in its specified queues
-until any job is available for them. If an agent needs to be set to offline to stop
-processing any jobs, its status can be modified from the CLI. This can be useful when there
-is some debugging or maintenance needed on the physical machine.
-The procedure to take an agent offline could be one of the following:
+Command an Agent Offline
+~~~~~~~~~~~~~~~~~~~~~~~~
 
-* Set agent to offline. 
-
-Setting an agent to ``offline`` requires specification of a reason for changing the agent status, provided as a ``--comment``:
+To stop an agent from processing new jobs:
 
 .. code-block:: shell
 
-   testflinger-cli admin set agent-status --status offline --agents <agent_name> --comment "<Offline Reason>"
+   testflinger-cli admin set agent-status --mode offline --agents <agent_name> --comment "<Offline Reason>"
 
+Command an Agent into Maintenance
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-* Set agent to maintenance.
-
-The ``maintenance`` status doesn't current need to define a reason as it uses a predefined comment.
+To place an agent in maintenance mode (no new jobs, no comment required):
 
 .. code-block:: shell
 
-   testflinger-cli admin set agent-status --status maintenance --agents <agent_name>
+   testflinger-cli admin set agent-status --mode maintenance --agents <agent_name>
 
-In both ``offline`` and ``maintenance`` statuses, the agent will effectively stop
-processing jobs immediately if not processing any job, otherwise it will wait until
-job completion to change agent status. It is important to note that in any of
-the above statuses, the agent will prevent restarting; if a restart signal is
-detected it will be deferred until the agent is marked online.
+In both ``offline`` and ``maintenance`` modes, the agent stops processing new
+jobs. If the agent is currently running a job, the mode change is deferred until
+the job completes. The ``commanded_mode`` field on the agent record reflects the
+pending instruction.
 
 .. tip::
 
-    If you wish to change the status for multiple agents at the same time, you can define a list 
-    of the agents you want to change status e.g. ``--agents agent1 agent2 ... agentN``
+    To change the mode for multiple agents at once, list them all:
+    ``--agents agent1 agent2 ... agentN``
 
-Set an Agent Online
-~~~~~~~~~~~~~~~~~~~
+Command an Agent Online
+~~~~~~~~~~~~~~~~~~~~~~~
 
-.. note::
-   The following action require an authenticated ``client_id`` with admin privileges, 
-   for more information please refer to :doc:`Create or edit Testflinger admin credentials <../create-admin-user>` 
-   if needed to set an initial admin ``client_id``.
-
-To set an agent to online in order to recover from an unexpected agent failure or after being set 
-to offline manually, execute the following command from the CLI:
+To bring an agent back online:
 
 .. code-block:: shell
 
-   testflinger-cli admin set agent-status --status online --agents <agent_name>
+   testflinger-cli admin set agent-status --mode online --agents <agent_name>
 
-.. tip::
+Restart an Agent
+~~~~~~~~~~~~~~~~
 
-   If you wish to change the status for multiple agents at the same time, you can define a list 
-   of the agents you want to change status e.g. ``--agents agent1 agent2 ... agentN``
+To instruct an agent to restart:
+
+.. code-block:: shell
+
+   testflinger-cli admin set agent-status --mode restart --agents <agent_name>
+
+Checking for Pending Mode Changes
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+When a mode change has been commanded but the agent has not yet adopted it
+(e.g. it is still finishing a job), ``commanded_mode`` will differ from
+``mode``. Use ``--filter-commanded-mode pending`` to find such agents:
+
+.. code-block:: shell
+
+   testflinger list-agents --filter-commanded-mode pending
 
 Agent Selection
 ---------------
@@ -98,26 +103,23 @@ For more details on how to use this feature, see :doc:`../../how-to/submit-job`.
 Listing Agents
 ~~~~~~~~~~~~~~
 
-A list of agents communicating with the server can be fetched via the command
-line ``list-agents`` command and displayed in several formats. When collecting
-the list of agents for display, a variety of filters may also be applied.
-Aside from the filter for status, the filters all support use of regular expressions.
+A list of agents communicating with the server can be fetched via the
+``list-agents`` command. The ``list-agents`` subcommand can help to assess the
+current mode and state of Testflinger agents in order to plan or perform
+maintenance.
 
-The ``list-agents`` subcommand can help to assess the current status of the
-Testflinger agents in order to perform maintenance.
-
-Here's an example where the agents selected by the filter are set to ``online``
+Here's an example where agents on selected queues are commanded to ``online``
 within a for loop:
 
 .. code-block:: shell
 
-  $ for agent in $(testflinger list-agents --filter-queue "petilil|audino" -1); do testflinger admin set agent-status --agents $agent --status online; done
-  Agent audino status is now: waiting
-  Agent petilil status is now: waiting
+  $ for agent in $(testflinger list-agents --filter-queues "petilil|audino" -1); do testflinger admin set agent-status --agents $agent --mode online; done
+  Agent audino commanded to mode 'online'.
+  Agent petilil commanded to mode 'online'.
 
 .. tip::
 
    This can be particularly useful in combination with ``--filter-comment``
-   if good comments are made as agents are brought offline.
+   if good comments are made as agents are brought offline or into maintenance.
 
 For more information, see :ref:`listing_agents`.
