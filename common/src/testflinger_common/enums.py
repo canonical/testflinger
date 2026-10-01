@@ -13,29 +13,31 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
-"""Job State and Test Phase Enums."""
+"""
+Agent Mode, Agent State, Job State, and Test Phase Enums.
+
+Design notes
+------------
+``TestPhase`` is the canonical list of executable job phases.
+
+``AgentState`` and ``JobState`` are strict supersets of ``TestPhase`` —
+each includes every phase value plus its own additions. They are built
+programmatically via ``_extend_phase`` so there is no duplicated list of
+phase names.
+
+``AgentMode`` is the server-commanded operating mode of an agent.  It is
+distinct from ``AgentState`` (what the agent is doing *within* a mode).
+"""
 
 from strenum import StrEnum
 
 
-class JobState(StrEnum):
-    """Enum of possible job states."""
-
-    WAITING = "waiting"
-    SETUP = "setup"
-    PROVISION = "provision"
-    FIRMWARE_UPDATE = "firmware_update"
-    TEST = "test"
-    ALLOCATE = "allocate"
-    ALLOCATED = "allocated"
-    RESERVE = "reserve"
-    CLEANUP = "cleanup"
-    CANCELLED = "cancelled"
-    COMPLETED = "completed"
-
-
 class TestPhase(StrEnum):
-    """Enum of test phases."""
+    """Executable phases that the agent iterates over when running a job.
+
+    This is the minimal set — only the phases the agent actually runs.
+    Use ``AgentState`` or ``JobState`` when you need the full lifecycle.
+    """
 
     __test__ = False
     """Prevents pytest from trying to run this class as a test."""
@@ -49,8 +51,110 @@ class TestPhase(StrEnum):
     CLEANUP = "cleanup"
 
 
+def _extend_phase(
+    name: str, extras: dict[str, str], doc: str = ""
+) -> type[StrEnum]:
+    """Build a StrEnum that contains every TestPhase value plus *extras*.
+
+    :param name:   Class name for the new enum.
+    :param extras: Mapping of UPPER_NAME -> "string_value" for the
+                   additional members beyond the TestPhase set.
+    :param doc:    Optional docstring for the returned class.
+    :return:       A new StrEnum subclass.
+    """
+    members = {phase.name: phase.value for phase in TestPhase}
+    overlap = set(members) & set(extras)
+    if overlap:
+        raise ValueError(
+            f"extras contains existing TestPhase member(s): {sorted(overlap)}"
+        )
+    members.update(extras)
+    cls = StrEnum(name, members)  # type: ignore[call-overload]
+    cls.__test__ = False  # suppress pytest collection
+    if doc:
+        cls.__doc__ = doc
+    return cls
+
+
+class AgentMode(StrEnum):
+    """Server-commanded operating mode of an agent.
+
+    The mode is set by an admin (via the portal, CLI, or API) and read
+    by the agent on every poll.  The agent never sets its own mode except
+    to report a locally-detected fault (which becomes ``MAINTENANCE``).
+
+    ``OFFLINE`` and ``RESTART`` have no sub-state (``AgentState``).
+    ``ONLINE`` and ``MAINTENANCE`` always carry a sub-state.
+    """
+
+    ONLINE = "online"
+    MAINTENANCE = "maintenance"
+    OFFLINE = "offline"
+    RESTART = "restart"
+
+    @property
+    def has_substate(self) -> bool:
+        """Whether this mode is qualified by an ``AgentState``.
+
+        ``OFFLINE`` and ``RESTART`` describe the agent completely; a
+        sub-state alongside them is meaningless.
+
+        :return: ``True`` if the mode takes a sub-state.
+        """
+        return self in (AgentMode.ONLINE, AgentMode.MAINTENANCE)
+
+    @classmethod
+    def from_state(cls, state: str | None) -> "AgentMode":
+        """Infer the mode implied by a bare ``AgentState``.
+
+        Some agent records carry a state and no mode: those written
+        before modes existed, and those reported by clients of an API
+        version that predates them.  Three states named a mode before
+        the distinction was drawn; every other state is something an
+        agent does while online.
+
+        :param state: Reported agent state, if any.
+        :return: The mode the state implies.
+        """
+        if state in (cls.OFFLINE, cls.RESTART, cls.MAINTENANCE):
+            return cls(state)
+        return cls.ONLINE
+
+
+AgentState = _extend_phase(
+    "AgentState",
+    {
+        "WAITING": "waiting",
+        "OFFLINE": "offline",
+        "MAINTENANCE": "maintenance",
+        "RESTART": "restart",
+        "UNKNOWN": "unknown",
+    },
+    doc=(
+        "Current sub-state of an agent within its operating mode.\n\n"
+        "A strict superset of TestPhase — includes all phase values plus\n"
+        "WAITING, OFFLINE, MAINTENANCE, RESTART, and UNKNOWN."
+    ),
+)
+
+JobState = _extend_phase(
+    "JobState",
+    {
+        "WAITING": "waiting",
+        "ALLOCATED": "allocated",
+        "CANCELLED": "cancelled",
+        "COMPLETED": "completed",
+    },
+    doc=(
+        "Lifecycle states of a job as recorded by the server.\n\n"
+        "A strict superset of TestPhase — includes all phase values plus\n"
+        "administrative and terminal states with no agent-side equivalent."
+    ),
+)
+
+
 class TestEvent(StrEnum):
-    """Enum of test events."""
+    """Event markers emitted by the agent during job execution."""
 
     __test__ = False
     """Prevents pytest from trying to run this class as a test."""
@@ -87,16 +191,6 @@ class TestEvent(StrEnum):
     NORMAL_EXIT = "normal_exit"
     JOB_START = "job_start"
     JOB_END = "job_end"
-
-
-class AgentState(StrEnum):
-    """Enum of agent states."""
-
-    WAITING = "waiting"
-    OFFLINE = "offline"
-    MAINTENANCE = "maintenance"
-    RESTART = "restart"
-    UNKNOWN = "unknown"
 
 
 class LogType(StrEnum):
