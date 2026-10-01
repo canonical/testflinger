@@ -21,7 +21,7 @@ from unittest.mock import patch
 import pytest
 import requests_mock as rmock
 from requests.exceptions import RequestException
-from testflinger_common.enums import LogType
+from testflinger_common.enums import AgentMode, LogType
 
 from testflinger_agent.client import LogEndpointInput
 from testflinger_agent.client import TestflingerClient as _TestflingerClient
@@ -101,6 +101,22 @@ class TestClient:
         params = requests_mock.last_request.qs.get("queue")
         assert params == ["queue1"]
         assert job_data == fake_job_data
+
+    def test_check_jobs_in_maintenance_uses_maintenance_queue(
+        self, client, requests_mock
+    ):
+        """Maintenance mode requests only the agent maintenance queue."""
+        requests_mock.get(
+            "http://127.0.0.1:8000/v1/agents/data/test_agent",
+            json={"restricted_to": {}},
+        )
+        requests_mock.get("http://127.0.0.1:8000/v1/job", json={})
+
+        client.check_jobs(AgentMode.MAINTENANCE)
+
+        assert requests_mock.last_request.qs["queue"] == [
+            "test_agent_maintenance"
+        ]
 
     def test_post_advertised_queues(self, client, requests_mock):
         """

@@ -51,33 +51,32 @@ class AgentStatusHandler:
     def __init__(self):
         """Initialize handler with default values."""
         self._needs_restart = False
-        self._needs_offline = False
+        self._needs_mode_transition = False
         self._comment = ""
 
     def update(
         self,
         comment: str,
         restart: bool = False,
-        offline: bool = False,
+        mode_transition: bool = False,
     ) -> None:
         """Update the attributes of the class if needed.
 
         :param restart: Flag to set if agent needs restarting.
-        :param offline: Flag to set if agent needs offlining.
-        :param comment: Reason for requesting agent status change.
+        :param mode_transition: Flag to defer an offline or maintenance
+            transition until the current job completes.
+        :param comment: Reason for requesting the transition.
         """
         # Update restart flag and comment if not already marked for restart.
         if restart and not self._needs_restart:
             self._needs_restart = True
-            if not self._needs_offline:
+            if not self._needs_mode_transition:
                 self._comment = comment
-        # Update offline flag and comment if not already marked for offline.
-        if offline and not self._needs_offline:
-            self._needs_offline = True
+        if mode_transition and not self._needs_mode_transition:
+            self._needs_mode_transition = True
             self._comment = comment
-        # Clear the flag and comment if received an offline False
-        elif not offline and self._needs_offline:
-            self._needs_offline = False
+        elif not mode_transition and self._needs_mode_transition:
+            self._needs_mode_transition = False
             self._comment = ""
 
     @property
@@ -86,9 +85,9 @@ class AgentStatusHandler:
         return self._needs_restart
 
     @property
-    def needs_offline(self) -> bool:
-        """Indicate the current offline state."""
-        return self._needs_offline
+    def needs_mode_transition(self) -> bool:
+        """Indicate whether a mode transition is deferred until job end."""
+        return self._needs_mode_transition
 
     @property
     def comment(self) -> str:
@@ -143,16 +142,16 @@ class AgentHeartbeatHandler:
     def _send_heartbeat(self) -> None:
         """Send a heartbeat to the server if needed.
 
-        Heartbeat signal is current agent status and comment.
+        The heartbeat re-asserts the agent's current sub-state so the
+        server's ``state_changed_at`` timer does not expire.  The agent
+        owns the sub-state; the server owns the mode, so we only re-send
+        ``state`` (not ``mode`` or ``comment``).
         """
         if self.is_heartbeat_required():
-            comment = self._agent_data.get("comment", "")
-            if "state" in self._agent_data:
+            state = self._agent_data.get("state")
+            if state:
                 logger.info("Sending heartbeat to Testflinger server")
-                agent_state = self._agent_data["state"]
-                self.client.post_agent_data(
-                    {"state": agent_state, "comment": comment}
-                )
+                self.client.post_agent_data({"state": state})
 
     def is_heartbeat_required(self) -> bool:
         """Determine if heartbeat is required to send to server.

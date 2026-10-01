@@ -15,6 +15,8 @@
 from pathlib import Path
 from unittest.mock import Mock, patch
 
+from testflinger_common.enums import AgentMode
+
 import testflinger_agent
 from testflinger_agent import start_agent
 
@@ -69,7 +71,7 @@ class TestMainLoop:
         mock_client_class.return_value = mock_client
         mock_agent = Mock()
         mock_agent_class.return_value = mock_agent
-        mock_agent.check_offline.return_value = (False, "")
+        mock_agent.check_mode_change.return_value = (AgentMode.ONLINE, "")
         mock_agent.process_jobs.return_value = None
 
         try:
@@ -77,8 +79,39 @@ class TestMainLoop:
         except KeyboardInterrupt:
             pass
 
-        # Verify process_jobs was called twice
+        # Verify process_jobs was called twice in online mode.
         assert mock_agent.process_jobs.call_count == 2
+        mock_agent.process_jobs.assert_called_with(maintenance=False)
+
+    @patch("testflinger_agent.load_config")
+    @patch("testflinger_agent.configure_logging")
+    @patch("testflinger_agent.TestflingerClient")
+    @patch("testflinger_agent.TestflingerAgent")
+    @patch("time.sleep", side_effect=[KeyboardInterrupt()])
+    def test_main_loop_processes_maintenance_queue(
+        self,
+        mock_sleep,
+        mock_agent_class,
+        mock_client_class,
+        mock_configure_logging,
+        mock_load_config,
+        config,
+    ):
+        """Maintenance mode processes only maintenance-queue jobs."""
+        mock_load_config.return_value = config
+        mock_agent = Mock()
+        mock_agent_class.return_value = mock_agent
+        mock_agent.check_mode_change.return_value = (
+            AgentMode.MAINTENANCE,
+            "repair",
+        )
+
+        try:
+            start_agent()
+        except KeyboardInterrupt:
+            pass
+
+        mock_agent.process_jobs.assert_called_once_with(maintenance=True)
 
     @patch("testflinger_agent.load_config")
     @patch("testflinger_agent.configure_logging")
@@ -98,7 +131,10 @@ class TestMainLoop:
         mock_load_config.return_value = config
         mock_agent = Mock()
         mock_agent_class.return_value = mock_agent
-        mock_agent.check_offline.return_value = (True, "Offline by admin")
+        mock_agent.check_mode_change.return_value = (
+            AgentMode.OFFLINE,
+            "Offline by admin",
+        )
         mock_agent.process_jobs.return_value = None
 
         try:

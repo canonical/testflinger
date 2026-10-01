@@ -23,7 +23,8 @@ Design notes
 ``AgentState`` and ``JobState`` are strict supersets of ``TestPhase`` —
 each includes every phase value plus its own additions. They are built
 programmatically via ``_extend_phase`` so there is no duplicated list of
-phase names.
+phase names. ``AgentState`` retains current mode-like values until all agents
+use ``AgentMode``.
 
 ``AgentMode`` is the server-commanded operating mode of an agent.  It is
 distinct from ``AgentState`` (what the agent is doing *within* a mode).
@@ -123,17 +124,11 @@ class AgentMode(StrEnum):
 
 AgentState = _extend_phase(
     "AgentState",
-    {
-        "WAITING": "waiting",
-        "OFFLINE": "offline",
-        "MAINTENANCE": "maintenance",
-        "RESTART": "restart",
-        "UNKNOWN": "unknown",
-    },
+    {"WAITING": "waiting"},
     doc=(
         "Current sub-state of an agent within its operating mode.\n\n"
-        "A strict superset of TestPhase — includes all phase values plus\n"
-        "WAITING, OFFLINE, MAINTENANCE, RESTART, and UNKNOWN."
+        "WAITING (idle sub-state used by ONLINE and MAINTENANCE modes).\n\n"
+        "OFFLINE and RESTART modes carry no AgentState."
     ),
 )
 
