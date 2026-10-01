@@ -87,10 +87,9 @@ def auto():
     # Unconditionally set the role for this identity so the picker is
     # predictable: "whatever you clicked last is your current role".
     database.mongo.db.client_permissions.update_one(
-        {"sub": identity["sub"]},
+        {"client_id": identity["email"]},  # matches register_oidc_client
         {
             "$set": {
-                "client_id": identity["email"],
                 "sub": identity["sub"],
                 "role": str(ServerRoles(identity["role"])),
             }
