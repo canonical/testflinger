@@ -8,6 +8,7 @@ from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
+# These match the entries in server/devel/sample_users.py
 CLIENT_ID = "testflinger-agent"
 CLIENT_SECRET = "testflinger"  # noqa: S105
 
@@ -16,7 +17,8 @@ def main():
     """Request and write a refresh token for the generic development agent."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("server_url")
-    parser.add_argument("token_file", type=Path)
+    parser.add_argument("token_file", type=Path, nargs='?',
+                        default="devel/.testflinger/refresh_token")
     args = parser.parse_args()
 
     credentials = base64.b64encode(
@@ -38,6 +40,7 @@ def main():
 
     args.token_file.parent.mkdir(parents=True, exist_ok=True)
     args.token_file.write_text(json.dumps(token_data))
+    print(f"Refresh token written to {args.token_file}")
 
 
 if __name__ == "__main__":
