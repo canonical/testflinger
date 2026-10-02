@@ -28,6 +28,7 @@ class ServerRoles(StrEnum):
     MANAGER = "manager"
     CONTRIBUTOR = "contributor"
     AGENT = "agent"
+    ORCHESTRATOR = "orchestrator"
 
 
 class TestPhase(StrEnum):

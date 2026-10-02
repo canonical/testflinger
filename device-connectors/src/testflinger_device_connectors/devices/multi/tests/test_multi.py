@@ -14,11 +14,15 @@
 
 """Unit tests for multi-device support code."""
 
+import json
 from uuid import uuid4
 
 import pytest
 
-from testflinger_device_connectors.devices.multi.multi import Multi
+from testflinger_device_connectors.devices.multi.multi import (
+    DEFAULT_JOB_LIST_FILE,
+    Multi,
+)
 from testflinger_device_connectors.devices.multi.tfclient import TFClient
 
 
@@ -98,3 +102,25 @@ def test_this_job_completed():
     incomplete_client.get_status = lambda job_id: "something else"
     test_agent = Multi(test_config, job_data, incomplete_client)
     assert test_agent.this_job_completed() is False
+
+
+def test_save_job_list_file_creates_attachments_dir(tmp_path, monkeypatch):
+    """Test attachment dir is created and list file stores job data."""
+    monkeypatch.chdir(tmp_path)
+    test_config = {"agent_name": "test_agent"}
+    job_data = {}
+    client = MockTFClient("http://localhost")
+    client.get_results = lambda job_id: {
+        "device_info": {"device_ip": "10.1.1.1"}
+    }
+    test_agent = Multi(test_config, job_data, client)
+    test_agent.jobs = ["job-1"]
+
+    test_agent.save_job_list_file()
+
+    assert DEFAULT_JOB_LIST_FILE.parent.is_dir()
+    assert DEFAULT_JOB_LIST_FILE.exists()
+    saved_data = json.loads(DEFAULT_JOB_LIST_FILE.read_text())
+    assert saved_data == [
+        {"job_id": "job-1", "device_info": {"device_ip": "10.1.1.1"}}
+    ]

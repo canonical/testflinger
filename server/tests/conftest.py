@@ -211,6 +211,7 @@ def user(iam_server):
 def sorted_roles():
     """Roles listed from least to most privileged."""
     return [
+        ServerRoles.ORCHESTRATOR,
         ServerRoles.AGENT,
         ServerRoles.CONTRIBUTOR,
         ServerRoles.MANAGER,

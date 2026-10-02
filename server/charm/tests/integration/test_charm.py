@@ -22,6 +22,10 @@ import pytest
 from .consts import APP_NAME, DEFAULT_HTTP_PORT, MONGODB_CHARM, UPSTREAM_SOURCE
 from .helpers import app_is_up, retry
 
+# Timeout for jubilant to wait for application to become active
+# Default timeout is 180 seconds which may not be enough on slower systems
+JUBILANT_TIMEOUT_SECONDS = 600
+
 
 @pytest.mark.juju_setup
 def test_deploy(charm_path: Path, k8s_juju: jubilant.Juju):
@@ -46,7 +50,7 @@ def test_deploy(charm_path: Path, k8s_juju: jubilant.Juju):
     k8s_juju.integrate(
         f"{APP_NAME}:mongodb_keyvault", f"{MONGODB_CHARM}:database"
     )
-    k8s_juju.wait(jubilant.all_active)
+    k8s_juju.wait(jubilant.all_active, timeout=JUBILANT_TIMEOUT_SECONDS)
 
 
 @retry(retry_num=10, retry_sleep_sec=3)
