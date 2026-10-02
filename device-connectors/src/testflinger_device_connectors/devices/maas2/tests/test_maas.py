@@ -74,13 +74,15 @@ def test_reset_efi_prioritizes_current_boot_device(mock_config_file):
     Process = namedtuple("Process", ["returncode", "stdout"])
 
     # Mock efibootmgr output with BootCurrent and multiple IPv4 devices
-    efibootmgr_output = textwrap.dedent("""\
+    efibootmgr_output = textwrap.dedent(
+        """\
         BootCurrent: 0002
         BootOrder: 0000,0001,0002
         Boot0000* ubuntu
         Boot0001* Ethernet 10Gb 2-port Adapter - NIC (PXE IPv4)
         Boot0002* Ethernet 1Gb 4-port Adapter - NIC (PXE IPv4)
-    """)
+    """
+    )
 
     job_json = mock_config_file.parent / "job.json"
     job_json.write_text(json.dumps({}))
@@ -105,13 +107,15 @@ def test_reset_efi_handles_non_ipv4_current_boot(mock_config_file):
     Process = namedtuple("Process", ["returncode", "stdout"])
 
     # Current boot is from hard drive, not network
-    efibootmgr_output = textwrap.dedent("""\
+    efibootmgr_output = textwrap.dedent(
+        """\
         BootCurrent: 0000
         BootOrder: 0000,0001,0002
         Boot0000* ubuntu
         Boot0001* Ethernet 10Gb 2-port Adapter - NIC (PXE IPv4)
         Boot0002* Ethernet 1Gb 4-port Adapter - NIC (PXE IPv4)
-    """)
+    """
+    )
 
     job_json = mock_config_file.parent / "job.json"
     job_json.write_text(json.dumps({}))
@@ -269,6 +273,280 @@ def test_set_flat_storage_layout_no_output(
     assert captured_output.out == ""
 
 
+@patch.object(Maas2, "run_maas_cmd_with_retry")
+def test_format_non_os_disks_formats_unused_physical_disk(
+    mock_run_cmd, mock_config_file, mock_config
+):
+    """An unused non-OS disk gets one full-size ext4 partition."""
+    job_json = mock_config_file.parent / "job.json"
+    job_json.write_text(json.dumps({}))
+    maas2 = Maas2(config=mock_config_file, job_data=job_json)
+
+    mock_run_cmd.side_effect = [
+        subprocess.CompletedProcess(
+            args=["maas"],
+            returncode=0,
+            stdout=json.dumps({"boot_disk": {"id": 284}}).encode(),
+        ),
+        subprocess.CompletedProcess(
+            args=["maas"],
+            returncode=0,
+            stdout=json.dumps(
+                [
+                    {
+                        "id": 284,
+                        "name": "nvme0n1",
+                        "type": "physical",
+                        "used_for": "GPT partitioned with 2 partitions",
+                        "partitions": [{"id": 1}],
+                        "filesystem": None,
+                    },
+                    {
+                        "id": 285,
+                        "name": "sda",
+                        "type": "physical",
+                        "used_for": "Unused",
+                        "partitions": [],
+                        "filesystem": None,
+                    },
+                ]
+            ).encode(),
+        ),
+        subprocess.CompletedProcess(
+            args=["maas"],
+            returncode=0,
+            stdout=json.dumps({"id": 122114}).encode(),
+        ),
+        subprocess.CompletedProcess(args=["maas"], returncode=0, stdout=b""),
+    ]
+
+    maas2.format_non_os_disks()
+
+    assert mock_run_cmd.call_args_list[2].args[0] == [
+        "maas",
+        mock_config["maas_user"],
+        "partitions",
+        "create",
+        mock_config["node_id"],
+        "285",
+    ]
+    assert mock_run_cmd.call_args_list[3].args[0] == [
+        "maas",
+        mock_config["maas_user"],
+        "partition",
+        "format",
+        mock_config["node_id"],
+        "285",
+        "122114",
+        "fstype=ext4",
+        "label=data",
+    ]
+
+
+@patch.object(Maas2, "run_maas_cmd_with_retry")
+def test_format_non_os_disks_skips_disks_that_are_not_unused(
+    mock_run_cmd, mock_config_file
+):
+    """The OS disk and non-OS disks with existing layouts are untouched."""
+    job_json = mock_config_file.parent / "job.json"
+    job_json.write_text(json.dumps({}))
+    maas2 = Maas2(config=mock_config_file, job_data=job_json)
+
+    mock_run_cmd.side_effect = [
+        subprocess.CompletedProcess(
+            args=["maas"],
+            returncode=0,
+            stdout=json.dumps({"boot_disk": {"id": 284}}).encode(),
+        ),
+        subprocess.CompletedProcess(
+            args=["maas"],
+            returncode=0,
+            stdout=json.dumps(
+                [
+                    {
+                        "id": 284,
+                        "type": "physical",
+                        "used_for": "Unused",
+                        "partitions": [],
+                        "filesystem": None,
+                    },
+                    {
+                        "id": 285,
+                        "type": "physical",
+                        "used_for": "GPT partitioned with 1 partition",
+                        "partitions": [{"id": 2}],
+                        "filesystem": None,
+                    },
+                    {
+                        "id": 286,
+                        "type": "physical",
+                        "used_for": "Unused",
+                        "partitions": [{"id": 3}],
+                        "filesystem": None,
+                    },
+                    {
+                        "id": 287,
+                        "type": "physical",
+                        "used_for": "Unused",
+                        "partitions": [],
+                        "filesystem": {"fstype": "ext4"},
+                    },
+                    {"id": 99, "type": "virtual", "used_for": "Unused"},
+                ]
+            ).encode(),
+        ),
+    ]
+
+    maas2.format_non_os_disks()
+
+    assert mock_run_cmd.call_count == 2
+
+
+@pytest.mark.parametrize(
+    ("machine_response", "error_pattern"),
+    [
+        (b"invalid-json", "Unable to read MAAS response"),
+        (b"{}", "no boot disk"),
+    ],
+)
+@patch.object(Maas2, "run_maas_cmd_with_retry")
+def test_format_non_os_disks_rejects_bad_machine_before_writing(
+    mock_run_cmd, mock_config_file, machine_response, error_pattern
+):
+    job_json = mock_config_file.parent / "job.json"
+    job_json.write_text("{}")
+    device = Maas2(mock_config_file, job_json)
+    mock_run_cmd.return_value.stdout = machine_response
+    with pytest.raises(ProvisioningError, match=error_pattern):
+        device.format_non_os_disks()
+    assert all(
+        call.args[0][2] not in {"partitions", "partition", "machines"}
+        for call in mock_run_cmd.call_args_list
+    )
+
+
+@patch.object(Maas2, "run_maas_cmd_with_retry")
+def test_format_non_os_disks_rejects_invalid_block_devices_before_writing(
+    mock_run_cmd, mock_config_file
+):
+    job_json = mock_config_file.parent / "job.json"
+    job_json.write_text("{}")
+    device = Maas2(mock_config_file, job_json)
+    mock_run_cmd.side_effect = [
+        subprocess.CompletedProcess([], 0, b'{"boot_disk":{"id":1}}'),
+        subprocess.CompletedProcess([], 0, b"invalid-json"),
+    ]
+    with pytest.raises(
+        ProvisioningError, match="Unable to read MAAS response"
+    ):
+        device.format_non_os_disks()
+    assert mock_run_cmd.call_count == 2
+
+
+@pytest.mark.parametrize("disks", [{"id": 2}, [None]])
+def test_format_non_os_disks_rejects_wrong_device_shape_before_writing(
+    mock_config_file, disks
+):
+    job_json = mock_config_file.parent / "job.json"
+    job_json.write_text("{}")
+    device = Maas2(mock_config_file, job_json)
+    with patch.object(
+        device,
+        "run_maas_cmd_with_retry",
+        side_effect=[
+            subprocess.CompletedProcess([], 0, b'{"boot_disk":{"id":1}}'),
+            subprocess.CompletedProcess([], 0, json.dumps(disks).encode()),
+        ],
+    ) as run_maas:
+        with pytest.raises(
+            ProvisioningError, match="Invalid MAAS block devices"
+        ):
+            device.format_non_os_disks()
+    assert run_maas.call_count == 2
+
+
+def test_format_non_os_disks_rejects_late_missing_id_before_any_write(
+    mock_config_file,
+):
+    job_json = mock_config_file.parent / "job.json"
+    job_json.write_text("{}")
+    device = Maas2(mock_config_file, job_json)
+    disks = [
+        {"id": 2, "type": "physical", "used_for": "Unused"},
+        {"type": "physical", "used_for": "Unused"},
+    ]
+    with patch.object(
+        device,
+        "run_maas_cmd_with_retry",
+        side_effect=[
+            subprocess.CompletedProcess([], 0, b'{"boot_disk":{"id":1}}'),
+            subprocess.CompletedProcess([], 0, json.dumps(disks).encode()),
+        ],
+    ) as run_maas:
+        with pytest.raises(ProvisioningError, match="no ID"):
+            device.format_non_os_disks()
+    assert run_maas.call_count == 2
+
+
+@pytest.mark.parametrize(
+    ("partition_response", "error_pattern"),
+    [
+        (b"{}", "did not return an ID"),
+        (ProvisioningError("format failed"), "format failed"),
+    ],
+)
+@patch.object(Maas2, "run_maas_cmd_with_retry")
+def test_format_non_os_disks_stops_on_partition_failure(
+    mock_run_cmd, mock_config_file, partition_response, error_pattern
+):
+    job_json = mock_config_file.parent / "job.json"
+    job_json.write_text("{}")
+    device = Maas2(mock_config_file, job_json)
+    disks = [
+        {"id": disk_id, "type": "physical", "used_for": "Unused"}
+        for disk_id in (2, 3)
+    ]
+    responses = [
+        subprocess.CompletedProcess([], 0, b'{"boot_disk":{"id":1}}'),
+        subprocess.CompletedProcess([], 0, json.dumps(disks).encode()),
+        subprocess.CompletedProcess([], 0, b'{"id":10}'),
+    ]
+    if isinstance(partition_response, bytes):
+        responses[2] = subprocess.CompletedProcess([], 0, partition_response)
+    else:
+        responses.append(partition_response)
+    mock_run_cmd.side_effect = responses
+    with pytest.raises(ProvisioningError, match=error_pattern):
+        device.format_non_os_disks()
+    assert not any(
+        call.args[0][2:4] == ["partitions", "create"]
+        and call.args[0][5] == "3"
+        for call in mock_run_cmd.call_args_list
+    )
+
+
+def test_deploy_does_not_allocate_when_disk_preparation_fails(
+    mock_config_file,
+):
+    job_json = mock_config_file.parent / "job.json"
+    job_json.write_text("{}")
+    device = Maas2(mock_config_file, job_json)
+    with (
+        patch.object(device, "recover"),
+        patch.object(device, "node_status", return_value="Ready"),
+        patch.object(device, "set_flat_storage_layout"),
+        patch.object(
+            device,
+            "format_non_os_disks",
+            side_effect=ProvisioningError("storage unsafe"),
+        ),
+        patch.object(device, "run_maas_cmd_with_retry") as run_maas,
+        pytest.raises(ProvisioningError, match="storage unsafe"),
+    ):
+        device.deploy_node()
+    run_maas.assert_not_called()
+
+
 def test_provision_defaults_to_jammy(mock_config_file):
     """Test that provision defaults to jammy when no distro is specified."""
     job_json = mock_config_file.parent / "job.json"
@@ -346,6 +624,7 @@ def test_get_maas_version_returns_none_on_provisioning_error(
     assert "Proceeding without ephemeral deployment" in caplog.text
 
 
+@patch.object(Maas2, "format_non_os_disks")
 @patch("time.sleep")
 @patch.object(Maas2, "check_test_image_booted", return_value=True)
 @patch.object(Maas2, "node_addresses", return_value=["10.10.10.10"])
@@ -365,6 +644,7 @@ def test_get_maas_version_called_on_ephemeral(
     mock_node_addresses,
     mock_check_booted,
     mock_sleep,
+    mock_format_non_os_disks,
     mock_config_file,
 ):
     """Test get_maas_version is called when ephemeral is True in job data."""
@@ -372,11 +652,14 @@ def test_get_maas_version_called_on_ephemeral(
     job_json.write_text(json.dumps({"provision_data": {"ephemeral": True}}))
 
     maas2 = Maas2(config=mock_config_file, job_data=job_json)
+    mock_run_cmd.return_value.stdout = b'{"osystem": "ubuntu"}'
     maas2.deploy_node(ephemeral=True)
 
     mock_get_version.assert_called_once()
+    mock_format_non_os_disks.assert_called_once_with()
 
 
+@patch.object(Maas2, "format_non_os_disks")
 @patch("time.sleep")
 @patch.object(Maas2, "check_test_image_booted", return_value=True)
 @patch.object(Maas2, "node_addresses", return_value=["10.10.10.10"])
@@ -396,6 +679,7 @@ def test_ephemeral_deploy_skipped_on_old_maas_version(
     mock_node_addresses,
     mock_check_booted,
     mock_sleep,
+    mock_format_non_os_disks,
     mock_config_file,
 ):
     """Test ephemeral_deploy=true is not sent when MAAS version < 3.5.0."""
@@ -403,6 +687,7 @@ def test_ephemeral_deploy_skipped_on_old_maas_version(
     job_json.write_text(json.dumps({"provision_data": {"ephemeral": True}}))
 
     maas2 = Maas2(config=mock_config_file, job_data=job_json)
+    mock_run_cmd.return_value.stdout = b'{"osystem": "ubuntu"}'
     maas2.deploy_node(ephemeral=True)
 
     # run_maas_cmd_with_retry is called twice: allocate (0) and deploy (1)
@@ -410,6 +695,7 @@ def test_ephemeral_deploy_skipped_on_old_maas_version(
     assert "ephemeral_deploy=true" not in deploy_cmd
 
 
+@patch.object(Maas2, "format_non_os_disks")
 @patch("time.sleep")
 @patch.object(Maas2, "check_test_image_booted", return_value=True)
 @patch.object(Maas2, "node_addresses", return_value=["10.10.10.10"])
@@ -429,6 +715,7 @@ def test_non_ephemeral_deploy(
     mock_node_addresses,
     mock_check_booted,
     mock_sleep,
+    mock_format_non_os_disks,
     mock_config_file,
 ):
     """Test ephemeral_deploy=true is not sent when ephemeral is False."""
@@ -436,6 +723,7 @@ def test_non_ephemeral_deploy(
     job_json.write_text(json.dumps({"provision_data": {"ephemeral": False}}))
 
     maas2 = Maas2(config=mock_config_file, job_data=job_json)
+    mock_run_cmd.return_value.stdout = b'{"osystem": "ubuntu"}'
     maas2.deploy_node(ephemeral=False)
 
     # run_maas_cmd_with_retry is called twice: allocate (0) and deploy (1)
@@ -612,6 +900,7 @@ def test_check_test_image_booted_returns_false_when_no_log(
         assert maas2.check_test_image_booted() is False
 
 
+@patch.object(Maas2, "format_non_os_disks")
 @patch("time.sleep")
 @patch.object(Maas2, "check_test_image_booted", return_value=True)
 @patch.object(Maas2, "node_addresses", return_value=["192.168.1.1"])
@@ -633,6 +922,7 @@ def test_deploy_node_raises_when_ip_missing_from_addresses(
     mock_node_addresses,
     mock_check_booted,
     mock_sleep,
+    mock_format_non_os_disks,
     mock_config_file,
     mock_config,
     caplog,
@@ -799,6 +1089,7 @@ def test_get_deployment_information_downloads_log_when_starting_id_none(
     )
 
 
+@patch.object(Maas2, "format_non_os_disks")
 @patch("time.sleep")
 @patch.object(Maas2, "get_deployment_information", return_value="install log")
 @patch.object(Maas2, "node_status", return_value="Failed deployment")
@@ -816,6 +1107,7 @@ def test_deploy_node_raises_on_failed_deployment_status(
     mock_node_status,
     mock_get_info,
     mock_sleep,
+    mock_format_non_os_disks,
     mock_config_file,
     caplog,
 ):
