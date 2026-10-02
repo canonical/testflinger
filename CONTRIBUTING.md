@@ -116,7 +116,7 @@ certain aspects about the testflinger services, the way that they are run in the
 
 ```shell
 # At its simplest: Start the workshop (if necessary), start the testflinger
-# server and attempt to connect the service to the host's ports
+# server and connect the services to localhost only.
 just workshop serve
 ```
 
@@ -129,8 +129,12 @@ control which workshop is exposed at a given time.
 # Disconnect the workshop container from the local host system.
 just workshop disconnect
 
-# Connect the workshop container's internal services to the local host system.
+# Connect the workshop container's internal services to localhost only.
 just workshop connect
+
+# Expose the workshop container's internal services on all host network
+# interfaces. Use only for short-lived demos on a trusted network.
+just workshop connect-expose
 
 # Disconnect and then teardown the internal testflinger services.
 just workshop teardown
@@ -323,6 +327,45 @@ uvx --with tox-uv tox run -e schema
 ```
 
 Commit the updated spec file with your API changes.
+
+If your change added, removed, or changed the `@require_role` roles on an
+endpoint, you must also update and commit the API role-permission matrix
+(`docs/reference/api-roles-table.txt`), which is generated from the same
+OpenAPI spec and included into `docs/reference/api-roles.rst` via
+`.. include::`. The CI check will fail if it is out of sync.
+
+If your change added or removed a no-authentication endpoint, also update
+the hand-written "Endpoints that require no authentication" table in
+`docs/reference/api-roles.rst`; that table is maintained by hand because
+its rationale is prose that cannot be derived from the code.
+
+To check if the reference is up-to-date, run:
+
+```shell
+just server::check-roles-docs
+```
+
+Alternatively, within the `server/` directory:
+
+```shell
+cd server/
+uvx --with tox-uv tox run -e check-roles-docs
+```
+
+If the check fails, regenerate the reference:
+
+```shell
+just server::roles-docs
+```
+
+Or alternatively, within the `server/` directory:
+
+```shell
+cd server/
+uvx --with tox-uv tox run -e roles-docs
+```
+
+Commit the updated reference file with your API changes.
 
 ## Signed Commits
 

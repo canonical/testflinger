@@ -233,6 +233,33 @@
         ],
         "type": "object"
       },
+      "Event": {
+        "additionalProperties": false,
+        "properties": {
+          "detail": {
+            "type": "string"
+          },
+          "event_name": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "status": {
+            "nullable": true,
+            "type": "integer"
+          },
+          "timestamp": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "event_name",
+          "timestamp"
+        ],
+        "type": "object"
+      },
       "HTTPError": {
         "properties": {
           "detail": {
@@ -342,6 +369,25 @@
         "required": [
           "event_name",
           "timestamp"
+        ],
+        "type": "object"
+      },
+      "JobEventsOut": {
+        "additionalProperties": false,
+        "properties": {
+          "events": {
+            "items": {
+              "$ref": "#/components/schemas/Event"
+            },
+            "type": "array"
+          },
+          "job_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "events",
+          "job_id"
         ],
         "type": "object"
       },
@@ -653,6 +699,10 @@
           "job_state": {
             "type": "string"
           },
+          "job_state_changed_at": {
+            "format": "date-time",
+            "type": "string"
+          },
           "provision_output": {
             "type": "string"
           },
@@ -727,6 +777,10 @@
             "type": "integer"
           },
           "job_state": {
+            "type": "string"
+          },
+          "job_state_changed_at": {
+            "format": "date-time",
             "type": "string"
           },
           "provision_status": {
@@ -1471,6 +1525,53 @@
         "x-permission-roles": [
           "admin",
           "manager"
+        ]
+      }
+    },
+    "/v1/events/job/{job_id}": {
+      "get": {
+        "description": ":param job_id: UUID as a string for the job",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobEventsOut"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          }
+        },
+        "summary": "Get all available events associated with a specific job_id.",
+        "tags": [
+          "V1"
+        ],
+        "x-permission-roles": [
+          "admin",
+          "manager",
+          "contributor",
+          "agent"
         ]
       }
     },
@@ -2660,7 +2761,7 @@
     },
     "/v1/result/{job_id}/status": {
       "get": {
-        "description": "This is a lightweight alternative to GET /result/<job_id> that omits\nlog data (output and serial).  Use this when only the job state or\nphase statuses are needed.\n\n:param job_id: UUID as a string for the job\n:raises HTTPError: If the job_id is not a valid UUID",
+        "description": "This is a lightweight alternative to GET /result/<job_id> that omits\nlog data (output and serial). Use this when only the job state,\nits last change time, or phase statuses are needed. The optional\njob_state_changed_at timestamp uses UTC by convention and is absent\nfor older jobs that have not recorded a state change.\n\n:param job_id: UUID as a string for the job\n:raises HTTPError: If the job_id is not a valid UUID",
         "parameters": [
           {
             "in": "path",
@@ -2697,7 +2798,7 @@
             "description": "Not found"
           }
         },
-        "summary": "Return job state and phase exit codes for a specified job_id.",
+        "summary": "Return job state, state-change timestamp and phase exit codes.",
         "tags": [
           "V1"
         ],

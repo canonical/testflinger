@@ -5,7 +5,7 @@ Host Charm. To learn more about the general contribution guidelines for the
 Testflinger project, refer to the [Testflinger contribution guide].
 
 To make contributions to this charm, you'll need a working [development setup].
-If you are setting up a VM manually, you may want to use [`concierge`]. To get
+If you are setting up a VM manually, you may want to use [`concierge`][concierge]. To get
 started run:
 
 ```shell
@@ -44,8 +44,83 @@ uvx --with tox-uv tox                           # runs 'format', 'lint', and 'un
 Build the charm with [`charmcraft`][charmcraft]:
 
 ```shell
-charmcraft pack
+# On an AMD64 build host:
+charmcraft pack --platform ubuntu@22.04:amd64 --use-lxd
+
+# Ubuntu 24.04 remains supported on AMD64:
+charmcraft pack --platform ubuntu@24.04:amd64 --use-lxd
+
+# On an ARM64 build host:
+charmcraft pack --platform ubuntu@22.04:arm64 --use-lxd
+charmcraft pack --platform ubuntu@24.04:arm64 --use-lxd
 ```
+
+Both ARM64 and AMD64 target Ubuntu 22.04 and Ubuntu 24.04.
+The build host may run a newer Ubuntu release; Charmcraft uses an isolated
+build environment. These commands
+are native builds, not cross-compilation instructions. Adding ARM64 platform
+metadata does not itself publish an ARM64 revision to Charmhub.
+
+### Validate a native build
+
+Use an existing development machine controller with matching architecture.
+Do not run the destructive `just setup`/Concierge preparation on an established
+lab host merely to run tests; it is intended for disposable development runners.
+
+Select the appropriate controller, then run from this charm directory:
+
+```shell
+# On ARM64; use the amd64 artifact on AMD64:
+TEST_BASE=22.04 CHARM_PATH="/absolute/path/to/the/packed.charm" \
+uvx --with tox-uv tox run -e integration -- --juju-dump-logs logs
+```
+
+The suite deploys with a constraint matching the test runner's architecture and
+checks the guest matches `TEST_BASE`. Use `TEST_BASE=24.04` for a Noble artifact
+on either architecture. If unset, the base defaults to the test runner's OS version, matching
+`just integration`/`pack-host`; explicitly set it when host and guest bases differ.
+It exercises workload installation, update
+actions, and a transition from one to two agents running under Supervisor.
+Set `CHARM_PATH` explicitly when multiple packed artifacts exist.
+
+The initial deployment wait allows 20 minutes for cold image provisioning and
+dependency installation, including on SD-backed hosts. This is a test deadline,
+not a delay added to every run. If it expires, inspect the captured install logs
+before retrying. Package checks use installed source metadata so both regular
+and editable local installs are accepted, but installs from another source fail.
+Use pytest's `-x` option to stop at the first failure and avoid cascading tests
+after an incomplete deployment, for example by appending it after `--` in the
+tox command above. The workload is installed from upstream at runtime; packing
+the charm does not pin that workload to the feature branch's source revision.
+
+Authentication is bypassed using a mock token in this integration suite. Passing
+it is not proof of real server authentication, successful jobs, or USB access.
+Before considering ARM64 release-ready, validate the complete install (including
+the MAAS snap, Docker, uv, and device-connector dependencies) and real smoke jobs
+on an ARM64 host. Keep credentials and tokens out of test reports.
+
+The CI integration matrix covers Jammy and Noble on both AMD64 and ARM64.
+It also preserves upstream's Noble s390x coverage. Matching host/base jobs use
+`just integration` and its destructive-mode CI build. Jammy ARM64 runs on a
+Noble ARM64 host, so only that job builds in LXD with an explicit Jammy target.
+Charm unit tests run once on the AMD64 runner; native build and integration
+jobs provide architecture-specific coverage.
+Each clean CI job builds exactly one platform and uses automatic single-artifact
+discovery; local directories containing multiple artifacts require `CHARM_PATH`.
+The release workflow builds all declared bases for each architecture using LXD.
+Its runner matrix lists AMD64, ARM64, then s390x and retains `max-parallel: 1`
+to avoid concurrent release uploads. The native ARM64 runner builds both Jammy
+and Noble. Post-release and scheduled security scans cover all five platforms.
+Scans download the requested architecture and base and inspect the unpacked
+charm; they do not execute its ARM64 or s390x code on the AMD64 scan runner.
+
+Release and scan jobs are not exercised by pull-request integration tests.
+Post-release scans inspect the released channel; weekly scans inspect stable.
+The target channel must contain revisions for each platform, so the first ARM64
+stable promotion must be coordinated with maintainers before weekly scans can
+succeed for ARM64. Adding these workflows does not itself publish a release.
+The configuration-repository interface, Supervisor management, and AMD64 bases
+are unchanged. Direct multi-agent Juju configuration is separate follow-up work.
 
 [Testflinger contribution guide]: ../../../CONTRIBUTING.md
 [development setup]: https://documentation.ubuntu.com/juju/3.6/howto/manage-your-deployment/#set-up-your-deployment-local-testing-and-development

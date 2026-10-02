@@ -130,6 +130,32 @@ def test_agent_detail_no_provision_log(testapp):
     assert re.search(pattern, response)
 
 
+def test_agent_detail_renders_active_job(testapp):
+    """Test that an agent detail page displays its active job."""
+    mongo = mongomock.MongoClient()
+    mongo.db.agents.insert_one(
+        {
+            "name": "agent1",
+            "job_id": "job-1",
+            "updated_at": datetime.now(tz=timezone.utc),
+        }
+    )
+    mongo.db.jobs.insert_one(
+        {
+            "job_id": "job-1",
+            "submitted_by": "client-A",
+            "job_data": {"job_queue": "test"},
+            "result_data": {"job_state": "running"},
+        }
+    )
+
+    with patch("testflinger.database.mongo", mongo):
+        with testapp.test_request_context():
+            response = agent_detail("agent1")
+
+    assert 'href="/jobs/job-1"' in str(response)
+
+
 def test_agent_not_found(testapp):
     """
     Test that the agent_detail fails gracefully when
@@ -276,6 +302,103 @@ def test_job_results_mongo_logs(testapp):
     assert "Exit Status:</span> 1" in html
 
 
+def test_job_detail_shows_activity_events(testapp):
+    """Test that job_detail renders stored events in the Activity section."""
+    mongo = mongomock.MongoClient()
+    job_id = str(uuid.uuid4())
+    mongo.db.jobs.insert_one(
+        {
+            "job_id": job_id,
+            "created_at": datetime.now(timezone.utc),
+            "job_data": {"job_queue": "queue1"},
+            "result_data": {"job_state": "complete"},
+        }
+    )
+    mongo.db.jobs_events.insert_one(
+        {
+            "job_id": job_id,
+            "events": [
+                {
+                    "event_name": "job_submitted",
+                    "timestamp": datetime(
+                        2026, 1, 1, 11, 0, 0, tzinfo=timezone.utc
+                    ),
+                    "message": "Job submitted by user bob into queue queue1.",
+                    "detail": "",
+                },
+                {
+                    "event_name": "job_phase_started",
+                    "timestamp": datetime(
+                        2026, 1, 1, 11, 15, 0, tzinfo=timezone.utc
+                    ),
+                    "message": "Phase setup started.",
+                    "detail": "",
+                },
+                {
+                    "event_name": "job_phase_completed",
+                    "timestamp": datetime(
+                        2026, 1, 1, 11, 30, 0, tzinfo=timezone.utc
+                    ),
+                    "message": "Phase setup completed with exit code 0",
+                    "detail": "",
+                    "status": 0,
+                },
+                {
+                    "event_name": "job_phase_started",
+                    "timestamp": datetime(
+                        2026, 1, 1, 12, 0, 0, tzinfo=timezone.utc
+                    ),
+                    "message": "Phase provision started.",
+                    "detail": "",
+                },
+                {
+                    "event_name": "job_phase_completed",
+                    "timestamp": datetime(
+                        2026, 1, 1, 12, 30, 0, tzinfo=timezone.utc
+                    ),
+                    "message": "Phase provision completed with exit code 1",
+                    "detail": "",
+                    "status": 1,
+                },
+            ],
+        }
+    )
+    with patch("testflinger.database.mongo", mongo):
+        with testapp.test_request_context():
+            response = job_detail(job_id)
+
+    html = str(response)
+    assert "Activity" in html
+    assert "Phase setup started." in html
+    assert "Phase setup completed with exit code 0" in html
+    assert "Phase provision started." in html
+    assert "Phase provision completed with exit code 1" in html
+    assert "2026-01-01 12:00:00" in html
+    assert '<i class="p-icon--success" aria-label="Success"></i>' in html
+    assert '<i class="p-icon--error" aria-label="Error"></i>' in html
+    assert '<i class="p-icon--information" aria-label="Info"></i>' in html
+
+
+def test_job_detail_no_events_shows_placeholder(testapp):
+    """Test that the Activity section shows a placeholder with no events."""
+    mongo = mongomock.MongoClient()
+    job_id = str(uuid.uuid4())
+    mongo.db.jobs.insert_one(
+        {
+            "job_id": job_id,
+            "created_at": datetime.now(timezone.utc),
+            "job_data": {"job_queue": "queue1"},
+            "result_data": {"job_state": "complete"},
+        }
+    )
+    with patch("testflinger.database.mongo", mongo):
+        with testapp.test_request_context():
+            response = job_detail(job_id)
+
+    html = str(response)
+    assert "No events available for this job." in html
+
+
 def test_build_job_yaml():
     """build_job_yaml produces a submittable, ordered job definition."""
     job_data = {
@@ -298,6 +421,26 @@ def test_build_job_yaml():
     assert job_yaml.startswith("job_queue: queue1")
     assert "test_cmds: |" in job_yaml
     assert "should-not-appear" not in job_yaml
+
+
+def test_build_job_yaml_trailing_whitespace():
+    """build_job_yaml uses literal block style even with trailing whitespace.
+
+    PyYAML silently falls back to double-quoted style when any line has
+    trailing whitespace; the representer must strip it first.
+    """
+    job_data = {
+        "job_queue": "queue1",
+        "test_data": {"test_cmds": "echo hello  \nlsb_release -a \n"},
+    }
+
+    job_yaml = build_job_yaml(job_data)
+
+    # Must still use literal block style, not double-quoted
+    assert "test_cmds: |" in job_yaml
+    # Round-trip value equals the stripped version (trailing spaces removed)
+    parsed = yaml.safe_load(job_yaml)
+    assert parsed["test_data"]["test_cmds"] == "echo hello\nlsb_release -a\n"
 
 
 def test_job_definition_fields_derived_from_schema():
@@ -454,6 +597,27 @@ def test_get_agents_active_job():
     assert by_name["agent1"]["job"]["submitted_by"] == "client-A"
     assert by_name["agent2"]["job"]["submitted_by"] == "client-B"
     assert by_name["agent3"].get("job") is None
+
+
+def test_agents_view_renders_active_job_and_submitter(testapp):
+    """Test the agents page uses the enriched agent query."""
+    mongo = mongomock.MongoClient()
+    mongo.db.agents.insert_one(
+        {
+            "name": "agent1",
+            "job_id": "job-1",
+            "state": "running",
+            "updated_at": datetime.now(timezone.utc),
+        }
+    )
+    mongo.db.jobs.insert_one({"job_id": "job-1", "submitted_by": "client-A"})
+
+    with patch("testflinger.database.mongo", mongo):
+        response = testapp.test_client().get("/agents")
+
+    assert response.status_code == HTTPStatus.OK
+    assert b"job-1" in response.data
+    assert b"client-A" in response.data
 
 
 def test_get_agents_no_jobs():

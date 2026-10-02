@@ -66,13 +66,30 @@ test:
 check: lint format test
     @echo 'Agent charm checks done!'
 
-[doc('Run integration tests.')]
+[doc('Remove tox environments (forces full reinstall on next run).')]
+[group('venv')]
+clean:
+    @rm -rf .tox
+
+[doc('Run integration tests. Builds only for the host platform.')]
 [group('test')]
 [positional-arguments]
-integration *args: pack
+integration *args: pack-host
     @uvx tox run -e integration -- "$@"
 
-[doc('Build the charm package')]
+[doc('Build the charm package (all bases for host architecture)')]
 [group('package')]
 pack:
     @charmcraft pack
+
+[doc('Build the charm package for the host platform only (destructive in CI, LXD locally)')]
+[group('package')]
+pack-host:
+    #!/usr/bin/env bash
+    PLATFORM="ubuntu@$(. /etc/os-release && echo $VERSION_ID):$(dpkg --print-architecture)"
+    if [ "{{ env('CI', 'false') }}" = "true" ]; then
+        # Destructive mode needs root to install build-packages
+        /usr/bin/sudo charmcraft pack --platform "$PLATFORM" --destructive-mode
+    else
+        charmcraft pack --platform "$PLATFORM"
+    fi

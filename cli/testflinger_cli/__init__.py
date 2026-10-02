@@ -1346,9 +1346,6 @@ class TestflingerCli:
                 if agent["state"] != "offline"
                 and agent["name"] in exclude_agents
             ]
-            print(agents)
-            print(exclude_agents)
-            print(online_excluded_agents)
             if online_excluded_agents:
                 message += (
                     "\nAdditionally, the following agents ARE online, "
@@ -1357,7 +1354,7 @@ class TestflingerCli:
                 )
                 for agent in online_excluded_agents:
                     message += f"\n\t- {agent['name']}"
-            print(message)
+            print(message, file=sys.stderr)
             sys.exit(1)
 
         # else, wait_for_available_agents is set:

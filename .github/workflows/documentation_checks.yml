@@ -83,3 +83,38 @@ jobs:
         working-directory: docs/
         run: |
           make linkcheck
+
+  api-roles:
+    name: API roles table check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0  # full history for merge-base diff
+
+      # Only runs the server-side check if the generated file has changed in this PR.
+      - name: Detect changes to the API roles table
+        id: detect
+        run: |
+          set -euo pipefail
+          file="docs/reference/api-roles-table.txt"
+          git fetch --no-tags origin main
+          # Compare against main's merge-base to list files this branch changed.
+          if git diff --name-only origin/main...HEAD | grep -qx "$file"; then
+            echo "$file changed; will validate it is up to date."
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "$file unchanged; skipping uv setup and the roles check."
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install uv and set up Python
+        if: steps.detect.outputs.changed == 'true'
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9  # v9.0.0
+
+      - name: Check the API roles table is up to date
+        if: steps.detect.outputs.changed == 'true'
+        working-directory: server
+        run: uvx tox run -e check-roles-docs
