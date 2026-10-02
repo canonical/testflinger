@@ -18,7 +18,13 @@
 from itertools import pairwise
 
 import pytest
-from testflinger_common.enums import ServerRoles
+from testflinger_common.enums import (
+    AgentMode,
+    AgentState,
+    JobState,
+    ServerRoles,
+    TestPhase,
+)
 
 
 class TestServerRoles:
@@ -66,3 +72,34 @@ class TestServerRoles:
     def test_role_ordering(self, sorted_roles):
         """Test that roles are ordered by privilege hierarchy."""
         assert sorted(ServerRoles) == sorted_roles
+
+
+class TestPhaseEnumInvariants:
+    """Enforce superset relationships: TestPhase, AgentState, JobState."""
+
+    def test_agent_state_is_superset_of_test_phase(self):
+        """AgentState must include every TestPhase value."""
+        assert {phase.value for phase in TestPhase} <= {
+            state.value for state in AgentState
+        }
+
+    def test_job_state_is_superset_of_test_phase(self):
+        """JobState must include every TestPhase value."""
+        assert {phase.value for phase in TestPhase} <= {
+            state.value for state in JobState
+        }
+
+    def test_agent_mode_values(self):
+        """AgentMode must contain exactly the four expected modes."""
+        assert set(AgentMode) == {
+            AgentMode.ONLINE,
+            AgentMode.MAINTENANCE,
+            AgentMode.OFFLINE,
+            AgentMode.RESTART,
+        }
+
+    def test_offline_and_restart_have_no_agent_state(self):
+        """OFFLINE and RESTART are not valid AgentState values."""
+        state_values = {s.value for s in AgentState}
+        assert AgentMode.OFFLINE not in state_values
+        assert AgentMode.RESTART not in state_values
