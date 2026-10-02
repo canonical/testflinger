@@ -141,15 +141,28 @@ def job_post(json_data: dict) -> dict:
     # because it will get modified by submit_job and other things it calls
     database.add_job(job)
 
+    # Use variables to reuse for events and metrics db calls
+    submitter = g.client_id if g.client_id else "anonymous"
+    job_id = job["job_id"]
+    queue = job["job_data"]["job_queue"]
+
     database.add_job_event(
-        job_id=job["job_id"],
+        job_id=job_id,
         event=events.build_event(
             event_type=JobEvent.JOB_SUBMITTED,
-            client_id=g.client_id,
-            queue_name=job["job_data"]["job_queue"],
+            client_id=submitter,
+            queue_name=queue,
         ),
     )
-    return jsonify(job_id=job.get("job_id"))
+
+    # Define job statistics to preserve on TF MongoDB internal database.
+    job_statistics = {
+        "queue": queue,
+        "submitted_by": submitter,
+        "created_at": job["created_at"],
+    }
+    database.add_job_statistics(job_id, job_statistics)
+    return jsonify(job_id=job_id)
 
 
 def validate_secrets(data: dict):
@@ -1629,3 +1642,51 @@ def get_job_events(job_id):
 
     job_events = database.get_job_events(job_id)
     return jsonify({"job_id": job_id, "events": job_events})
+
+
+@v1.get("/statistics/jobs/totals")
+@authenticate
+@require_role(ServerRoles.ADMIN, ServerRoles.MANAGER, ServerRoles.CONTRIBUTOR)
+@v1.input(schemas.JobStatisticsQuery, location="query")
+@v1.output(schemas.JobStatisticsTotalsOut)
+def get_jobs_statistics_totals(query_data: dict) -> dict:
+    """Get total job submission counts grouped by queue or submitter.
+
+    This supports additional filtering by date range, queues or submitter.
+
+    :param query_data: Dictionary containing query parameters for filtering
+    :return: Total counts based on specified filter.
+    """
+    return jsonify(
+        totals=database.get_job_statistics_totals(
+            group_by=query_data["group_by"],
+            start_at=query_data.get("start_at"),
+            end_at=query_data.get("end_at"),
+            queues=query_data.get("queues"),
+            submitters=query_data.get("submitters"),
+        ),
+    )
+
+
+@v1.get("/statistics/jobs/daily")
+@authenticate
+@require_role(ServerRoles.ADMIN, ServerRoles.MANAGER, ServerRoles.CONTRIBUTOR)
+@v1.input(schemas.JobStatisticsQuery, location="query")
+@v1.output(schemas.JobStatisticsDailyOut)
+def get_jobs_statistics_daily(query_data: dict) -> dict:
+    """Get per-day job submission counts grouped by queue or submitter.
+
+    This supports additional filtering by date range, queues or submitter.
+
+    :param query_data: Dictionary containing query parameters for filtering
+    :return: Daily counts based on specified filter.
+    """
+    return jsonify(
+        daily=database.get_job_statistics_daily(
+            group_by=query_data["group_by"],
+            start_at=query_data.get("start_at"),
+            end_at=query_data.get("end_at"),
+            queues=query_data.get("queues"),
+            submitters=query_data.get("submitters"),
+        ),
+    )
