@@ -26,6 +26,7 @@ from testflinger_common.enums import LogType
 from testflinger_agent.client import LogEndpointInput
 from testflinger_agent.client import TestflingerClient as _TestflingerClient
 from testflinger_agent.errors import TFServerError
+from testflinger_agent.event_emitter import normalize_webhooks
 
 
 class TestClient:
@@ -301,14 +302,64 @@ class TestClient:
                 "detail": "",
             },
         ]
-        client.post_status_update("myjobqueue", webhook, events, job_id)
+        client.post_status_update("myjobqueue", [webhook], events, job_id)
         expected_json = {
             "agent_id": client.config.get("agent_id"),
             "job_queue": "myjobqueue",
-            "job_status_webhook": webhook,
+            "job_status_webhooks": [webhook],
             "events": events,
         }
         assert requests_mock.last_request.json() == expected_json
+
+    def test_post_status_update_multiple_webhooks(self, client, requests_mock):
+        """
+        Test that the agent sends a status update containing every
+        configured webhook.
+        """
+        webhooks = ["http://foo", "http://bar"]
+        job_id = str(uuid.uuid1())
+        requests_mock.post(
+            f"http://127.0.0.1:8000/v1/job/{job_id}/events",
+            status_code=HTTPStatus.OK,
+        )
+        client.post_status_update("myjobqueue", webhooks, [], job_id)
+        assert (
+            requests_mock.last_request.json()["job_status_webhooks"]
+            == webhooks
+        )
+
+    def test_post_status_update_without_webhooks(self, client, requests_mock):
+        """Test that no status update is sent without any webhook."""
+        job_id = str(uuid.uuid1())
+        requests_mock.post(
+            f"http://127.0.0.1:8000/v1/job/{job_id}/events",
+            status_code=HTTPStatus.OK,
+        )
+        client.post_status_update("myjobqueue", [], [], job_id)
+        assert not requests_mock.called
+
+    def test_post_status_update_webhook_objects(self, client, requests_mock):
+        """
+        Test that webhooks defined as objects are forwarded to the server
+        unchanged, so that the server can decide how to deliver them.
+        """
+        webhooks = [
+            "https://chat.example.com/hooks/abcdef",
+            {
+                "url": "https://mywebhook/v1/events",
+                "type": "default",
+            },
+        ]
+        job_id = str(uuid.uuid1())
+        requests_mock.post(
+            f"http://127.0.0.1:8000/v1/job/{job_id}/events",
+            status_code=HTTPStatus.OK,
+        )
+        client.post_status_update("myjobqueue", webhooks, [], job_id)
+        assert (
+            requests_mock.last_request.json()["job_status_webhooks"]
+            == webhooks
+        )
 
     def test_status_update_endpoint_error(self, client, requests_mock, caplog):
         """
@@ -320,7 +371,7 @@ class TestClient:
             f"http://127.0.0.1:8000/v1/job/{job_id}/events",
             status_code=HTTPStatus.NOT_FOUND,
         )
-        client.post_status_update("", "", [], job_id)
+        client.post_status_update("", ["http://foo"], [], job_id)
         assert "Unable to post status updates" in caplog.text
 
     def test_get_agent_data(self, client, requests_mock):
@@ -850,3 +901,26 @@ class TestClient:
 
         # No retry should have been attempted
         assert len(job_requests) == 1
+
+
+class TestNormalizeWebhooks:
+    """Tests for normalizing the job webhook definition."""
+
+    @pytest.mark.parametrize(
+        "definition,expected",
+        (
+            (None, []),
+            ("", []),
+            ([], []),
+            ("https://myhook", ["https://myhook"]),
+            (["https://a", "https://b"], ["https://a", "https://b"]),
+            ({"url": "https://a"}, [{"url": "https://a"}]),
+            (
+                ["https://a", {"url": "https://b", "type": "mattermost"}],
+                ["https://a", {"url": "https://b", "type": "mattermost"}],
+            ),
+        ),
+    )
+    def test_normalize_webhooks(self, definition, expected):
+        """Test that webhook definitions are normalized into a list."""
+        assert normalize_webhooks(definition) == expected

@@ -449,7 +449,7 @@ class TestflingerCharm(ops.CharmBase):
             "HTTPS_PROXY": self.typed_config.https_proxy,
             "NO_PROXY": self.typed_config.no_proxy,
             "ENABLE_PROXYFIX": str(self.typed_config.enable_proxyfix),
-            "WEBHOOK_URL": self.typed_config.webhook_url,
+            "WEBHOOK_URLS": self.typed_config.webhook_urls,
             "WEBHOOK_AUTH": self.typed_config.webhook_auth,
             "WEB_SECRET_KEY": self.typed_config.web_secret_key,
             "OIDC_CLIENT_ID": self.typed_config.oidc_client_id,

@@ -559,6 +559,42 @@ class TestClient:
         assert event_list[-1]["detail"] == "normal_exit"
         assert event_name_list == expected_event_name_list
 
+    def test_post_agent_status_update_multiple_webhooks(
+        self, agent, requests_mock
+    ):
+        """Test that a job can define a list of status webhooks."""
+        self.config["test_command"] = "echo test1"
+        job_id = str(uuid.uuid1())
+        webhooks = ["https://mywebhook", "https://myotherwebhook"]
+        fake_job_data = {
+            "job_id": job_id,
+            "job_queue": "test",
+            "test_data": {"test_cmds": "foo"},
+            "job_status_webhook": webhooks,
+        }
+        requests_mock.get(
+            "http://127.0.0.1:8000/v1/job?queue=test",
+            [{"text": json.dumps(fake_job_data)}, {"text": "{}"}],
+        )
+        requests_mock.get(
+            f"http://127.0.0.1:8000/v1/agents/data/{self.config['agent_id']}",
+            json={"state": AgentState.WAITING, "restricted_to": {}},
+        )
+        status_url = f"http://127.0.0.1:8000/v1/job/{job_id}/events"
+        requests_mock.post(status_url, status_code=HTTPStatus.OK)
+        with patch("shutil.rmtree"):
+            agent.process_jobs()
+
+        status_update_requests = list(
+            filter(
+                lambda req: req.url == status_url,
+                requests_mock.request_history,
+            )
+        )
+        assert status_update_requests
+        for request in status_update_requests:
+            assert request.json()["job_status_webhooks"] == webhooks
+
     def test_post_agent_status_update_cancelled(self, agent, requests_mock):
         self.config["test_command"] = "echo test1"
         job_id = str(uuid.uuid1())

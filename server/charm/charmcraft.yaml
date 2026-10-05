@@ -129,10 +129,12 @@ config:
         Enable Flask's ProxyFix middleware.
         Required when the application is behind a reverse proxy and OIDC is enabled,
         so that redirects from the OIDC provider can be properly handled.
-    webhook_url:
+    webhook_urls:
       type: string
       default: "http://test-observer-api.local/"
-      description: The URL for the webhook to send notifications to.
+      description: |
+        Comma separated list of URLs for the webhooks that jobs are allowed
+        to send notifications to.
     webhook_auth:
       type: string
       default: ""

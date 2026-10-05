@@ -18,9 +18,10 @@
 import importlib.metadata
 import os
 import uuid
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from http import HTTPStatus
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse
 
 import requests
 from apiflask import APIBlueprint, abort
@@ -33,7 +34,7 @@ from urllib3.util.retry import Retry
 from werkzeug.routing import BaseConverter
 
 from testflinger import database, events
-from testflinger.api import auth, helpers, schemas
+from testflinger.api import auth, helpers, schemas, webhooks
 from testflinger.api.auth import authenticate, require_role
 from testflinger.logs import LogFragment, MongoLogHandler
 from testflinger.owasp import OWASPLogger
@@ -902,13 +903,13 @@ def agents_provision_logs_post(agent_name, json_data):
 @v1.input(schemas.StatusUpdate, location="json")
 def agents_status_post(job_id, json_data):
     """Post status updates from the agent to the server to be forwarded
-    to the server-configured webhook url.
+    to the webhook urls allowed by the server configuration.
 
     The json sent to this endpoint may contain data such as the following:
     {
         "agent_id": "<string>",
         "job_queue": "<string>",
-        "job_status_webhook": "<URL as string>",
+        "job_status_webhooks": ["<URL as string>", ...],
         "events": [
         {
             "event_name": "<string enum of events>",
@@ -920,79 +921,198 @@ def agents_status_post(job_id, json_data):
     }
 
     :param job_id: UUID as a string for the job
-    :param json_data: JSON data containing the status updates and webhook URL
+    :param json_data: JSON data containing the status updates and webhook URLs
     """
     if not check_valid_uuid(job_id):
         abort(HTTPStatus.BAD_REQUEST, message="Invalid job_id specified")
     if not database.job_exists(job_id):
         abort(HTTPStatus.NOT_FOUND, message="Job not found")
 
-    # Webhook specified in the job definition
-    job_webhook = json_data.pop("job_status_webhook")
+    # Webhooks specified in the job definition, always a list at this point
+    job_webhooks = json_data.pop("job_status_webhooks")
 
-    # Webhook base URL configured on the server
-    authorized_webhook_url = os.environ.get("WEBHOOK_URL")
-    if not authorized_webhook_url:
+    # Webhook base URLs configured on the server
+    authorized_webhook_urls = os.environ.get("WEBHOOK_URLS", "")
+
+    # Only these domains are permitted endpoints
+    authorized_domains = {
+        urlparse(url.strip()).netloc
+        for url in authorized_webhook_urls.split(",")
+        if url.strip()
+    }
+    authorized_domains.discard("")
+
+    if not authorized_domains:
         # Abort if no webhook configured server-side
         abort(
             HTTPStatus.INTERNAL_SERVER_ERROR,
             message="Webhook URL not configured",
         )
 
-    # Parse both URLs; authorized_webhook_url is the only permitted
-    # endpoint to send requests to.
-    parsed_job_url = urlparse(job_webhook)
-    parsed_authorized_url = urlparse(authorized_webhook_url)
-
-    # Validate job_webhook is referring to the server-configured webhook URL
-    if (
-        parsed_job_url.scheme != parsed_authorized_url.scheme
-        or parsed_job_url.netloc != parsed_authorized_url.netloc
-    ):
+    try:
+        webhook_specs = [
+            webhooks.WebhookSpec.from_definition(job_webhook)
+            for job_webhook in job_webhooks
+        ]
+    except (KeyError, ValueError):
         abort(
-            HTTPStatus.FORBIDDEN,
-            message="Invalid job_status_webhook URL specified",
+            HTTPStatus.BAD_REQUEST,
+            message="Invalid job_status_webhooks specified",
         )
+
+    # Validate every job webhook refers to an authorized domain
+    for spec in webhook_specs:
+        if urlparse(spec.url).netloc not in authorized_domains:
+            abort(
+                HTTPStatus.FORBIDDEN,
+                message="Invalid job_status_webhooks URL specified",
+            )
 
     # Attempt to get optional authentication header from server configuration
     auth_headers = {}
     if webhook_auth := os.environ.get("WEBHOOK_AUTH"):
         auth_headers = {"Authorization": f"Bearer {webhook_auth}"}
 
-    try:
-        with requests.Session() as webhook_session:
-            retry_adapter = HTTPAdapter(
-                max_retries=Retry(
-                    total=1,
-                    allowed_methods=frozenset(["PUT"]),
-                )
-            )
-            webhook_session.mount(
-                f"{parsed_authorized_url.scheme}://", retry_adapter
-            )
-            response = webhook_session.put(
-                job_webhook,
-                json=json_data,
-                headers=auth_headers,
-                timeout=3,
-                allow_redirects=False,
-            )
+    job_url = urljoin(request.url_root, f"/jobs/{job_id}")
+    results = _deliver_webhooks(
+        webhook_specs, json_data, job_id, job_url, auth_headers
+    )
 
-            # Auth failures can happen if webhook authentication
-            # is no longer valid or missing entirely.
-            if response.status_code in (
-                HTTPStatus.UNAUTHORIZED,
-                HTTPStatus.FORBIDDEN,
-            ):
-                abort(
-                    HTTPStatus.INTERNAL_SERVER_ERROR,
-                    message="Webhook authentication failed",
+    successes = [result for result in results if result.response is not None]
+    failures = [result for result in results if result.response is None]
+
+    for failure in failures:
+        current_app.logger.warning(
+            "Unable to deliver status update for job %s to %s: %s",
+            job_id,
+            failure.spec.url,
+            failure.message,
+        )
+
+    if not successes:
+        # Every webhook failed, so report the first failure to the agent
+        abort(failures[0].status, message=failures[0].message)
+
+    last_response = successes[-1].response
+    return last_response.text, last_response.status_code
+
+
+@dataclass
+class WebhookResult:
+    """Outcome of delivering a status update to a single webhook."""
+
+    spec: webhooks.WebhookSpec
+    response: requests.Response | None = None
+    status: HTTPStatus = HTTPStatus.BAD_GATEWAY
+    message: str = ""
+
+
+def _deliver_webhooks(
+    webhook_specs: list[webhooks.WebhookSpec],
+    status_update: dict,
+    job_id: str,
+    job_url: str,
+    auth_headers: dict,
+) -> list[WebhookResult]:
+    """Deliver a status update to every webhook, in isolation.
+
+    Failures are recorded rather than raised, so that one broken webhook
+    cannot stop the others from being notified.
+
+    :param webhook_specs: the normalised webhook definitions
+    :param status_update: the status update posted by the agent
+    :param job_id: UUID as a string for the job
+    :param job_url: URL of the job in the Testflinger web UI
+    :param auth_headers: server-wide default webhook credential headers
+    :return: a :class:`WebhookResult` per webhook, in the original order
+    """
+    results = []
+    with requests.Session() as webhook_session:
+        retry_adapter = HTTPAdapter(
+            max_retries=Retry(
+                total=1,
+                allowed_methods=frozenset(["PUT", "POST"]),
+            )
+        )
+        for scheme in ("http://", "https://"):
+            webhook_session.mount(scheme, retry_adapter)
+
+        for spec in webhook_specs:
+            results.append(
+                _deliver_webhook(
+                    webhook_session,
+                    spec,
+                    status_update,
+                    job_id,
+                    job_url,
+                    auth_headers,
                 )
-            return response.text, response.status_code
+            )
+    return results
+
+
+def _deliver_webhook(
+    webhook_session: requests.Session,
+    spec: webhooks.WebhookSpec,
+    status_update: dict,
+    job_id: str,
+    job_url: str,
+    auth_headers: dict,
+) -> WebhookResult:
+    """Deliver a status update to a single webhook.
+
+    :return: the outcome of the delivery attempt
+    """
+    try:
+        webhook_request = webhooks.build_request(
+            spec,
+            status_update,
+            job_id,
+            job_url=job_url,
+            auth_headers=auth_headers,
+        )
+    except webhooks.WebhookError as error:
+        return WebhookResult(
+            spec=spec,
+            status=HTTPStatus.INTERNAL_SERVER_ERROR,
+            message=str(error),
+        )
+
+    try:
+        response = webhook_session.request(
+            webhook_request.method,
+            webhook_request.url,
+            json=webhook_request.json,
+            headers=webhook_request.headers,
+            timeout=webhooks.WEBHOOK_TIMEOUT,
+            allow_redirects=False,
+        )
     except requests.exceptions.Timeout:
-        abort(HTTPStatus.GATEWAY_TIMEOUT, message="Webhook Timeout")
+        return WebhookResult(
+            spec=spec,
+            status=HTTPStatus.GATEWAY_TIMEOUT,
+            message="Webhook Timeout",
+        )
     except requests.exceptions.RequestException:
-        abort(HTTPStatus.BAD_GATEWAY, message="Webhook unreachable")
+        return WebhookResult(
+            spec=spec,
+            status=HTTPStatus.BAD_GATEWAY,
+            message="Webhook unreachable",
+        )
+
+    # Auth failures can happen if webhook authentication
+    # is no longer valid or missing entirely.
+    if response.status_code in (
+        HTTPStatus.UNAUTHORIZED,
+        HTTPStatus.FORBIDDEN,
+    ):
+        return WebhookResult(
+            spec=spec,
+            status=HTTPStatus.INTERNAL_SERVER_ERROR,
+            message="Webhook authentication failed",
+        )
+
+    return WebhookResult(spec=spec, response=response)
 
 
 def check_valid_uuid(job_id):

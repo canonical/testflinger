@@ -49,9 +49,10 @@ The following table lists the key elements that a job definition file should con
       |   - reserve 
       | For detailed information about how to define the data to include in each test phase, see :doc:`test-phases`.
   * - ``job_status_webhook``
-    - string
+    - webhook, or list of webhooks
     - /
-    - | (Optional) URL to send job status updates to. These updates originate from the agent and get posted to the server which then posts the update to the webhook. If no webhook is specified, these updates will not be generated.
+    - | (Optional) One or more webhooks to send job status updates to. These updates originate from the agent and get posted to the server which then posts the update to each webhook. Only webhooks allowed by the server configuration are accepted, otherwise the status update is rejected. If no webhook is specified, these updates will not be generated.
+      | Each webhook is either a URL string, in which case its type is inferred from the URL, or a mapping that specifies the type explicitly. Each webhook is delivered independently, so one failing webhook does not prevent the others from being notified. See :ref:`job-status-webhooks` for details.
   * - ``job_priority``
     - integer
     - 0
@@ -105,3 +106,50 @@ validation job, we can use ephemeral (in-memory) provisioning to speed up the pr
   MAAS 3.5.0 or later. If the ``ephemeral`` key is set to ``true`` but the MAAS version 
   does not support ephemeral deployments, the key will be ignored and the deployment will 
   proceed without ephemeral provisioning.
+
+.. _job-status-webhooks:
+
+Job status webhooks
+-----------------------------
+
+The ``job_status_webhook`` field accepts a single webhook or a list of webhooks.
+A webhook given as a plain URL string has its type inferred from that URL, which
+keeps existing job definitions working. A webhook given as a mapping accepts the
+following fields:
+
+.. list-table::
+  :header-rows: 1
+
+  * - Field
+    - Description
+  * - ``url``
+    - (Required) URL of the webhook endpoint. The URL must be allowed by the
+      server configuration, otherwise the status update is rejected.
+  * - ``type``
+    - (Optional) Either ``default`` or ``mattermost``. Inferred from the URL
+      when omitted: URLs under ``https://chat.canonical.com/hooks/`` are
+      treated as ``mattermost``, everything else as ``default``. Specify the
+      type explicitly for a Mattermost server at any other address.
+
+The supported webhook types are handled as follows:
+
+``default``
+  The status update is forwarded verbatim with an HTTP ``PUT``, using the
+  credential configured server-side. This is the default type.
+
+``mattermost``
+  A summary of the most recent event is posted to a Mattermost incoming webhook
+  with an HTTP ``POST``. Incoming webhooks are authenticated by the secret
+  embedded in their URL, so no credential is ever attached to these requests.
+
+For example:
+
+.. code-block:: yaml
+
+  job_queue: rpi4b
+  job_status_webhook:
+    - http://test-observer-api.local/
+    - https://chat.canonical.com/hooks/<incoming-webhook-key>
+  test_data:
+    test_cmds: |
+      ssh ubuntu@$DEVICE_IP lsb_release -a

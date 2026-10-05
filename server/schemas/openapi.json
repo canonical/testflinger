@@ -313,7 +313,64 @@
             "type": "string"
           },
           "job_status_webhook": {
-            "type": "string"
+            "oneOf": [
+              {
+                "format": "url",
+                "type": "string"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "type": {
+                    "enum": [
+                      "default",
+                      "mattermost"
+                    ],
+                    "type": "string"
+                  },
+                  "url": {
+                    "format": "url",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "url"
+                ],
+                "type": "object"
+              },
+              {
+                "items": {
+                  "oneOf": [
+                    {
+                      "format": "url",
+                      "type": "string"
+                    },
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "type": {
+                          "enum": [
+                            "default",
+                            "mattermost"
+                          ],
+                          "type": "string"
+                        },
+                        "url": {
+                          "format": "url",
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "url"
+                      ],
+                      "type": "object"
+                    }
+                  ]
+                },
+                "minItems": 1,
+                "type": "array"
+              }
+            ]
           },
           "name": {
             "type": "string"
@@ -440,7 +497,64 @@
             "type": "string"
           },
           "job_status_webhook": {
-            "type": "string"
+            "oneOf": [
+              {
+                "format": "url",
+                "type": "string"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "type": {
+                    "enum": [
+                      "default",
+                      "mattermost"
+                    ],
+                    "type": "string"
+                  },
+                  "url": {
+                    "format": "url",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "url"
+                ],
+                "type": "object"
+              },
+              {
+                "items": {
+                  "oneOf": [
+                    {
+                      "format": "url",
+                      "type": "string"
+                    },
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "type": {
+                          "enum": [
+                            "default",
+                            "mattermost"
+                          ],
+                          "type": "string"
+                        },
+                        "url": {
+                          "format": "url",
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "url"
+                      ],
+                      "type": "object"
+                    }
+                  ]
+                },
+                "minItems": 1,
+                "type": "array"
+              }
+            ]
           },
           "name": {
             "type": "string"
@@ -847,13 +961,69 @@
           "job_queue": {
             "type": "string"
           },
-          "job_status_webhook": {
-            "format": "url",
-            "type": "string"
+          "job_status_webhooks": {
+            "oneOf": [
+              {
+                "format": "url",
+                "type": "string"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "type": {
+                    "enum": [
+                      "default",
+                      "mattermost"
+                    ],
+                    "type": "string"
+                  },
+                  "url": {
+                    "format": "url",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "url"
+                ],
+                "type": "object"
+              },
+              {
+                "items": {
+                  "oneOf": [
+                    {
+                      "format": "url",
+                      "type": "string"
+                    },
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "type": {
+                          "enum": [
+                            "default",
+                            "mattermost"
+                          ],
+                          "type": "string"
+                        },
+                        "url": {
+                          "format": "url",
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "url"
+                      ],
+                      "type": "object"
+                    }
+                  ]
+                },
+                "minItems": 1,
+                "type": "array"
+              }
+            ]
           }
         },
         "required": [
-          "job_status_webhook"
+          "job_status_webhooks"
         ],
         "type": "object"
       },
@@ -1941,7 +2111,7 @@
     },
     "/v1/job/{job_id}/events": {
       "post": {
-        "description": "to the server-configured webhook url.\n\nThe json sent to this endpoint may contain data such as the following:\n{\n\"agent_id\": \"<string>\",\n\"job_queue\": \"<string>\",\n\"job_status_webhook\": \"<URL as string>\",\n\"events\": [\n{\n\"event_name\": \"<string enum of events>\",\n\"timestamp\": \"<datetime>\",\n\"detail\": \"<string>\"\n},\n...\n]\n}\n\n:param job_id: UUID as a string for the job\n:param json_data: JSON data containing the status updates and webhook URL",
+        "description": "to the webhook urls allowed by the server configuration.\n\nThe json sent to this endpoint may contain data such as the following:\n{\n\"agent_id\": \"<string>\",\n\"job_queue\": \"<string>\",\n\"job_status_webhooks\": [\"<URL as string>\", ...],\n\"events\": [\n{\n\"event_name\": \"<string enum of events>\",\n\"timestamp\": \"<datetime>\",\n\"detail\": \"<string>\"\n},\n...\n]\n}\n\n:param job_id: UUID as a string for the job\n:param json_data: JSON data containing the status updates and webhook URLs",
         "parameters": [
           {
             "in": "path",

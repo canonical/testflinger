@@ -22,6 +22,8 @@ from marshmallow_oneofschema import OneOfSchema
 from testflinger_common.duration import DurationParseError, parse_duration
 from testflinger_common.enums import ServerRoles, TestPhase
 
+from testflinger.api.webhooks import WebhookType
+
 ValidJobStates = (
     "setup",
     "provision",
@@ -37,6 +39,108 @@ ValidJobStates = (
 )
 
 TestPhases = [phase.value for phase in TestPhase]
+
+
+WebhookTypes = [webhook_type.value for webhook_type in WebhookType]
+
+#: Fields accepted by a webhook given as an object.
+WEBHOOK_FIELDS = ("url", "type")
+
+#: JSON schema fragment describing a webhook given as an object.
+WEBHOOK_OBJECT_SCHEMA = {
+    "type": "object",
+    "required": ["url"],
+    "properties": {
+        "url": {"type": "string", "format": "url"},
+        "type": {"type": "string", "enum": WebhookTypes},
+    },
+    "additionalProperties": False,
+}
+
+
+class WebhookUrls(fields.Field):
+    """Field accepting one or more webhook definitions.
+
+    A webhook may be given either as a plain URL string, in which case its
+    type is inferred from the URL, or as an object that specifies the type
+    explicitly. Deserialization always produces a list, so that single and
+    multiple webhooks can be handled uniformly.
+    """
+
+    def __init__(self, **kwargs):
+        """Document the accepted webhook formats in the OpenAPI schema."""
+        metadata = dict(kwargs.pop("metadata", {}))
+        webhook_item = {
+            "oneOf": [
+                {"type": "string", "format": "url"},
+                WEBHOOK_OBJECT_SCHEMA,
+            ]
+        }
+        metadata.setdefault(
+            "oneOf",
+            [
+                {"type": "string", "format": "url"},
+                WEBHOOK_OBJECT_SCHEMA,
+                {"type": "array", "items": webhook_item, "minItems": 1},
+            ],
+        )
+        super().__init__(metadata=metadata, **kwargs)
+
+    def _serialize(self, value, attr, obj, **kwargs):
+        if value is None:
+            return None
+        if isinstance(value, (str, dict)):
+            return [value]
+        return list(value)
+
+    @staticmethod
+    def _validate_webhook(webhook, url_validator):
+        """Validate a single webhook definition."""
+        if isinstance(webhook, str):
+            url_validator(webhook)
+            return
+
+        if not isinstance(webhook, dict):
+            raise ValidationError(
+                "Each webhook must be a URL string or an object"
+            )
+
+        unexpected = set(webhook) - set(WEBHOOK_FIELDS)
+        if unexpected:
+            raise ValidationError(
+                "Unexpected webhook fields: " + ", ".join(sorted(unexpected))
+            )
+
+        url = webhook.get("url")
+        if not isinstance(url, str):
+            raise ValidationError("Each webhook object must specify a url")
+        url_validator(url)
+
+        webhook_type = webhook.get("type")
+        if webhook_type is not None and webhook_type not in WebhookTypes:
+            raise ValidationError(
+                "Webhook type must be one of: " + ", ".join(WebhookTypes)
+            )
+
+    def _deserialize(self, value, attr, data, **kwargs):
+        if isinstance(value, (str, dict)):
+            webhooks = [value]
+        elif isinstance(value, list):
+            webhooks = value
+        else:
+            raise ValidationError(
+                "Expected a webhook, or a list of webhooks, where each "
+                "webhook is a URL string or an object"
+            )
+
+        if not webhooks:
+            raise ValidationError("At least one webhook must be specified")
+
+        url_validator = validators.URL()
+        for webhook in webhooks:
+            self._validate_webhook(webhook, url_validator)
+
+        return webhooks
 
 
 class ProvisionLogsIn(Schema):
@@ -412,7 +516,7 @@ class Job(Schema):
     test_data = fields.Nested(TestData, required=False)
     allocate_data = fields.Dict(required=False)
     reserve_data = fields.Nested(ReserveData, required=False)
-    job_status_webhook = fields.String(required=False)
+    job_status_webhook = WebhookUrls(required=False)
     job_priority = fields.Integer(required=False)
     exclude_agents = fields.List(
         fields.String(), required=False, load_default=list, dump_default=list
@@ -531,7 +635,7 @@ class StatusUpdate(Schema):
 
     agent_id = fields.String(required=False)
     job_queue = fields.String(required=False)
-    job_status_webhook = fields.URL(required=True)
+    job_status_webhooks = WebhookUrls(required=True)
     events = fields.List(fields.Nested(JobEvent), required=False)
 
 

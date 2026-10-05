@@ -346,7 +346,7 @@ def do_setup(
         test_data = {
             "agent_id": "agent1",
             "job_queue": "myjobqueue",
-            "job_status_webhook": webhook_fixture,
+            "job_status_webhooks": webhook_fixture,
             "events": [
                 {
                     "event_name": "my_event",

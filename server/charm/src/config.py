@@ -24,7 +24,7 @@ class TestflingerServerConfig(pydantic.BaseModel):
     https_proxy: str = ""
     no_proxy: str = "localhost,127.0.0.1,::1"
     enable_proxyfix: bool = False
-    webhook_url: str = "http://test-observer-api.local/"
+    webhook_urls: str = "http://test-observer-api.local/"
     webhook_auth: str = ""
     web_secret_key: str = ""
     oidc_client_id: str = ""
@@ -44,17 +44,25 @@ class TestflingerServerConfig(pydantic.BaseModel):
             )
         return value
 
-    @pydantic.field_validator("webhook_url")
+    @pydantic.field_validator("webhook_urls")
     @classmethod
-    def validate_webhook_url(cls, value):
-        """Validate that webhook_url includes a protocol and no paths."""
-        parsed_webhook = urlparse(value)
-        if parsed_webhook.scheme not in {"http", "https"}:
-            raise ValueError(
-                "webhook_url must include protocol (http:// or https://)"
-            )
-        if not parsed_webhook.netloc:
-            raise ValueError("webhook_url must include a host")
+    def validate_webhook_urls(cls, value):
+        """Validate the comma separated list of webhook urls.
+
+        Every url must include a protocol and a host.
+        """
+        urls = [url.strip() for url in value.split(",") if url.strip()]
+        if not urls:
+            raise ValueError("webhook_urls must include at least one url")
+
+        for url in urls:
+            parsed_webhook = urlparse(url)
+            if parsed_webhook.scheme not in {"http", "https"}:
+                raise ValueError(
+                    "webhook_urls must include protocol (http:// or https://)"
+                )
+            if not parsed_webhook.netloc:
+                raise ValueError("webhook_urls must include a host")
 
         return value
 
