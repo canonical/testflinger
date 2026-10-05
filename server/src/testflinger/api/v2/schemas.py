@@ -21,10 +21,13 @@ from testflinger_common.enums import AgentMode, AgentState
 
 from testflinger.api.schemas import AgentJob
 
+# Valid agent modes (v2 API constraint; v1 has no validation)
 ValidAgentModes = [mode.value for mode in AgentMode]
-# States an agent may report as input. UNKNOWN is an internal sentinel the
-# agent uses when it cannot determine its own state, so it is never a valid
-# incoming value even though it may appear on output.
+
+# Valid agent input states (excludes UNKNOWN which v1 can send)
+# UNKNOWN is excluded because v2 agents should report determinate states.
+# V1 agents can send "unknown" (the v1 API has no validation), but the
+# server translates it to ONLINE mode with no sub-state when stored.
 ValidAgentInputStates = [
     state.value for state in AgentState if state != AgentState.UNKNOWN
 ]
@@ -38,7 +41,6 @@ class AgentInV2(Schema):
     for :attr:`AgentMode.ONLINE` and :attr:`AgentMode.MAINTENANCE`;
     :attr:`AgentMode.OFFLINE` and :attr:`AgentMode.RESTART` carry no
     sub-state.  The mode/state combination is checked in the route handler.
-
 
     Note:
     ``commanded_mode`` and ``comment`` are intentionally absent: those are

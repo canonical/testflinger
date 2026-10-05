@@ -522,6 +522,10 @@ def _normalise_agent_mode(agent: dict) -> list[str]:
     ``state`` and no ``mode``: three legacy state values named a mode
     directly, everything else is what an agent does while ``ONLINE``.
 
+    When v1 agents send UNKNOWN state (because they cannot determine their
+    actual state), it is translated to ONLINE mode with no sub-state, ensuring
+    the database never stores UNKNOWN as the canonical representation.
+
     This is called on write to normalise v1 input into the canonical
     shape stored in the database, and on read as a data-age fallback
     for pre-mode records that have not yet been rewritten.  It never
@@ -545,6 +549,12 @@ def _normalise_agent_mode(agent: dict) -> list[str]:
     elif state == AgentMode.MAINTENANCE:
         agent["mode"] = AgentMode.MAINTENANCE
         agent["state"] = AgentState.WAITING
+    elif state == AgentState.UNKNOWN:
+        # v1 agents send UNKNOWN when they cannot determine their state.
+        # Translate to ONLINE with no sub-state; unset the UNKNOWN value.
+        agent["mode"] = AgentMode.ONLINE
+        agent.pop("state", None)
+        return ["state"]
     elif state is not None:
         # A v1 agent reporting a sub-state implicitly means it is online.
         agent["mode"] = AgentMode.ONLINE

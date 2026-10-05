@@ -139,7 +139,7 @@ def test_agents_post_substate_free_mode_clears_stored_state(
 
 
 # ---------------------------------------------------------------------------
-# PATCH /v2/agents/{name}/commanded_mode  — admin/manager mode command
+# PATCH /v2/agents/{name}/commanded_mode  — admin-only mode command
 # ---------------------------------------------------------------------------
 
 

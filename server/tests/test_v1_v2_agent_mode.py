@@ -218,3 +218,55 @@ def test_v1_maintenance_read_returns_waiting_state(
     assert output.status_code == HTTPStatus.OK
     data = output.get_json()
     assert data.get("state") == "waiting"
+
+
+# ---------------------------------------------------------------------------
+# unknown: v1 agents report unknown when they cannot determine their state
+# ---------------------------------------------------------------------------
+
+
+def test_v1_unknown_write_stores_online_with_no_state(
+    mongo_app, agent_auth_header
+):
+    """A v1 agent reporting state='unknown' is translated to mode='online',
+    no state.
+
+    'unknown' is not a valid sub-state in the canonical model. When v1 agents
+    send 'unknown' (because they cannot determine their actual state), the
+    normaliser translates it to ONLINE mode with no sub-state, ensuring the
+    database contains only canonical state values.
+    """
+    app, mongo = mongo_app
+
+    output = app.post(
+        "/v1/agents/data/agent1",
+        json={"state": "unknown"},
+        headers=agent_auth_header,
+    )
+
+    assert output.status_code == HTTPStatus.OK
+    record = mongo.agents.find_one({"name": "agent1"})
+    assert record["mode"] == "online"
+    assert "state" not in record
+
+
+def test_v1_unknown_read_returns_no_state(mongo_app, agent_auth_header):
+    """GET /v1/agents/data/{name} returns no state for a legacy record with
+    state='unknown'.
+
+    A pre-existing record written with only state='unknown' (before modes
+    existed, or from a v1 agent that couldn't determine state) must be
+    normalised on read: mode='online', state absent. The v1 AgentOut schema
+    does not expose ``mode``; the caller simply gets no ``state``.
+    """
+    app, mongo = mongo_app
+    mongo.agents.insert_one({"name": "agent1", "state": "unknown"})
+
+    output = app.get(
+        "/v1/agents/data/agent1",
+        headers=agent_auth_header,
+    )
+
+    assert output.status_code == HTTPStatus.OK
+    data = output.get_json()
+    assert "state" not in data or data.get("state") is None
