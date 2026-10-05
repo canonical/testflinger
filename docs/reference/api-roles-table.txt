@@ -54,6 +54,12 @@
      - :octicon:`x-circle-fill;1em;sd-text-danger` :vh:`restricted`
      - :octicon:`x-circle-fill;1em;sd-text-danger` :vh:`restricted`
    * - ``POST``
+     - ``/v2/agents/{agent_name}/data``
+     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
+     - :octicon:`x-circle-fill;1em;sd-text-danger` :vh:`restricted`
+     - :octicon:`x-circle-fill;1em;sd-text-danger` :vh:`restricted`
+     - :octicon:`x-circle-fill;1em;sd-text-danger` :vh:`restricted`
+   * - ``POST``
      - ``/v1/agents/data/{agent_name}``
      - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
      - :octicon:`x-circle-fill;1em;sd-text-danger` :vh:`restricted`
@@ -67,12 +73,6 @@
      - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
    * - ``POST``
      - ``/v1/agents/queues``
-     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
-     - :octicon:`x-circle-fill;1em;sd-text-danger` :vh:`restricted`
-     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
-     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
-   * - ``POST``
-     - ``/v2/agents/{agent_name}/data``
      - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
      - :octicon:`x-circle-fill;1em;sd-text-danger` :vh:`restricted`
      - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
@@ -247,6 +247,12 @@
      - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
    * - ``DELETE``
      - ``/v1/restricted-queues/{queue_name}``
+     - :octicon:`x-circle-fill;1em;sd-text-danger` :vh:`restricted`
+     - :octicon:`x-circle-fill;1em;sd-text-danger` :vh:`restricted`
+     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
+     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
+   * - ``PATCH``
+     - ``/v2/agents/{agent_name}/commanded_mode``
      - :octicon:`x-circle-fill;1em;sd-text-danger` :vh:`restricted`
      - :octicon:`x-circle-fill;1em;sd-text-danger` :vh:`restricted`
      - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`

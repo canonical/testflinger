@@ -55,18 +55,6 @@
       "AgentIn1": {
         "additionalProperties": false,
         "properties": {
-          "commanded_mode": {
-            "enum": [
-              "online",
-              "maintenance",
-              "offline",
-              "restart"
-            ],
-            "type": "string"
-          },
-          "comment": {
-            "type": "string"
-          },
           "identifier": {
             "type": "string"
           },
@@ -109,7 +97,11 @@
               "allocate",
               "reserve",
               "cleanup",
-              "waiting"
+              "waiting",
+              "offline",
+              "maintenance",
+              "restart",
+              "unknown"
             ],
             "type": "string"
           }
@@ -363,6 +355,28 @@
           "max_priority",
           "max_reservation_time",
           "role"
+        ],
+        "type": "object"
+      },
+      "CommandedModeIn": {
+        "additionalProperties": false,
+        "properties": {
+          "commanded_mode": {
+            "enum": [
+              "online",
+              "maintenance",
+              "offline",
+              "restart"
+            ],
+            "type": "string"
+          },
+          "comment": {
+            "default": "",
+            "type": "string"
+          }
+        },
+        "required": [
+          "commanded_mode"
         ],
         "type": "object"
       },
@@ -3090,6 +3104,68 @@
         ]
       }
     },
+    "/v2/agents/{agent_name}/commanded_mode": {
+      "patch": {
+        "description": "Sets ``commanded_mode`` and an optional ``comment`` on the agent record.\nThe agent will adopt the mode on its next poll and report back via\n``mode``.  Only admin and manager credentials are accepted.\n\nReturns 404 if the agent does not exist; admins cannot create agents\nthrough this endpoint.",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "agent_name",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CommandedModeIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "summary": "Command an agent to change its operating mode.",
+        "tags": [
+          "V2"
+        ],
+        "x-permission-roles": [
+          "admin",
+          "manager"
+        ]
+      }
+    },
     "/v2/agents/{agent_name}/data": {
       "get": {
         "description": ":param agent_name:\nString with the name of the agent to retrieve information from.\n:return:\nJSON data with the specified agent information.",
@@ -3137,7 +3213,7 @@
         ]
       },
       "post": {
-        "description": "The json sent to this endpoint may contain data such as the following:\n{\n\"mode\": string,          # Agent's current operating mode\n\"commanded_mode\": string,# Mode commanded by admin/UI/CLI\n\"state\": string,         # Sub-state within that mode, where applicable\n\"queues\": array[string], # Queues the device is listening on\n\"location\": string,      # Location of the device\n\"job_id\": string,        # Job ID the device is running, if any\n\"log\": array[string],    # push and keep only the last 100 lines\n}",
+        "description": "Called by the agent on each poll cycle to report its current operating\nmode, sub-state, queues, location, and log lines.  Only agent-role\ncredentials are accepted; use ``PATCH /v2/agents/{name}/commanded_mode``\nto command a mode change as an admin or manager.\n\nThe json sent to this endpoint may contain:\n{\n\"mode\": string,          # Agent's current operating mode\n\"state\": string,         # Sub-state within that mode, where applicable\n\"queues\": array[string], # Queues the device is listening on\n\"location\": string,      # Location of the device\n\"job_id\": string,        # Job ID the device is running, if any\n\"log\": array[string],    # push and keep only the last 100 lines\n}",
         "parameters": [
           {
             "in": "path",
@@ -3187,13 +3263,11 @@
             "description": "Validation error"
           }
         },
-        "summary": "Post information about the agent to the server.",
+        "summary": "Post agent heartbeat data to the server.",
         "tags": [
           "V2"
         ],
         "x-permission-roles": [
-          "admin",
-          "manager",
           "agent"
         ]
       }

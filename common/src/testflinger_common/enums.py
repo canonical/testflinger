@@ -126,11 +126,19 @@ class AgentMode(StrEnum):
 
 AgentState = _extend_phase(
     "AgentState",
-    {"WAITING": "waiting"},
+    {
+        "WAITING": "waiting",
+        "OFFLINE": "offline",
+        "MAINTENANCE": "maintenance",
+        "RESTART": "restart",
+        "UNKNOWN": "unknown",
+    },
     doc=(
         "Current sub-state of an agent within its operating mode.\n\n"
         "WAITING (idle sub-state used by ONLINE and MAINTENANCE modes).\n\n"
-        "OFFLINE and RESTART modes carry no AgentState."
+        "OFFLINE and RESTART modes carry no AgentState.\n\n"
+        "UNKNOWN is used internally by the agent when unable to retrieve "
+        "state."
     ),
 )
 

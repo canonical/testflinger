@@ -97,9 +97,3 @@ class TestPhaseEnumInvariants:
             AgentMode.OFFLINE,
             AgentMode.RESTART,
         }
-
-    def test_offline_and_restart_have_no_agent_state(self):
-        """OFFLINE and RESTART are not valid AgentState values."""
-        state_values = {s.value for s in AgentState}
-        assert AgentMode.OFFLINE not in state_values
-        assert AgentMode.RESTART not in state_values

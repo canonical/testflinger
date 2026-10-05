@@ -513,7 +513,7 @@ def _active_job_pipeline_stages() -> list[dict]:
     ]
 
 
-def _normalise_agent_mode(agent: dict) -> dict:
+def _normalise_agent_mode(agent: dict) -> list[str]:
     """Fold a v1-shaped agent record into the canonical mode/state shape.
 
     The canonical record has an explicit ``mode`` (the server-commanded
@@ -529,14 +529,19 @@ def _normalise_agent_mode(agent: dict) -> dict:
     v1's ``AgentOut`` schema simply does not list them.
 
     :param agent: Agent record; ``mode`` filled in in place if absent.
-    :return: The same record.
+    :return: List of field names that were removed and must be ``$unset``
+        in the database (empty when called on a read-path copy).
     """
     if agent.get("mode") is not None:
-        return agent
+        return []
 
     state = agent.get("state")
     if state in (AgentMode.OFFLINE, AgentMode.RESTART):
         agent["mode"] = state
+        # These modes carry no sub-state; clear the legacy value that named
+        # the mode so the canonical record does not expose a spurious state.
+        agent.pop("state", None)
+        return ["state"]
     elif state == AgentMode.MAINTENANCE:
         agent["mode"] = AgentMode.MAINTENANCE
         agent["state"] = AgentState.WAITING
@@ -545,7 +550,7 @@ def _normalise_agent_mode(agent: dict) -> dict:
         agent["mode"] = AgentMode.ONLINE
     # state is None: no mode and no state — leave mode absent so the UI
     # can display "unknown" rather than synthesising a misleading "online".
-    return agent
+    return []
 
 
 def get_agent_info(agent: str) -> dict | None:
@@ -562,7 +567,11 @@ def get_agent_info(agent: str) -> dict | None:
         *_active_job_pipeline_stages(),
     ]
     results = list(mongo.db.agents.aggregate(pipeline))
-    return _normalise_agent_mode(results[0]) if results else None
+    if not results:
+        return None
+    agent = results[0]
+    _normalise_agent_mode(agent)
+    return agent
 
 
 def set_agent_job(agent_name: str, job_id: str) -> None:
@@ -659,10 +668,10 @@ def get_agents(queue: str | None = None) -> list[dict]:
         {"$project": {"_id": False, "log": False}},
         *_active_job_pipeline_stages(),
     ]
-    return [
+    agents = list(mongo.db.agents.aggregate(pipeline))
+    for agent in agents:
         _normalise_agent_mode(agent)
-        for agent in mongo.db.agents.aggregate(pipeline)
-    ]
+    return agents
 
 
 def add_restricted_queue(queue: str, client_id: str):
@@ -939,7 +948,12 @@ def upsert_agent_document(
     elif "state" in data and (existing or {}).get("mode") is None:
         # v1 write into a record that has never had a mode: fold state
         # into the canonical shape so storage is always canonical.
-        _normalise_agent_mode(data)
+        # For modes without sub-states (offline, restart) the normaliser
+        # removes "state" from data and returns it so we can $unset it
+        # in the database rather than leaving a stale value behind.
+        normalise_unset = _normalise_agent_mode(data)
+        if normalise_unset:
+            unset = list(unset or []) + normalise_unset
 
     if "state" in data and (existing or {}).get("state") != data["state"]:
         data["state_changed_at"] = data["updated_at"]

@@ -81,3 +81,140 @@ def test_agents_post_state_does_not_override_commanded_mode(
     agent = mongo.agents.find_one({"name": "agent-id"})
     assert agent["mode"] == "maintenance"
     assert agent["state"] == "waiting"
+
+
+# ---------------------------------------------------------------------------
+# offline / restart: no sub-state
+# ---------------------------------------------------------------------------
+
+
+def test_v1_offline_write_stores_mode_and_clears_state(
+    mongo_app, agent_auth_header
+):
+    """A v1 agent reporting state='offline' produces mode='offline', no state.
+
+    'offline' is a mode, not an AgentState sub-state.  The normaliser must
+    promote it to ``mode`` and remove ``state`` from storage so that neither
+    v1 nor v2 readers see a spurious sub-state on an offline agent.
+    """
+    app, mongo = mongo_app
+
+    output = app.post(
+        "/v1/agents/data/agent1",
+        json={"state": "offline"},
+        headers=agent_auth_header,
+    )
+
+    assert output.status_code == HTTPStatus.OK
+    record = mongo.agents.find_one({"name": "agent1"})
+    assert record["mode"] == "offline"
+    assert "state" not in record
+
+
+def test_v1_restart_write_stores_mode_and_clears_state(
+    mongo_app, agent_auth_header
+):
+    """A v1 agent reporting state='restart' produces mode='restart'."""
+    app, mongo = mongo_app
+
+    output = app.post(
+        "/v1/agents/data/agent1",
+        json={"state": "restart"},
+        headers=agent_auth_header,
+    )
+
+    assert output.status_code == HTTPStatus.OK
+    record = mongo.agents.find_one({"name": "agent1"})
+    assert record["mode"] == "restart"
+    assert "state" not in record
+
+
+def test_v1_offline_read_returns_no_state(mongo_app, agent_auth_header):
+    """GET /v1/agents/data/{name} returns no state for a legacy offline record.
+
+    A pre-existing record written with only state='offline' (before modes
+    existed) must be normalised on read: mode='offline', state absent.
+    The v1 AgentOut schema does not expose ``mode``; the caller simply gets
+    no ``state``, which is correct for an offline agent.
+    """
+    app, mongo = mongo_app
+    mongo.agents.insert_one({"name": "agent1", "state": "offline"})
+
+    output = app.get(
+        "/v1/agents/data/agent1",
+        headers=agent_auth_header,
+    )
+
+    assert output.status_code == HTTPStatus.OK
+    data = output.get_json()
+    assert "state" not in data or data.get("state") is None
+
+
+def test_v1_offline_overwrites_stale_state_in_db(mongo_app, agent_auth_header):
+    """A v1 offline write clears a stale sub-state left in the database.
+
+    If a record previously had state='provision' (online sub-state) and the
+    agent then reports state='offline', the old sub-state must be removed
+    from the database, not left alongside mode='offline'.
+    """
+    app, mongo = mongo_app
+    mongo.agents.insert_one({"name": "agent1", "state": "provision"})
+
+    output = app.post(
+        "/v1/agents/data/agent1",
+        json={"state": "offline"},
+        headers=agent_auth_header,
+    )
+
+    assert output.status_code == HTTPStatus.OK
+    record = mongo.agents.find_one({"name": "agent1"})
+    assert record["mode"] == "offline"
+    assert "state" not in record
+
+
+# ---------------------------------------------------------------------------
+# maintenance: sub-state is 'waiting'
+# ---------------------------------------------------------------------------
+
+
+def test_v1_maintenance_write_stores_mode_and_waiting_state(
+    mongo_app, agent_auth_header
+):
+    """A v1 agent reporting state='maintenance' produces mode='maintenance',
+    state='waiting'.
+
+    'maintenance' is a mode that carries a sub-state.  The normaliser must
+    promote it to ``mode`` and set ``state`` to 'waiting' (the idle sub-state
+    used within maintenance mode).
+    """
+    app, mongo = mongo_app
+
+    output = app.post(
+        "/v1/agents/data/agent1",
+        json={"state": "maintenance"},
+        headers=agent_auth_header,
+    )
+
+    assert output.status_code == HTTPStatus.OK
+    record = mongo.agents.find_one({"name": "agent1"})
+    assert record["mode"] == "maintenance"
+    assert record["state"] == "waiting"
+
+
+def test_v1_maintenance_read_returns_waiting_state(
+    mongo_app, agent_auth_header
+):
+    """GET /v1/agents/data/{name} returns state='waiting' for a pre-existing
+    maintenance record that has no explicit state stored.
+    """
+    app, mongo = mongo_app
+    mongo.agents.insert_one({"name": "agent1", "state": "maintenance"})
+
+    output = app.get(
+        "/v1/agents/data/agent1",
+        headers=agent_auth_header,
+    )
+
+    assert output.status_code == HTTPStatus.OK
+    data = output.get_json()
+    assert data.get("state") == "waiting"

@@ -105,15 +105,19 @@ def agents_get_one(agent_name):
 
 @v2.post("/agents/<agent_name>/data")
 @authenticate
-@require_role(ServerRoles.ADMIN, ServerRoles.MANAGER, ServerRoles.AGENT)
+@require_role(ServerRoles.AGENT)
 @v2.input(schemas.AgentIn, location="json")
 def agents_post(agent_name, json_data):
-    """Post information about the agent to the server.
+    """Post agent heartbeat data to the server.
 
-    The json sent to this endpoint may contain data such as the following:
+    Called by the agent on each poll cycle to report its current operating
+    mode, sub-state, queues, location, and log lines.  Only agent-role
+    credentials are accepted; use ``PATCH /v2/agents/{name}/commanded_mode``
+    to command a mode change as an admin or manager.
+
+    The json sent to this endpoint may contain:
     {
         "mode": string,          # Agent's current operating mode
-        "commanded_mode": string,# Mode commanded by admin/UI/CLI
         "state": string,         # Sub-state within that mode, where applicable
         "queues": array[string], # Queues the device is listening on
         "location": string,      # Location of the device
@@ -123,14 +127,8 @@ def agents_post(agent_name, json_data):
     """
     unset = _check_mode_state(json_data)
 
-    # Only an agent registering itself may bring a new record into being.
-    is_agent = g.role == ServerRoles.AGENT
-    if not is_agent and not database.get_agent_info(agent_name):
-        abort(HTTPStatus.NOT_FOUND, message="Agent not found")
-
     json_data["name"] = agent_name
     json_data["updated_at"] = datetime.now(timezone.utc)
-    # extract log from data so we can push it instead of setting it
     log = json_data.pop("log", [])
 
     database.upsert_agent_document(
@@ -138,13 +136,38 @@ def agents_post(agent_name, json_data):
         json_data,
         log,
         changed_by=g.client_id,
-        upsert=is_agent,
+        upsert=True,
         unset=unset,
     )
 
-    # Set a session cookie to identify the agent for future requests
     response = jsonify({"status": "OK"})
     response.set_cookie(
         "agent_name", agent_name, httponly=True, samesite="Strict"
     )
     return response
+
+
+@v2.patch("/agents/<agent_name>/commanded_mode")
+@authenticate
+@require_role(ServerRoles.ADMIN, ServerRoles.MANAGER)
+@v2.input(schemas.CommandedModeIn, location="json")
+def agents_patch_commanded_mode(agent_name, json_data):
+    """Command an agent to change its operating mode.
+
+    Sets ``commanded_mode`` and an optional ``comment`` on the agent record.
+    The agent will adopt the mode on its next poll and report back via
+    ``mode``.  Only admin and manager credentials are accepted.
+
+    Returns 404 if the agent does not exist; admins cannot create agents
+    through this endpoint.
+    """
+    if not database.get_agent_info(agent_name):
+        abort(HTTPStatus.NOT_FOUND, message="Agent not found")
+
+    database.set_agent_commanded_mode(
+        agent_name,
+        json_data["commanded_mode"],
+        json_data["comment"],
+        changed_by=g.client_id,
+    )
+    return jsonify({"status": "OK"})

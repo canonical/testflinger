@@ -26,15 +26,19 @@ ValidAgentStates = [state.value for state in AgentState]
 
 
 class AgentIn(Schema):
-    """Agent data input schema.
+    """Agent data input schema (agent-role callers only).
 
     ``mode`` is the agent's current operating mode (reported by the agent).
-    ``commanded_mode`` is the mode an admin/UI/CLI is instructing the agent
-    to adopt (written by non-agent callers).  ``state`` is the sub-state
-    within the active mode and is only meaningful for
-    :attr:`AgentMode.ONLINE` and :attr:`AgentMode.MAINTENANCE`;
+    ``state`` is the sub-state within the active mode and is only meaningful
+    for :attr:`AgentMode.ONLINE` and :attr:`AgentMode.MAINTENANCE`;
     :attr:`AgentMode.OFFLINE` and :attr:`AgentMode.RESTART` carry no
     sub-state.  The mode/state combination is checked in the route handler.
+
+
+    Note:
+    ``commanded_mode`` and ``comment`` are intentionally absent: those are
+    set by admin/manager callers via
+    ``PATCH /v2/agents/{name}/commanded_mode``.
     """
 
     identifier = fields.String(required=False)
@@ -44,11 +48,20 @@ class AgentIn(Schema):
     provision_type = fields.String(required=False)
     queues = fields.List(fields.String(), required=False)
     mode = fields.String(required=False, validate=OneOf(ValidAgentModes))
-    commanded_mode = fields.String(
-        required=False, validate=OneOf(ValidAgentModes)
-    )
     state = fields.String(required=False, validate=OneOf(ValidAgentStates))
-    comment = fields.String(required=False)
+
+
+class CommandedModeIn(Schema):
+    """Input schema for the PATCH commanded_mode endpoint.
+
+    ``commanded_mode`` is required; ``comment`` is optional and an empty
+    string clears any existing comment on the agent record.
+    """
+
+    commanded_mode = fields.String(
+        required=True, validate=OneOf(ValidAgentModes)
+    )
+    comment = fields.String(required=False, load_default="")
 
 
 class AgentOut(Schema):
