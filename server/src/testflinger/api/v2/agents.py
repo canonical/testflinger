@@ -149,14 +149,14 @@ def agents_post(agent_name, json_data):
 
 @v2.patch("/agents/<agent_name>/commanded_mode")
 @authenticate
-@require_role(ServerRoles.ADMIN, ServerRoles.MANAGER)
+@require_role(ServerRoles.ADMIN)
 @v2.input(schemas.CommandedModeIn, location="json")
 def agents_patch_commanded_mode(agent_name, json_data):
     """Command an agent to change its operating mode.
 
     Sets ``commanded_mode`` and an optional ``comment`` on the agent record.
     The agent will adopt the mode on its next poll and report back via
-    ``mode``.  Only admin and manager credentials are accepted.
+    ``mode``.  Only admin credentials are accepted.
 
     Returns 404 if the agent does not exist; admins cannot create agents
     through this endpoint.

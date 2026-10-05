@@ -251,12 +251,6 @@
      - :octicon:`x-circle-fill;1em;sd-text-danger` :vh:`restricted`
      - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
      - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
-   * - ``PATCH``
-     - ``/v2/agents/{agent_name}/commanded_mode``
-     - :octicon:`x-circle-fill;1em;sd-text-danger` :vh:`restricted`
-     - :octicon:`x-circle-fill;1em;sd-text-danger` :vh:`restricted`
-     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
-     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
    * - ``DELETE``
      - ``/v1/client-permissions/{client_id}``
      - :octicon:`x-circle-fill;1em;sd-text-danger` :vh:`restricted`
@@ -265,6 +259,12 @@
      - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
    * - ``POST``
      - ``/v1/oauth2/revoke``
+     - :octicon:`x-circle-fill;1em;sd-text-danger` :vh:`restricted`
+     - :octicon:`x-circle-fill;1em;sd-text-danger` :vh:`restricted`
+     - :octicon:`x-circle-fill;1em;sd-text-danger` :vh:`restricted`
+     - :octicon:`check-circle-fill;1em;sd-text-success` :vh:`allowed`
+   * - ``PATCH``
+     - ``/v2/agents/{agent_name}/commanded_mode``
      - :octicon:`x-circle-fill;1em;sd-text-danger` :vh:`restricted`
      - :octicon:`x-circle-fill;1em;sd-text-danger` :vh:`restricted`
      - :octicon:`x-circle-fill;1em;sd-text-danger` :vh:`restricted`

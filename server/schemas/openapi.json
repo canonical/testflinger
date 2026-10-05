@@ -3105,7 +3105,7 @@
     },
     "/v2/agents/{agent_name}/commanded_mode": {
       "patch": {
-        "description": "Sets ``commanded_mode`` and an optional ``comment`` on the agent record.\nThe agent will adopt the mode on its next poll and report back via\n``mode``.  Only admin and manager credentials are accepted.\n\nReturns 404 if the agent does not exist; admins cannot create agents\nthrough this endpoint.",
+        "description": "Sets ``commanded_mode`` and an optional ``comment`` on the agent record.\nThe agent will adopt the mode on its next poll and report back via\n``mode``.  Only admin credentials are accepted.\n\nReturns 404 if the agent does not exist; admins cannot create agents\nthrough this endpoint.",
         "parameters": [
           {
             "in": "path",
@@ -3160,8 +3160,7 @@
           "V2"
         ],
         "x-permission-roles": [
-          "admin",
-          "manager"
+          "admin"
         ]
       }
     },

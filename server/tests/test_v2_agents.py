@@ -162,8 +162,8 @@ def test_agents_patch_commanded_mode_admin(mongo_app):
     )
 
 
-def test_agents_patch_commanded_mode_manager(mongo_app):
-    """A manager can command a mode change on an existing agent."""
+def test_agents_patch_commanded_mode_rejects_manager_credentials(mongo_app):
+    """A manager cannot command a mode change; only admins can."""
     app, mongo = mongo_app
     mongo.agents.insert_one({"name": "agent1", "state": "waiting"})
     manager_header = get_access_token_header("manager-id", ServerRoles.MANAGER)
@@ -174,11 +174,7 @@ def test_agents_patch_commanded_mode_manager(mongo_app):
         headers=manager_header,
     )
 
-    assert output.status_code == HTTPStatus.OK
-    assert (
-        mongo.agents.find_one({"name": "agent1"})["commanded_mode"]
-        == "offline"
-    )
+    assert output.status_code == HTTPStatus.FORBIDDEN
 
 
 def test_agents_patch_commanded_mode_rejects_agent_credentials(
