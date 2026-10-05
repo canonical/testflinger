@@ -22,10 +22,15 @@ from testflinger_common.enums import AgentMode, AgentState
 from testflinger.api.schemas import AgentJob
 
 ValidAgentModes = [mode.value for mode in AgentMode]
-ValidAgentStates = [state.value for state in AgentState]
+# States an agent may report as input. UNKNOWN is an internal sentinel the
+# agent uses when it cannot determine its own state, so it is never a valid
+# incoming value even though it may appear on output.
+ValidAgentInputStates = [
+    state.value for state in AgentState if state != AgentState.UNKNOWN
+]
 
 
-class AgentIn(Schema):
+class AgentInV2(Schema):
     """Agent data input schema (agent-role callers only).
 
     ``mode`` is the agent's current operating mode (reported by the agent).
@@ -48,7 +53,9 @@ class AgentIn(Schema):
     provision_type = fields.String(required=False)
     queues = fields.List(fields.String(), required=False)
     mode = fields.String(required=False, validate=OneOf(ValidAgentModes))
-    state = fields.String(required=False, validate=OneOf(ValidAgentStates))
+    state = fields.String(
+        required=False, validate=OneOf(ValidAgentInputStates)
+    )
 
 
 class CommandedModeIn(Schema):
@@ -64,7 +71,7 @@ class CommandedModeIn(Schema):
     comment = fields.String(required=False, load_default="")
 
 
-class AgentOut(Schema):
+class AgentOutV2(Schema):
     """Agent data output schema."""
 
     name = fields.String(required=True)

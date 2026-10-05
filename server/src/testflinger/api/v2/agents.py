@@ -75,7 +75,7 @@ def _check_mode_state(json_data: dict) -> list[str]:
 @v2.get("/agents/data")
 @authenticate
 @require_role(ServerRoles.ADMIN, ServerRoles.MANAGER, ServerRoles.CONTRIBUTOR)
-@v2.output(schemas.AgentOut(many=True))
+@v2.output(schemas.AgentOutV2(many=True))
 def agents_get_all():
     """Get all agent data."""
     agents = database.get_agents()
@@ -86,7 +86,7 @@ def agents_get_all():
 @v2.get("/agents/<agent_name>/data")
 @authenticate
 @require_role(*ServerRoles)
-@v2.output(schemas.AgentOut)
+@v2.output(schemas.AgentOutV2)
 def agents_get_one(agent_name):
     """Get the information from a specified agent.
 
@@ -106,7 +106,7 @@ def agents_get_one(agent_name):
 @v2.post("/agents/<agent_name>/data")
 @authenticate
 @require_role(ServerRoles.AGENT)
-@v2.input(schemas.AgentIn, location="json")
+@v2.input(schemas.AgentInV2, location="json")
 def agents_post(agent_name, json_data):
     """Post agent heartbeat data to the server.
 

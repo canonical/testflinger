@@ -52,7 +52,7 @@
         },
         "type": "object"
       },
-      "AgentIn1": {
+      "AgentInV2": {
         "additionalProperties": false,
         "properties": {
           "identifier": {
@@ -100,8 +100,7 @@
               "waiting",
               "offline",
               "maintenance",
-              "restart",
-              "unknown"
+              "restart"
             ],
             "type": "string"
           }
@@ -196,7 +195,7 @@
         ],
         "type": "object"
       },
-      "AgentOut1": {
+      "AgentOutV2": {
         "additionalProperties": false,
         "properties": {
           "commanded_mode": {
@@ -3086,7 +3085,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AgentOut1"
+                  "$ref": "#/components/schemas/AgentOutV2"
                 }
               }
             },
@@ -3184,7 +3183,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AgentOut1"
+                  "$ref": "#/components/schemas/AgentOutV2"
                 }
               }
             },
@@ -3228,7 +3227,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/AgentIn1"
+                "$ref": "#/components/schemas/AgentInV2"
               }
             }
           }
