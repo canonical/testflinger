@@ -3105,7 +3105,7 @@
     },
     "/v2/agents/{agent_name}/commanded_mode": {
       "patch": {
-        "description": "Sets ``commanded_mode`` and an optional ``comment`` on the agent record.\nThe agent will adopt the mode on its next poll and report back via\n``mode``.  Only admin credentials are accepted.\n\nReturns 404 if the agent does not exist; admins cannot create agents\nthrough this endpoint.",
+        "description": "Sets ``commanded_mode`` and an optional ``comment`` on the agent record.\nThe agent will adopt the mode on its next poll and report back via\n``mode``.\n\nReturns 404 if the agent does not exist; admins cannot create agents\nthrough this endpoint.",
         "parameters": [
           {
             "in": "path",
@@ -3211,7 +3211,7 @@
         ]
       },
       "post": {
-        "description": "Called by the agent on each poll cycle to report its current operating\nmode, sub-state, queues, location, and log lines.  Only agent-role\ncredentials are accepted; use ``PATCH /v2/agents/{name}/commanded_mode``\nto command a mode change as an admin or manager.\n\nThe json sent to this endpoint may contain:\n{\n\"mode\": string,          # Agent's current operating mode\n\"state\": string,         # Sub-state within that mode, where applicable\n\"queues\": array[string], # Queues the device is listening on\n\"location\": string,      # Location of the device\n\"job_id\": string,        # Job ID the device is running, if any\n\"log\": array[string],    # push and keep only the last 100 lines\n}",
+        "description": "Called by the agent on each poll cycle to report its current operating\nmode, sub-state, queues, location, and log lines.  Only agent-role\ncredentials are accepted; use ``PATCH /v2/agents/{name}/commanded_mode``\nto command a mode change as an admin.\n\nThe json sent to this endpoint may contain:\n{\n\"mode\": string,          # Agent's current operating mode\n\"state\": string,         # Sub-state within that mode, where applicable\n\"queues\": array[string], # Queues the device is listening on\n\"location\": string,      # Location of the device\n\"job_id\": string,        # Job ID the device is running, if any\n\"log\": array[string],    # push and keep only the last 100 lines\n}",
         "parameters": [
           {
             "in": "path",

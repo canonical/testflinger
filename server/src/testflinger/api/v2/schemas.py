@@ -42,7 +42,7 @@ class AgentInV2(Schema):
 
     Note:
     ``commanded_mode`` and ``comment`` are intentionally absent: those are
-    set by admin/manager callers via
+    set by admin callers via
     ``PATCH /v2/agents/{name}/commanded_mode``.
     """
 

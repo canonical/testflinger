@@ -48,14 +48,14 @@ def _attach_restricted_to(agents: list[dict]) -> None:
 
 
 def _check_mode_state(json_data: dict) -> list[str]:
-    """Validate the mode/state combination of an incoming agent update.
+    """Validate the mode/state combination of an incoming agent report.
 
-    A mode and a sub-state are set by different actors: an admin
-    commands the mode, the agent reports the state.  Either may arrive
-    on its own.  The one combination that cannot be honoured is a
-    sub-state on a mode that has none.
+    The agent reports its actual operating mode via the ``mode`` field.
+    For modes that support a sub-state, it may also report ``state``.
+    For modes that do not support a sub-state (offline, restart), any
+    ``state`` is an error.
 
-    :param json_data: Parsed request body; not modified.
+    :param json_data: Parsed request body from agent heartbeat; not modified.
     :return: Field names to unset on the stored record.
     :raises HTTPException: 400 if mode and state contradict each other.
     """
@@ -113,7 +113,7 @@ def agents_post(agent_name, json_data):
     Called by the agent on each poll cycle to report its current operating
     mode, sub-state, queues, location, and log lines.  Only agent-role
     credentials are accepted; use ``PATCH /v2/agents/{name}/commanded_mode``
-    to command a mode change as an admin or manager.
+    to command a mode change as an admin.
 
     The json sent to this endpoint may contain:
     {
@@ -129,6 +129,7 @@ def agents_post(agent_name, json_data):
 
     json_data["name"] = agent_name
     json_data["updated_at"] = datetime.now(timezone.utc)
+    # extract log from data so we can push it instead of setting it
     log = json_data.pop("log", [])
 
     database.upsert_agent_document(
@@ -140,6 +141,7 @@ def agents_post(agent_name, json_data):
         unset=unset,
     )
 
+    # Set a session cookie to identify the agent for future requests
     response = jsonify({"status": "OK"})
     response.set_cookie(
         "agent_name", agent_name, httponly=True, samesite="Strict"
@@ -156,7 +158,7 @@ def agents_patch_commanded_mode(agent_name, json_data):
 
     Sets ``commanded_mode`` and an optional ``comment`` on the agent record.
     The agent will adopt the mode on its next poll and report back via
-    ``mode``.  Only admin credentials are accepted.
+    ``mode``.
 
     Returns 404 if the agent does not exist; admins cannot create agents
     through this endpoint.
