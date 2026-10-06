@@ -93,13 +93,6 @@ main {
     text-align: left;
 }
 
-.scrollable {
-    background-color: rgb(230, 230, 230);
-    max-height: 500px;
-    max-width: 80%;
-    overflow: auto;
-}
-
 .p-navigation__nav {
     overflow: visible !important;
 }
