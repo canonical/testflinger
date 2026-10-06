@@ -127,3 +127,10 @@ main {
     margin-bottom: 0.5rem;
     white-space: nowrap;
 }
+
+/* Caps the height of all code snippet blocks, either numbered or
+   unnumbered and enables horizontal scroll. */
+[class*="p-code-snippet__block"] {
+    max-height: 600px;
+    scroll-behavior: auto;
+}
