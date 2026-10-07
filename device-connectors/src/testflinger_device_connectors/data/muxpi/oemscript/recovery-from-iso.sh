@@ -413,6 +413,9 @@ cleanup_dut() {
     # Preserve recent logs while freeing space from previous jobs.
     echo "Pruning old journal logs on DUT..."
     $SSH "$user_on_target"@"$target_ip" -- sudo journalctl --rotate --vacuum-size=100M
+    # Truncate because the running Xorg process owns this file's open inode.
+    $SSH "$user_on_target"@"$target_ip" "truncate -s 0 ~/.local/share/xorg/Xorg.0.log"
+    $SSH "$user_on_target"@"$target_ip" "rm -f ~/.local/share/xorg/Xorg.0.log.old"
 }
 
 wget_iso_on_dut() {
