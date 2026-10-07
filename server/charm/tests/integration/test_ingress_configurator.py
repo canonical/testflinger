@@ -29,6 +29,7 @@ from .consts import (
     HAPROXY_EXTERNAL_HOSTNAME,
     INGRESS_CHARM,
     INGRESS_NAME,
+    JUBILANT_WAIT_TIMEOUT,
     MONGODB_CHARM,
     SELFSIGNED_CHARM,
     UPSTREAM_SOURCE,
@@ -78,7 +79,7 @@ def test_deploy(
     k8s_juju.integrate(
         f"{APP_NAME}:mongodb_keyvault", f"{MONGODB_CHARM}:database"
     )
-    k8s_juju.wait(jubilant.all_active)
+    k8s_juju.wait(jubilant.all_active, timeout=JUBILANT_WAIT_TIMEOUT)
 
     # Deploy ingress-configurator with the Testflinger hostname
     k8s_juju.deploy(
