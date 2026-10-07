@@ -55,6 +55,9 @@
       "AgentInV2": {
         "additionalProperties": false,
         "properties": {
+          "comment": {
+            "type": "string"
+          },
           "identifier": {
             "type": "string"
           },
@@ -199,17 +202,7 @@
         "additionalProperties": false,
         "properties": {
           "commanded_mode": {
-            "type": "string"
-          },
-          "commanded_mode_changed_at": {
-            "format": "date-time",
-            "type": "string"
-          },
-          "commanded_mode_changed_by": {
-            "type": "string"
-          },
-          "comment": {
-            "type": "string"
+            "$ref": "#/components/schemas/CommandedModeOut"
           },
           "job": {
             "anyOf": [
@@ -229,11 +222,7 @@
             "type": "string"
           },
           "mode": {
-            "type": "string"
-          },
-          "mode_changed_at": {
-            "format": "date-time",
-            "type": "string"
+            "$ref": "#/components/schemas/ModeOut"
           },
           "name": {
             "type": "string"
@@ -252,11 +241,7 @@
             "type": "object"
           },
           "state": {
-            "type": "string"
-          },
-          "state_changed_at": {
-            "format": "date-time",
-            "type": "string"
+            "$ref": "#/components/schemas/StateOut"
           }
         },
         "required": [
@@ -377,6 +362,31 @@
         "required": [
           "commanded_mode"
         ],
+        "type": "object"
+      },
+      "CommandedModeOut": {
+        "additionalProperties": false,
+        "properties": {
+          "changed_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "changed_by": {
+            "type": "string"
+          },
+          "comment": {
+            "type": "string"
+          },
+          "value": {
+            "enum": [
+              "online",
+              "maintenance",
+              "offline",
+              "restart"
+            ],
+            "type": "string"
+          }
+        },
         "type": "object"
       },
       "Event": {
@@ -714,6 +724,31 @@
         ],
         "type": "object"
       },
+      "ModeOut": {
+        "additionalProperties": false,
+        "properties": {
+          "changed_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "changed_by": {
+            "type": "string"
+          },
+          "comment": {
+            "type": "string"
+          },
+          "value": {
+            "enum": [
+              "online",
+              "maintenance",
+              "offline",
+              "restart"
+            ],
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
       "ProvisionData": {
         "additionalProperties": false,
         "properties": {},
@@ -978,6 +1013,19 @@
         },
         "type": "object"
       },
+      "StateOut": {
+        "additionalProperties": false,
+        "properties": {
+          "changed_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "value": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
       "StatusUpdate": {
         "additionalProperties": false,
         "properties": {
@@ -1214,7 +1262,7 @@
         ]
       },
       "post": {
-        "description": "The json sent to this endpoint may contain data such as the following:\n{\n\"state\": string, # State the device is in\n\"queues\": array[string], # Queues the device is listening on\n\"location\": string, # Location of the device\n\"job_id\": string, # Job ID the device is running, if any\n\"log\": array[string], # push and keep only the last 100 lines\n}",
+        "description": "The json sent to this endpoint may contain data such as the following:\n{\n\"state\": string, # State the device is in\n\"queues\": array[string], # Queues the device is listening on\n\"location\": string, # Location of the device\n\"job_id\": string, # Job ID the device is running, if any\n\"log\": array[string], # push and keep only the last 100 lines\n}\n\nV1 agents continue to write flat format (state-only) to the database.\nThe database layer handles normalization for v2 compatibility.",
         "parameters": [
           {
             "in": "path",

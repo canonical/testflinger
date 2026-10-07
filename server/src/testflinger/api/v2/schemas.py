@@ -55,6 +55,7 @@ class AgentInV2(Schema):
     provision_type = fields.String(required=False)
     queues = fields.List(fields.String(), required=False)
     mode = fields.String(required=False, validate=OneOf(ValidAgentModes))
+    comment = fields.String(required=False)
     state = fields.String(
         required=False, validate=OneOf(ValidAgentInputStates)
     )
@@ -73,21 +74,48 @@ class CommandedModeIn(Schema):
     comment = fields.String(required=False, load_default="")
 
 
+class ModeOut(Schema):
+    """Nested schema for mode information with metadata."""
+
+    value = fields.String(required=False, validate=OneOf(ValidAgentModes))
+    changed_at = fields.DateTime(required=False)
+    changed_by = fields.String(required=False)
+    comment = fields.String(required=False)
+
+
+class CommandedModeOut(Schema):
+    """Nested schema for commanded mode information with metadata."""
+
+    value = fields.String(required=False, validate=OneOf(ValidAgentModes))
+    changed_at = fields.DateTime(required=False)
+    changed_by = fields.String(required=False)
+    comment = fields.String(required=False)
+
+
+class StateOut(Schema):
+    """Nested schema for state information with metadata."""
+
+    value = fields.String(required=False)
+    changed_at = fields.DateTime(required=False)
+
+
 class AgentOutV2(Schema):
-    """Agent data output schema."""
+    """Agent data output schema.
+
+    The schema uses nested structures to group related fields:
+    - ``mode``: Operating mode with metadata (value, changed_at, changed_by)
+    - ``commanded_mode``: Commanded mode with metadata (value, changed_at,
+      changed_by, comment)
+    - ``state``: Sub-state within active mode with metadata (value, changed_at)
+    """
 
     name = fields.String(required=True)
-    mode = fields.String(required=False)
-    mode_changed_at = fields.DateTime(required=False)
-    commanded_mode = fields.String(required=False)
-    commanded_mode_changed_at = fields.DateTime(required=False)
-    commanded_mode_changed_by = fields.String(required=False)
-    state = fields.String(required=False)
-    state_changed_at = fields.DateTime(required=False)
+    mode = fields.Nested(ModeOut, required=False)
+    commanded_mode = fields.Nested(CommandedModeOut, required=False)
+    state = fields.Nested(StateOut, required=False)
     job_id = fields.String(required=False)
     queues = fields.List(fields.String(), required=False)
     location = fields.String(required=False)
     provision_type = fields.String(required=False)
-    comment = fields.String(required=False)
     restricted_to = fields.Dict(required=False)
     job = fields.Nested(AgentJob, required=False, allow_none=True)

@@ -78,7 +78,7 @@ def _check_mode_state(json_data: dict) -> list[str]:
 @v2.output(schemas.AgentOutV2(many=True))
 def agents_get_all():
     """Get all agent data."""
-    agents = database.get_agents()
+    agents = database.get_agents_v2()
     _attach_restricted_to(agents)
     return jsonify(agents)
 
@@ -95,7 +95,7 @@ def agents_get_one(agent_name):
     :return:
         JSON data with the specified agent information.
     """
-    agent_data = database.get_agent_info(agent_name)
+    agent_data = database.get_agent_info_v2(agent_name)
     if not agent_data:
         return {}, HTTPStatus.NOT_FOUND
 
@@ -132,7 +132,7 @@ def agents_post(agent_name, json_data):
     # extract log from data so we can push it instead of setting it
     log = json_data.pop("log", [])
 
-    database.upsert_agent_document(
+    database.upsert_agent_document_v2(
         agent_name,
         json_data,
         log,
@@ -163,7 +163,7 @@ def agents_patch_commanded_mode(agent_name, json_data):
     Returns 404 if the agent does not exist; admins cannot create agents
     through this endpoint.
     """
-    if not database.get_agent_info(agent_name):
+    if not database.get_agent_info_v2(agent_name):
         abort(HTTPStatus.NOT_FOUND, message="Agent not found")
 
     database.set_agent_commanded_mode(

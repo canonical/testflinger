@@ -151,6 +151,8 @@ def do_call(app, method, endpoint, role_data, webhook_fixture, auth_type):
             )
         else:
             response = app.post(endpoint, headers=headers, json=data)
+    elif method.lower() == "patch":
+        response = app.patch(endpoint, headers=headers, json=data)
     elif method.lower() == "put":
         response = app.put(endpoint, headers=headers, json=data)
     elif method.lower() == "delete":
@@ -160,7 +162,8 @@ def do_call(app, method, endpoint, role_data, webhook_fixture, auth_type):
             response = app.delete(endpoint, headers=headers)
     else:
         raise ValueError(
-            "do_call expected one of GET, PUT, POST, DELETE, not {}", method
+            "do_call expected one of GET, PUT, POST, PATCH, DELETE, not {}",
+            method,
         )
     return response
 
@@ -395,6 +398,9 @@ def do_setup(
             assert response.status_code == HTTPStatus.OK, (
                 f"{response.status} {response.data}"
             )
+
+    if "/commanded_mode" in endpoint:
+        test_data = {"commanded_mode": "offline"}
 
     return endpoint, test_data
 

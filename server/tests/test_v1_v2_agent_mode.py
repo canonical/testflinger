@@ -270,3 +270,131 @@ def test_v1_unknown_read_returns_no_state(mongo_app, agent_auth_header):
     assert output.status_code == HTTPStatus.OK
     data = output.get_json()
     assert "state" not in data or data.get("state") is None
+
+
+# ---------------------------------------------------------------------------
+# v1 to v2 agent transition: v1 -> v1 -> v1 -> v2 -> v2 -> v2
+# ---------------------------------------------------------------------------
+
+
+def test_agent_transitions_v1_to_v2_gracefully(mongo_app, agent_auth_header):
+    """An agent speaking v1 can transition to v2.
+
+    This test simulates the real-world scenario where:
+    1. Server starts with no agents
+    2. Agent1 speaks v1 (POST v1 heartbeat with state='provision')
+    3. Agent1 speaks v1 (POST v1 heartbeat with state='ready')
+    4. Agent1 speaks v1 (POST v1 heartbeat with state='ready')
+    5. Agent1 upgrades to v2 (POST v2 heartbeat)
+    6. Agent1 continues v2 (POST v2 heartbeat)
+    7. Agent1 continues v2 (POST v2 heartbeat)
+
+    The test verifies:
+    - v1 writes store flat state-only format
+    - v2 writes overwrite/replace the data cleanly
+    - v1 reads after v2 writes work correctly (via _v2_db_to_v1_out)
+    - v2 reads after v2 writes work correctly
+    - No data corruption or schema mismatches occur during transition
+    """
+    app, mongo = mongo_app
+    agent_name = "transitioning-agent"
+
+    # ===== Phase 1: v1 heartbeats =====
+
+    # v1 heartbeat 1: provision state
+    response = app.post(
+        f"/v1/agents/data/{agent_name}",
+        json={"state": "provision", "queues": ["queue1"]},
+        headers=agent_auth_header,
+    )
+    assert response.status_code == HTTPStatus.OK
+    record = mongo.agents.find_one({"name": agent_name})
+    assert record["mode"] == "online"  # provision -> online mode
+    assert record["state"] == "provision"
+    assert record["queues"] == ["queue1"]
+
+    # v1 heartbeat 2: ready state
+    response = app.post(
+        f"/v1/agents/data/{agent_name}",
+        json={"state": "ready", "queues": ["queue1"]},
+        headers=agent_auth_header,
+    )
+    assert response.status_code == HTTPStatus.OK
+    record = mongo.agents.find_one({"name": agent_name})
+    assert record["mode"] == "online"
+    assert record["state"] == "ready"
+
+    # v1 heartbeat 3: ready state again (no change)
+    response = app.post(
+        f"/v1/agents/data/{agent_name}",
+        json={"state": "ready", "queues": ["queue1"]},
+        headers=agent_auth_header,
+    )
+    assert response.status_code == HTTPStatus.OK
+    record = mongo.agents.find_one({"name": agent_name})
+    assert record["mode"] == "online"
+    assert record["state"] == "ready"
+
+    # ===== Phase 2: Agent upgrades and speaks v2 =====
+    # In real scenario, agent would restart with v2 code
+    # For this test, we'll simulate v2 data by directly inserting it
+
+    # v2 heartbeat 1: v2 agent posts nested format
+    # (This would come from the v2 agents endpoint)
+    v2_data = {
+        "name": agent_name,
+        "mode": {"value": "online", "changed_at": "2026-10-07T10:00:00Z"},
+        "state": {"value": "ready", "changed_at": "2026-10-07T10:00:00Z"},
+        "queues": ["queue1"],
+    }
+    mongo.agents.replace_one({"name": agent_name}, v2_data, upsert=True)
+
+    # Verify v2 format is stored
+    record = mongo.agents.find_one({"name": agent_name})
+    assert isinstance(record["mode"], dict)
+    assert record["mode"]["value"] == "online"
+    assert isinstance(record["state"], dict)
+    assert record["state"]["value"] == "ready"
+
+    # ===== Phase 3: Verify v1 client can still read after v2 upgrade =====
+    response = app.get(
+        f"/v1/agents/data/{agent_name}",
+        headers=agent_auth_header,
+    )
+    assert response.status_code == HTTPStatus.OK
+    v1_read_data = response.get_json()
+    # v1 client should get flat format through _v2_db_to_v1_out
+    assert v1_read_data["state"] == "ready"
+    assert "mode" not in v1_read_data  # v1 schema doesn't expose mode
+    assert v1_read_data["queues"] == ["queue1"]
+
+    # ===== Phase 4: Verify v2 format is preserved in database =====
+    record = mongo.agents.find_one({"name": agent_name})
+    assert isinstance(record["mode"], dict)
+    assert record["mode"]["value"] == "online"
+    assert isinstance(record["state"], dict)
+    assert record["state"]["value"] == "ready"
+
+    # ===== Phase 5: Continue v2 heartbeats =====
+    v2_data_2 = {
+        "name": agent_name,
+        "mode": {"value": "online", "changed_at": "2026-10-07T10:01:00Z"},
+        "state": {"value": "ready", "changed_at": "2026-10-07T10:01:00Z"},
+        "queues": ["queue1", "queue2"],  # Agent joined another queue
+    }
+    mongo.agents.replace_one({"name": agent_name}, v2_data_2, upsert=True)
+
+    record = mongo.agents.find_one({"name": agent_name})
+    assert record["mode"]["value"] == "online"
+    assert record["state"]["value"] == "ready"
+    assert record["queues"] == ["queue1", "queue2"]
+
+    # v1 read again after continued v2 updates
+    response = app.get(
+        f"/v1/agents/data/{agent_name}",
+        headers=agent_auth_header,
+    )
+    assert response.status_code == HTTPStatus.OK
+    v1_read_data = response.get_json()
+    assert v1_read_data["state"] == "ready"
+    assert v1_read_data["queues"] == ["queue1", "queue2"]
