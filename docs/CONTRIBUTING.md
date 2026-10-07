@@ -150,7 +150,7 @@ To add Sphinx extensions:
 
 ### Mermaid diagrams
 
-To include Mermaid diagrams in your documentation, use the `mermaid` directive in your RST files. For example:
+To include raw Mermaid diagrams in your documentation, use the `mermaid` directive in your RST files. For example:
 
 ````rst
 .. mermaid::
@@ -164,6 +164,8 @@ To include Mermaid diagrams in your documentation, use the `mermaid` directive i
 ````
 
 To use Mermaid diagrams, ensure that the `sphinxcontrib.mermaid` extension is included in your `conf.py` file under `extensions`.
+
+You can generate a Canonical brand-styled diagrams using the internal [Diagram registry](https://canonical.github.io/diagram-registry/), which supports exporting diagrams in various formats.
 
 ## Troubleshooting
 
