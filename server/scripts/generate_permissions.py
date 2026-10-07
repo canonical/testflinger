@@ -47,6 +47,25 @@ from pathlib import Path
 from generate_openapi_schema import generate_schema
 
 
+def _format_compact_json(data: dict) -> str:
+    """Format JSON with inline role arrays."""
+    lines = []
+    lines.append("{")
+    paths = sorted(data.keys())
+    for i, path in enumerate(paths):
+        methods = data[path]
+        lines.append(f'  "{path}": {{')
+        method_items = list(methods.items())
+        for j, (method, roles) in enumerate(method_items):
+            roles_str = json.dumps(roles, separators=(",", " "))
+            comma = "," if j < len(method_items) - 1 else ""
+            lines.append(f'    "{method}": {roles_str}{comma}')
+        comma = "," if i < len(paths) - 1 else ""
+        lines.append(f"  }}{comma}")
+    lines.append("}")
+    return "\n".join(lines)
+
+
 def generate_permissions(spec: dict) -> dict:
     """Extract endpoint permissions from OpenAPI spec.
 
@@ -59,6 +78,9 @@ def generate_permissions(spec: dict) -> dict:
         if not isinstance(path_item, dict):
             continue
 
+        # Convert OpenAPI path params from {param} to <param>
+        path_key = path.replace("{", "<").replace("}", ">")
+
         path_permissions = {}
         for method in ("get", "post", "put", "patch", "delete"):
             operation = path_item.get(method)
@@ -67,11 +89,13 @@ def generate_permissions(spec: dict) -> dict:
 
             roles = operation.get("x-permission-roles")
             if roles:
-                # Store roles in the same order as in the spec
-                path_permissions[method.upper()] = sorted(roles)
+                # Store roles in uppercase, preserving order from spec
+                path_permissions[method.upper()] = [
+                    role.upper() for role in roles
+                ]
 
         if path_permissions:
-            permissions[path] = path_permissions
+            permissions[path_key] = path_permissions
 
     # Sort by path for consistent output
     return dict(sorted(permissions.items()))
@@ -79,7 +103,7 @@ def generate_permissions(spec: dict) -> dict:
 
 def normalize_json(data: dict) -> str:
     """Normalize JSON to compact form for comparison."""
-    return json.dumps(data, sort_keys=True, separators=(",", ":"))
+    return json.dumps(data, separators=(",", ":"))
 
 
 def diff_permissions(local_path: Path) -> bool:
@@ -159,14 +183,14 @@ def main():
     permissions = generate_permissions(generate_schema())
 
     if args.output:
-        # Write to file with indentation for readability
+        # Write to file with compact role array formatting
         args.output.parent.mkdir(parents=True, exist_ok=True)
         with args.output.open("w") as f:
-            json.dump(permissions, f, indent=2, sort_keys=True)
+            f.write(_format_compact_json(permissions))
             f.write("\n")  # trailing linebreak
         print(f" Permissions written to: {args.output}")
     else:
-        print(json.dumps(permissions, indent=2, sort_keys=True))
+        print(_format_compact_json(permissions))
 
 
 if __name__ == "__main__":

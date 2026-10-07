@@ -1,232 +1,95 @@
 {
   "/v1/agents/data": {
-    "GET": [
-      "admin",
-      "contributor",
-      "manager"
-    ]
+    "GET": ["ADMIN","MANAGER","CONTRIBUTOR"]
   },
-  "/v1/agents/data/{agent_name}": {
-    "GET": [
-      "admin",
-      "agent",
-      "contributor",
-      "manager"
-    ],
-    "POST": [
-      "admin",
-      "agent",
-      "manager"
-    ]
+  "/v1/agents/data/<agent_name>": {
+    "GET": ["ADMIN","MANAGER","CONTRIBUTOR","AGENT"],
+    "POST": ["ADMIN","MANAGER","AGENT"]
   },
   "/v1/agents/images": {
-    "POST": [
-      "admin",
-      "agent",
-      "manager"
-    ]
+    "POST": ["ADMIN","MANAGER","AGENT"]
   },
-  "/v1/agents/images/{queue}": {
-    "GET": [
-      "admin",
-      "contributor",
-      "manager"
-    ]
+  "/v1/agents/images/<queue>": {
+    "GET": ["ADMIN","MANAGER","CONTRIBUTOR"]
   },
-  "/v1/agents/provision_logs/{agent_name}": {
-    "POST": [
-      "agent"
-    ]
+  "/v1/agents/provision_logs/<agent_name>": {
+    "POST": ["AGENT"]
   },
   "/v1/agents/queues": {
-    "GET": [
-      "admin",
-      "contributor",
-      "manager"
-    ],
-    "POST": [
-      "admin",
-      "agent",
-      "manager"
-    ]
+    "GET": ["ADMIN","MANAGER","CONTRIBUTOR"],
+    "POST": ["ADMIN","MANAGER","AGENT"]
   },
   "/v1/client-permissions": {
-    "GET": [
-      "admin",
-      "manager"
-    ]
+    "GET": ["ADMIN","MANAGER"]
   },
-  "/v1/client-permissions/{client_id}": {
-    "DELETE": [
-      "admin"
-    ],
-    "GET": [
-      "admin",
-      "manager"
-    ],
-    "PUT": [
-      "admin",
-      "manager"
-    ]
+  "/v1/client-permissions/<client_id>": {
+    "GET": ["ADMIN","MANAGER"],
+    "PUT": ["ADMIN","MANAGER"],
+    "DELETE": ["ADMIN"]
   },
-  "/v1/events/job/{job_id}": {
-    "GET": [
-      "admin",
-      "agent",
-      "contributor",
-      "manager"
-    ]
+  "/v1/events/job/<job_id>": {
+    "GET": ["ADMIN","MANAGER","CONTRIBUTOR","AGENT"]
   },
   "/v1/job": {
-    "GET": [
-      "agent"
-    ],
-    "POST": [
-      "admin",
-      "contributor",
-      "manager"
-    ]
+    "GET": ["AGENT"],
+    "POST": ["ADMIN","MANAGER","CONTRIBUTOR"]
+  },
+  "/v1/job/<job_id>": {
+    "GET": ["ADMIN","MANAGER","CONTRIBUTOR"]
+  },
+  "/v1/job/<job_id>/action": {
+    "POST": ["ADMIN","MANAGER","CONTRIBUTOR"]
+  },
+  "/v1/job/<job_id>/attachments": {
+    "GET": ["AGENT"],
+    "POST": ["ADMIN","MANAGER","CONTRIBUTOR"]
+  },
+  "/v1/job/<job_id>/events": {
+    "POST": ["AGENT"]
+  },
+  "/v1/job/<job_id>/position": {
+    "GET": ["ADMIN","MANAGER","CONTRIBUTOR"]
   },
   "/v1/job/search": {
-    "GET": [
-      "admin",
-      "contributor",
-      "manager"
-    ]
-  },
-  "/v1/job/{job_id}": {
-    "GET": [
-      "admin",
-      "contributor",
-      "manager"
-    ]
-  },
-  "/v1/job/{job_id}/action": {
-    "POST": [
-      "admin",
-      "contributor",
-      "manager"
-    ]
-  },
-  "/v1/job/{job_id}/attachments": {
-    "GET": [
-      "agent"
-    ],
-    "POST": [
-      "admin",
-      "contributor",
-      "manager"
-    ]
-  },
-  "/v1/job/{job_id}/events": {
-    "POST": [
-      "agent"
-    ]
-  },
-  "/v1/job/{job_id}/position": {
-    "GET": [
-      "admin",
-      "contributor",
-      "manager"
-    ]
+    "GET": ["ADMIN","MANAGER","CONTRIBUTOR"]
   },
   "/v1/oauth2/revoke": {
-    "POST": [
-      "admin"
-    ]
+    "POST": ["ADMIN"]
+  },
+  "/v1/queues/<queue_name>/agents": {
+    "GET": ["ADMIN","MANAGER","CONTRIBUTOR"]
+  },
+  "/v1/queues/<queue_name>/jobs": {
+    "GET": ["ADMIN","MANAGER","CONTRIBUTOR"]
   },
   "/v1/queues/wait_times": {
-    "GET": [
-      "admin",
-      "contributor",
-      "manager"
-    ]
-  },
-  "/v1/queues/{queue_name}/agents": {
-    "GET": [
-      "admin",
-      "contributor",
-      "manager"
-    ]
-  },
-  "/v1/queues/{queue_name}/jobs": {
-    "GET": [
-      "admin",
-      "contributor",
-      "manager"
-    ]
+    "GET": ["ADMIN","MANAGER","CONTRIBUTOR"]
   },
   "/v1/restricted-queues": {
-    "GET": [
-      "admin",
-      "contributor",
-      "manager"
-    ]
+    "GET": ["ADMIN","MANAGER","CONTRIBUTOR"]
   },
-  "/v1/restricted-queues/{queue_name}": {
-    "DELETE": [
-      "admin",
-      "manager"
-    ],
-    "GET": [
-      "admin",
-      "contributor",
-      "manager"
-    ],
-    "POST": [
-      "admin",
-      "manager"
-    ]
+  "/v1/restricted-queues/<queue_name>": {
+    "GET": ["ADMIN","MANAGER","CONTRIBUTOR"],
+    "POST": ["ADMIN","MANAGER"],
+    "DELETE": ["ADMIN","MANAGER"]
   },
-  "/v1/result/{job_id}": {
-    "GET": [
-      "admin",
-      "agent",
-      "contributor",
-      "manager"
-    ],
-    "POST": [
-      "agent"
-    ]
+  "/v1/result/<job_id>": {
+    "GET": ["ADMIN","MANAGER","CONTRIBUTOR","AGENT"],
+    "POST": ["AGENT"]
   },
-  "/v1/result/{job_id}/artifact": {
-    "GET": [
-      "admin",
-      "contributor",
-      "manager"
-    ],
-    "POST": [
-      "agent"
-    ]
+  "/v1/result/<job_id>/artifact": {
+    "GET": ["ADMIN","MANAGER","CONTRIBUTOR"],
+    "POST": ["AGENT"]
   },
-  "/v1/result/{job_id}/log/{log_type}": {
-    "GET": [
-      "admin",
-      "contributor",
-      "manager"
-    ],
-    "POST": [
-      "agent"
-    ]
+  "/v1/result/<job_id>/log/<log_type>": {
+    "GET": ["ADMIN","MANAGER","CONTRIBUTOR"],
+    "POST": ["AGENT"]
   },
-  "/v1/result/{job_id}/status": {
-    "GET": [
-      "admin",
-      "agent",
-      "contributor",
-      "manager"
-    ]
+  "/v1/result/<job_id>/status": {
+    "GET": ["ADMIN","MANAGER","CONTRIBUTOR","AGENT"]
   },
-  "/v1/secrets/{client_id}/{path}": {
-    "DELETE": [
-      "admin",
-      "contributor",
-      "manager"
-    ],
-    "PUT": [
-      "admin",
-      "contributor",
-      "manager"
-    ]
+  "/v1/secrets/<client_id>/<path>": {
+    "PUT": ["CONTRIBUTOR","MANAGER","ADMIN"],
+    "DELETE": ["CONTRIBUTOR","MANAGER","ADMIN"]
   }
 }
