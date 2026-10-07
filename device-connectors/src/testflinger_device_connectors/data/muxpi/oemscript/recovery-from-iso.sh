@@ -409,6 +409,12 @@ sync_to_swift() {
     download_image "$oem_share_path" "$img_name" "$oem_share_credential"
 }
 
+cleanup_dut() {
+    # Preserve recent logs while freeing space from previous jobs.
+    echo "Pruning old journal logs on DUT..."
+    $SSH "$user_on_target"@"$target_ip" -- sudo journalctl --rotate --vacuum-size=100M
+}
+
 wget_iso_on_dut() {
     # Download ISO on DUT
     WGET_OPTS="--no-verbose --tries=3 --no-check-certificate"
@@ -484,6 +490,7 @@ EOF
 }
 prepare() {
     echo "prepare"
+    cleanup_dut
     inject_recovery_iso
     inject_preseed
 }
