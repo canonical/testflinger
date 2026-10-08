@@ -91,5 +91,11 @@
   "/v1/secrets/<client_id>/<path>": {
     "PUT": ["CONTRIBUTOR","MANAGER","ADMIN"],
     "DELETE": ["CONTRIBUTOR","MANAGER","ADMIN"]
+  },
+  "/v1/statistics/jobs/daily": {
+    "GET": ["ADMIN","MANAGER","CONTRIBUTOR"]
+  },
+  "/v1/statistics/jobs/totals": {
+    "GET": ["ADMIN","MANAGER","CONTRIBUTOR"]
   }
 }
