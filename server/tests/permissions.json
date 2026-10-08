@@ -91,5 +91,15 @@
   },
   "/v1/events/job/<job_id>": {
     "GET": ["AGENT", "CONTRIBUTOR", "MANAGER", "ADMIN"]
+  },
+  "/v2/agents/data": {
+    "GET": ["CONTRIBUTOR", "MANAGER", "ADMIN"]
+  },
+  "/v2/agents/<agent_name>/commanded_mode": {
+    "PATCH": ["ADMIN"]
+  },
+  "/v2/agents/<agent_name>/data": {
+    "POST": ["AGENT"],
+    "GET": ["AGENT", "CONTRIBUTOR", "MANAGER", "ADMIN"]
   }
 }

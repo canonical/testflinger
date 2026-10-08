@@ -151,6 +151,8 @@ def do_call(app, method, endpoint, role_data, webhook_fixture, auth_type):
             )
         else:
             response = app.post(endpoint, headers=headers, json=data)
+    elif method.lower() == "patch":
+        response = app.patch(endpoint, headers=headers, json=data)
     elif method.lower() == "put":
         response = app.put(endpoint, headers=headers, json=data)
     elif method.lower() == "delete":
@@ -160,7 +162,8 @@ def do_call(app, method, endpoint, role_data, webhook_fixture, auth_type):
             response = app.delete(endpoint, headers=headers)
     else:
         raise ValueError(
-            "do_call expected one of GET, PUT, POST, DELETE, not {}", method
+            "do_call expected one of GET, PUT, POST, PATCH, DELETE, not {}",
+            method,
         )
     return response
 
@@ -206,7 +209,6 @@ def do_setup(
     need_job = False
     need_client = False
     is_agent = role and (ServerRoles(role) == ServerRoles.AGENT)
-
     if "/restricted-queue" in endpoint:
         need_client = True
         need_agent = True
@@ -235,7 +237,7 @@ def do_setup(
         response = app.post(
             f"/v1/agents/data/{agent_name}",
             json=agent_data,
-            headers=headers if is_agent else setup_headers,
+            headers=get_access_token_header(agent_name, ServerRoles.AGENT),
         )
         assert response.status_code == HTTPStatus.OK, (
             f"{response.status} {response.data}"
@@ -396,6 +398,9 @@ def do_setup(
             assert response.status_code == HTTPStatus.OK, (
                 f"{response.status} {response.data}"
             )
+
+    if "/commanded_mode" in endpoint:
+        test_data = {"commanded_mode": "offline"}
 
     return endpoint, test_data
 

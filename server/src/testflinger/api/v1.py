@@ -809,7 +809,7 @@ def images_post(json_data: dict):
 @v1.output(schemas.AgentOut(many=True))
 def agents_get_all():
     """Get all agent data."""
-    agents = database.get_agents()
+    agents = database.get_agents_v1()
     restricted_queues = database.get_restricted_queues()
     restricted_queues_owners = database.get_restricted_queues_owners()
 
@@ -836,7 +836,7 @@ def agents_get_one(agent_name):
     :return:
         JSON data with the specified agent information.
     """
-    agent_data = database.get_agent_info(agent_name)
+    agent_data = database.get_agent_info_v1(agent_name)
 
     if not agent_data:
         return {}, HTTPStatus.NOT_FOUND
@@ -868,13 +868,16 @@ def agents_post(agent_name, json_data):
         "job_id": string, # Job ID the device is running, if any
         "log": array[string], # push and keep only the last 100 lines
     }
+
+    V1 agents continue to write flat format (state-only) to the database.
+    The database layer handles normalization for v2 compatibility.
     """
     json_data["name"] = agent_name
     json_data["updated_at"] = datetime.now(timezone.utc)
     # extract log from data so we can push it instead of setting it
     log = json_data.pop("log", [])
 
-    database.upsert_agent_document(agent_name, json_data, log)
+    database.upsert_agent_document_v1(agent_name, json_data, log)
 
     # Set a session cookie to identify the agent for future requests
     response = jsonify({"status": "OK"})
