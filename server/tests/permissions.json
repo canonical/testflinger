@@ -91,5 +91,11 @@
   },
   "/v1/events/job/<job_id>": {
     "GET": ["AGENT", "CONTRIBUTOR", "MANAGER", "ADMIN"]
+  },
+  "/v1/statistics/jobs/totals": {
+    "GET": ["MANAGER", "ADMIN", "CONTRIBUTOR"]
+  },
+  "/v1/statistics/jobs/daily": {
+    "GET": ["MANAGER", "ADMIN", "CONTRIBUTOR"]
   }
 }
