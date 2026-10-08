@@ -12,7 +12,6 @@ import pytest
 from testflinger_cli.consts import SNAP_NAME
 from testflinger_cli.errors import SnapPrivateFileError
 from testflinger_cli.helpers import (
-    datetime_to_str,
     file_is_in_snap_private_dir,
     is_snap,
     parse_filename,
@@ -163,23 +162,6 @@ def test_regex_arg_empty_pattern():
     pattern = regex_arg("")
     assert isinstance(pattern, re.Pattern)
     assert pattern.search("anything") is not None
-
-
-def test_datetime_to_str_mongodb_extended_json():
-    """Test datetime_to_str handles MongoDB Extended JSON format."""
-    timestamp = {"$date": "2026-09-23T16:47:27.465Z"}
-    result = datetime_to_str(timestamp)
-    # Should be formatted as "YYYY-MM-DD HH:MM:SS"
-    assert result == "2026-09-23 16:47:27"
-
-
-def test_datetime_to_str_original_input():
-    """Test returning original input if not in MongoDB Extended JSON format."""
-    timestamp = "2026-09-23T16:47:27.465Z"
-    result = datetime_to_str(timestamp)
-    # Non-MongoDB Extended JSON input should return the original input
-    assert isinstance(result, str)
-    assert result == timestamp
 
 
 def test_print_table_with_headers(capsys):

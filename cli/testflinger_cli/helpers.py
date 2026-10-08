@@ -297,17 +297,3 @@ def print_table(
     console.print(table)
 
 
-def datetime_to_str(timestamp: dict) -> str:
-    """Format serialized Datetime object for human reading.
-
-    Timestamps are serialized as dictionaries with a "$date" key,
-    which contains the ISO format timestamp string. Asides from
-    conversion, this also add human-readable formatting to the timestamp.
-
-    :param timestamp: Timestamp dictionary
-    :return: Formatted timestamp string or original as a string if not dict
-        or not containing "$date" key
-    """
-    if isinstance(timestamp, dict) and "$date" in timestamp:
-        return format_timestamp(timestamp["$date"])
-    return str(timestamp)
