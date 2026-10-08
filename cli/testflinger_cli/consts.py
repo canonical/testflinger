@@ -25,6 +25,6 @@ EVENTS_CHOICES = [
     "timestamp",
     "message",
     "detail",
-    "status",
+    "exit_code",
     "phase",
 ]

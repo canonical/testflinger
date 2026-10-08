@@ -50,7 +50,7 @@ def sample_events():
             "message": "Phase setup completed with exit code 0",
             "detail": "",
             "phase": "setup",
-            "status": 0,
+            "exit_code": 0,
         },
         {
             "event_name": "job_phase_started",

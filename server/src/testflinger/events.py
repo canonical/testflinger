@@ -27,7 +27,7 @@ _MESSAGE_TEMPLATES = {
     JobEvent.JOB_SUBMITTED: "Job submitted by user {client_id} into queue {queue_name}.",  # noqa: E501
     JobEvent.JOB_ASSIGNED: "Job assigned to agent {agent_name}.",
     JobEvent.JOB_PHASE_STARTED: "Phase {phase} started.",
-    JobEvent.JOB_PHASE_COMPLETED: "Phase {phase} completed with exit code {status}",  # noqa: E501
+    JobEvent.JOB_PHASE_COMPLETED: "Phase {phase} completed with exit code {exit_code}",  # noqa: E501
     JobEvent.JOB_COMPLETED: "Job completed.",
     JobEvent.JOB_CANCELLED: "Job cancellation requested by user {client_id}.",
 }
@@ -74,9 +74,9 @@ def build_event(
         "message": message,
         "detail": detail,
     }
-    # Preserve the status key in the event if it's present in the context
-    if "status" in context:
-        event["status"] = context["status"]
+    # Preserve the exit_code key in the event if it's present in the context
+    if "exit_code" in context:
+        event["exit_code"] = context["exit_code"]
     # Preserve the phase key in the event if it's present in the context
     if "phase" in context:
         event["phase"] = context["phase"]
@@ -114,11 +114,13 @@ def _build_phase_completed_events(
     :param new_data: The new results data.
     :return: new phase completed events or empty list if no new events.
     """
+    # Agent sends a phase ``status`` key, events store this as a phase
+    # completed event with an ``exit_code`` key instead.
     return [
         build_event(
             event_type=JobEvent.JOB_PHASE_COMPLETED,
             phase=phase,
-            status=status,
+            exit_code=status,
         )
         for phase, status in new_data.get("status", {}).items()
         if phase not in previous_data.get("status", {})

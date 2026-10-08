@@ -1641,7 +1641,7 @@ def get_job_events(job_id):
         abort(HTTPStatus.NOT_FOUND, message="Job not found")
 
     job_events = database.get_job_events(job_id)
-    return jsonify({"job_id": job_id, "events": job_events})
+    return {"job_id": job_id, "events": job_events}
 
 
 @v1.get("/statistics/jobs/totals")
