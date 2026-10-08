@@ -9,6 +9,8 @@ from pathlib import Path
 from typing import Optional
 
 import yaml
+from rich.console import Console
+from rich.table import Table
 
 from testflinger_cli.consts import SNAP_NAME, SNAP_PRIVATE_DIRS
 from testflinger_cli.errors import SnapPrivateFileError
@@ -256,3 +258,37 @@ def regex_path(value, pattern: re.Pattern = PATH_PATTERN):
             "paths must not start or end with a forward slash (/)."
         )
     return value
+
+
+def print_table(
+    item: str,
+    headers: list[str],
+    rows: list[list[str]],
+    hide_headers: bool = False,
+) -> None:
+    """Print a table with headers and rows.
+
+    :param item: The item being displayed as a table
+    :param headers: List of header strings
+    :param rows: List of rows, where each row is a list of strings
+    :param hide_headers: If True, do not print the headers
+    """
+    if not rows:
+        print(f"No {item} found matching specified criteria.")
+        return
+
+    headers = [header.upper() for header in headers]
+    table = Table(
+        header_style="bold",
+        box=None,
+        pad_edge=False,
+        title_justify="left",
+        show_header=not hide_headers,
+    )
+    for header in headers:
+        table.add_column(header, justify="left")
+
+    for row in rows:
+        table.add_row(*row)
+    console = Console()
+    console.print(table)

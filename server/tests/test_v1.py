@@ -2394,15 +2394,33 @@ def test_get_job_events(mongo_app, agent_auth_header):
     )
     assert output.status_code == HTTPStatus.OK
 
+    # Post a phase exit code, which fires a job_phase_completed event
+    output = app.post(
+        f"/v1/result/{job_id}",
+        json={"status": {"setup": 0}},
+        headers=agent_auth_header,
+    )
+    assert output.status_code == HTTPStatus.OK
+
     output = app.get(f"/v1/events/job/{job_id}")
     assert output.status_code == HTTPStatus.OK
     assert output.json["job_id"] == job_id
 
-    event_names = {event["event_name"] for event in output.json["events"]}
+    events = output.json["events"]
+    event_names = {event["event_name"] for event in events}
     assert event_names == {
         "job_submitted",
         "job_phase_started",
+        "job_phase_completed",
     }
+
+    phase_completed = next(
+        event
+        for event in events
+        if event["event_name"] == "job_phase_completed"
+    )
+    assert phase_completed["exit_code"] == 0
+    assert phase_completed["phase"] == "setup"
 
 
 def test_add_job_statistics_on_job_post(mongo_app):

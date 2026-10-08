@@ -207,6 +207,7 @@ class TestflingerCli:
         self._add_show_args(subparsers)
         self._add_submit_args(subparsers)
         self._add_secret_args(subparsers)
+        self._add_job_events_args(subparsers)
 
         argcomplete.autocomplete(parser)
         try:
@@ -634,6 +635,39 @@ class TestflingerCli:
             type=helpers.regex_path,
         )
         self._add_auth_args(delete_parser)
+
+    def _add_job_events_args(self, subparsers):
+        parser = subparsers.add_parser(
+            "job-events", help="Show events for a specified job"
+        )
+        parser.set_defaults(func=self.job_events)
+        parser.add_argument("job_id", help="ID of the job")
+        parser.add_argument(
+            "--format",
+            choices=["table", "json"],
+            default="table",
+            help="Output format to display events",
+        )
+        parser.add_argument(
+            "--no-headers",
+            action="store_true",
+            help="Do not print table headers",
+        )
+        parser.add_argument(
+            "--fields",
+            default=[
+                "event_name",
+                "timestamp",
+                "message",
+            ],
+            type=helpers.parse_comma_list(choices=consts.EVENTS_CHOICES),
+            help=(
+                "Fields to display in the events table (comma-separated)."
+                f" Available fields: {', '.join(consts.EVENTS_CHOICES)}."
+                " Default: event_name,timestamp,message"
+            ),
+        )
+        self._add_auth_args(parser)
 
     def status(self):
         """Show the status of a specified JOB_ID."""
@@ -1941,3 +1975,37 @@ class TestflingerCli:
         except client.HTTPError as exc:
             sys.exit(f"Error deleting secret: [{exc.status}] {exc.msg}")
         print(f"Secret '{self.args.path}' deleted successfully")
+
+    def job_events(self):
+        """Show events for a specified job."""
+        try:
+            response = self.client.get_job_events(self.args.job_id)
+        except client.HTTPError as exc:
+            if exc.status == HTTPStatus.NOT_FOUND:
+                # Error message is specified on server side
+                sys.exit(exc.msg)
+            sys.exit(f"Error retrieving job events: [{exc.status}] {exc.msg}")
+
+        # Extract events from the response
+        events = response["events"]
+
+        for event in events:
+            event["timestamp"] = helpers.format_timestamp(
+                event.get("timestamp", "")
+            )
+
+        if self.args.format == "json":
+            print(json.dumps(events, sort_keys=True, indent=4))
+        else:
+            headers = self.args.fields
+            # Extract event data for each header
+            rows = [
+                [str(event.get(header, "")) for header in headers]
+                for event in events
+            ]
+            helpers.print_table(
+                item="events",
+                headers=headers,
+                rows=rows,
+                hide_headers=self.args.no_headers,
+            )

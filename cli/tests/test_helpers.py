@@ -16,6 +16,7 @@ from testflinger_cli.helpers import (
     is_snap,
     parse_filename,
     pretty_yaml_dump,
+    print_table,
     regex_arg,
 )
 
@@ -161,3 +162,62 @@ def test_regex_arg_empty_pattern():
     pattern = regex_arg("")
     assert isinstance(pattern, re.Pattern)
     assert pattern.search("anything") is not None
+
+
+def test_print_table_with_headers(capsys):
+    """Test print_table displays headers and rows correctly."""
+    headers = ["event_name", "message"]
+    rows = [
+        ["job_phase_started", "Phase setup started"],
+        ["job_phase_completed", "Phase setup completed"],
+    ]
+
+    print_table(item="events", headers=headers, rows=rows)
+
+    captured = capsys.readouterr()
+    output = captured.out
+
+    # Verify headers are present and uppercase
+    assert "EVENT_NAME" in output
+    assert "MESSAGE" in output
+
+    # Verify data is present
+    assert "job_phase_started" in output
+    assert "Phase setup started" in output
+    assert "job_phase_completed" in output
+
+
+def test_print_table_no_headers(capsys):
+    """Test print_table with hide_headers=True suppresses headers."""
+    headers = ["event_name", "message"]
+    rows = [
+        ["job_submitted", "Job submitted"],
+        ["job_completed", "Job completed"],
+    ]
+
+    print_table(item="events", headers=headers, rows=rows, hide_headers=True)
+
+    captured = capsys.readouterr()
+    output = captured.out
+
+    # Verify headers are NOT present
+    assert "EVENT_NAME" not in output
+    assert "MESSAGE" not in output
+
+    # But data should still be present
+    assert "job_submitted" in output
+    assert "Job submitted" in output
+
+
+def test_print_table_empty_rows(capsys):
+    """Test print_table with empty rows shows appropriate message."""
+    headers = ["event_name", "message"]
+    rows = []
+
+    print_table(item="events", headers=headers, rows=rows)
+
+    captured = capsys.readouterr()
+    output = captured.out
+
+    # Verify no-data message is shown
+    assert "No events found matching specified criteria." in output

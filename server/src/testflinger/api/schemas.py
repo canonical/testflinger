@@ -42,9 +42,11 @@ TestPhases = [phase.value for phase in TestPhase]
 
 
 class UTCDateTime(fields.DateTime):
-    """DateTime field that normalizes values to naive UTC on load.
+    """DateTime field that normalizes values to UTC on load and dump.
 
-    Matches how timestamps are stored and compared in MongoDB.
+    Matches how timestamps are stored and compared in MongoDB: naive
+    ``datetime`` values are treated as UTC internally, while the wire
+    format is always explicit about the UTC offset.
     """
 
     def _deserialize(self, value, attr, data, **kwargs):
@@ -60,6 +62,17 @@ class UTCDateTime(fields.DateTime):
         if result.tzinfo is not None:
             result = result.astimezone(timezone.utc).replace(tzinfo=None)
         return result
+
+    def _serialize(self, value, attr, obj, **kwargs):
+        """Serialize a naive ``datetime`` as explicit UTC.
+
+        Assumes a naive ``datetime`` value is already UTC and attaches
+        ``timezone.utc`` so the output string carries an explicit UTC
+        offset instead of being emitted as timezone-naive.
+        """
+        if value is not None and value.tzinfo is None:
+            value = value.replace(tzinfo=timezone.utc)
+        return super()._serialize(value, attr, obj, **kwargs)
 
 
 class ProvisionLogsIn(Schema):
@@ -815,10 +828,11 @@ class Event(Schema):
     """Event schema."""
 
     event_name = fields.String(required=True)
-    timestamp = fields.DateTime(required=True)
+    timestamp = UTCDateTime(required=True)
     message = fields.String(required=False)
     detail = fields.String(required=False)
-    status = fields.Integer(required=False, allow_none=True)
+    exit_code = fields.Integer(required=False, allow_none=True)
+    phase = fields.String(required=False, allow_none=True)
 
 
 class JobEventsOut(Schema):

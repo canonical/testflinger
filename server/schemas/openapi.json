@@ -242,12 +242,16 @@
           "event_name": {
             "type": "string"
           },
+          "exit_code": {
+            "nullable": true,
+            "type": "integer"
+          },
           "message": {
             "type": "string"
           },
-          "status": {
+          "phase": {
             "nullable": true,
-            "type": "integer"
+            "type": "string"
           },
           "timestamp": {
             "format": "date-time",
