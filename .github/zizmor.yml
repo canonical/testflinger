@@ -1,0 +1,4 @@
+rules:
+  ref-version-mismatch:
+    ignore:
+      - charm-update-libs.yml:29
