@@ -1657,15 +1657,15 @@ def get_jobs_statistics_totals(query_data: dict) -> dict:
     :param query_data: Dictionary containing query parameters for filtering
     :return: Total counts based on specified filter.
     """
-    return jsonify(
-        totals=database.get_job_statistics_totals(
+    return {
+        "totals": database.get_job_statistics_totals(
             group_by=query_data["group_by"],
             start_at=query_data.get("start_at"),
             end_at=query_data.get("end_at"),
             queues=query_data.get("queues"),
             submitters=query_data.get("submitters"),
         ),
-    )
+    }
 
 
 @v1.get("/statistics/jobs/daily")
@@ -1681,12 +1681,12 @@ def get_jobs_statistics_daily(query_data: dict) -> dict:
     :param query_data: Dictionary containing query parameters for filtering
     :return: Daily counts based on specified filter.
     """
-    return jsonify(
-        daily=database.get_job_statistics_daily(
+    return {
+        "daily": database.get_job_statistics_daily(
             group_by=query_data["group_by"],
             start_at=query_data.get("start_at"),
             end_at=query_data.get("end_at"),
             queues=query_data.get("queues"),
             submitters=query_data.get("submitters"),
         ),
-    )
+    }
