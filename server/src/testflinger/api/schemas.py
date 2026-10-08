@@ -15,6 +15,8 @@
 #
 """Testflinger v1 OpenAPI schemas."""
 
+from datetime import timezone
+
 from apiflask import Schema, fields, validators
 from apiflask.validators import Length, OneOf, Regexp
 from marshmallow import INCLUDE, RAISE, ValidationError, validates_schema
@@ -37,6 +39,22 @@ ValidJobStates = (
 )
 
 TestPhases = [phase.value for phase in TestPhase]
+
+
+class UTCDateTime(fields.DateTime):
+    """DateTime field that normalizes deserialized values to naive UTC.
+
+    Accepts ISO 8601 input with a 'Z' suffix (e.g. ``2024-01-01T00:00:00Z``),
+    a numeric UTC offset (e.g. ``2024-01-01T02:00:00+02:00``), or no
+    timezone designator at all. The deserialized value is a naive ``datetime``
+    in UTC, matching how timestamps are stored and compared in MongoDB.
+    """
+
+    def _deserialize(self, value, attr, data, **kwargs):
+        result = super()._deserialize(value, attr, data, **kwargs)
+        if result.tzinfo is not None:
+            result = result.astimezone(timezone.utc).replace(tzinfo=None)
+        return result
 
 
 class ProvisionLogsIn(Schema):
@@ -826,18 +844,22 @@ class JobStatisticsQuery(Schema):
         required=False,
         metadata={"description": "Filter statistics by specific submitters."},
     )
-    start_at = fields.DateTime(
+    start_at = UTCDateTime(
         required=False,
         metadata={
-            "description": "Filter statistics for jobs created "
-            "at or after this datetime (ISO 8601)."
+            "description": "Filter statistics for jobs created at or after "
+            "this datetime (ISO 8601). All times are treated as UTC: a "
+            "'Z' suffix or numeric offset is honored and converted to UTC, "
+            "and a value with no offset is assumed to already be UTC."
         },
     )
-    end_at = fields.DateTime(
+    end_at = UTCDateTime(
         required=False,
         metadata={
-            "description": "Filter statistics for jobs created "
-            "before this datetime (ISO 8601)."
+            "description": "Filter statistics for jobs created before "
+            "this datetime (ISO 8601). All times are treated as UTC: a "
+            "'Z' suffix or numeric offset is honored and converted to UTC, "
+            "and a value with no offset is assumed to already be UTC."
         },
     )
 

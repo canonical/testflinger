@@ -74,8 +74,10 @@ def _statistics_match(
 ) -> dict:
     """Build a MongoDB match filter for job statistics queries.
 
-    :param start_at: Optional start datetime for filtering.
-    :param end_at: Optional end datetime for filtering.
+    :param start_at: Optional start datetime for filtering, assumed to be
+        a naive UTC datetime (matching how ``created_at`` is stored).
+    :param end_at: Optional end datetime for filtering, assumed to be
+        a naive UTC datetime (matching how ``created_at`` is stored).
     :param queues: Optional list of queue names for filtering.
     :param submitters: Optional list of submitter names for filtering.
     :return: A MongoDB match filter dictionary.
@@ -1262,8 +1264,10 @@ def get_job_statistics_totals(
     """Total job counts grouped by the given dimension.
 
     :param group_by: The dimension to group by.
-    :param start_at: Optional start datetime for filtering.
-    :param end_at: Optional end datetime for filtering.
+    :param start_at: Optional start datetime for filtering, assumed to be
+        a naive UTC datetime (matching how ``created_at`` is stored).
+    :param end_at: Optional end datetime for filtering, assumed to be
+        a naive UTC datetime (matching how ``created_at`` is stored).
     :param queues: Optional list of queue names for filtering.
     :param submitters: Optional list of submitters for filtering.
     :return: List of dictionaries with keys 'key' and 'count'.
@@ -1290,8 +1294,10 @@ def get_job_statistics_daily(
     """Per-day job counts grouped by the given dimension.
 
     :param group_by: The dimension to group by.
-    :param start_at: Optional start datetime for filtering.
-    :param end_at: Optional end datetime for filtering.
+    :param start_at: Optional start datetime for filtering, assumed to be
+        a naive UTC datetime (matching how ``created_at`` is stored).
+    :param end_at: Optional end datetime for filtering, assumed to be
+        a naive UTC datetime (matching how ``created_at`` is stored).
     :param queues: Optional list of queue names for filtering.
     :param submitters: Optional list of submitters for filtering.
     :return: List of dictionaries with keys 'date', 'key', and 'count'.

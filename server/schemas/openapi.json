@@ -3044,7 +3044,7 @@
             "style": "form"
           },
           {
-            "description": "Filter statistics for jobs created at or after this datetime (ISO 8601).",
+            "description": "Filter statistics for jobs created at or after this datetime (ISO 8601). All times are treated as UTC: a 'Z' suffix or numeric offset is honored and converted to UTC, and a value with no offset is assumed to already be UTC.",
             "in": "query",
             "name": "start_at",
             "required": false,
@@ -3054,7 +3054,7 @@
             }
           },
           {
-            "description": "Filter statistics for jobs created before this datetime (ISO 8601).",
+            "description": "Filter statistics for jobs created before this datetime (ISO 8601). All times are treated as UTC: a 'Z' suffix or numeric offset is honored and converted to UTC, and a value with no offset is assumed to already be UTC.",
             "in": "query",
             "name": "end_at",
             "required": false,
@@ -3144,7 +3144,7 @@
             "style": "form"
           },
           {
-            "description": "Filter statistics for jobs created at or after this datetime (ISO 8601).",
+            "description": "Filter statistics for jobs created at or after this datetime (ISO 8601). All times are treated as UTC: a 'Z' suffix or numeric offset is honored and converted to UTC, and a value with no offset is assumed to already be UTC.",
             "in": "query",
             "name": "start_at",
             "required": false,
@@ -3154,7 +3154,7 @@
             }
           },
           {
-            "description": "Filter statistics for jobs created before this datetime (ISO 8601).",
+            "description": "Filter statistics for jobs created before this datetime (ISO 8601). All times are treated as UTC: a 'Z' suffix or numeric offset is honored and converted to UTC, and a value with no offset is assumed to already be UTC.",
             "in": "query",
             "name": "end_at",
             "required": false,

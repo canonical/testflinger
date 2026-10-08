@@ -2458,6 +2458,116 @@ def test_get_job_statistics_daily_defaults(statistics_data, mongo_app):
 
 
 @pytest.mark.parametrize(
+    "start_at",
+    [
+        "2026-01-02T00:00:00Z",
+        "2026-01-02T02:00:00+02:00",
+        "2026-01-02T00:00:00",
+    ],
+    ids=["z_suffix", "numeric_offset", "naive"],
+)
+def test_get_job_statistics_totals_start_at_is_utc(
+    start_at, statistics_data, mongo_app
+):
+    """Test start_at filter work identically regardless of ISO 8601 tz form."""
+    app, _ = mongo_app
+    output = app.get(
+        "/v1/statistics/jobs/totals", query_string={"start_at": start_at}
+    )
+    assert output.status_code == HTTPStatus.OK
+
+    # Only the two jobs created on 2026-01-02 should be included
+    expected_totals = [
+        {"count": 1, "key": "user1"},
+        {"count": 1, "key": "user2"},
+    ]
+
+    assert output.json["totals"] == expected_totals
+
+
+@pytest.mark.parametrize(
+    "start_at",
+    [
+        "2026-01-02T00:00:00Z",
+        "2026-01-02T02:00:00+02:00",
+        "2026-01-02T00:00:00",
+    ],
+    ids=["z_suffix", "numeric_offset", "naive"],
+)
+def test_get_job_statistics_daily_start_at_is_utc(
+    start_at, statistics_data, mongo_app
+):
+    """Test daily time filter work identically regardless of tz form."""
+    app, _ = mongo_app
+    output = app.get(
+        "/v1/statistics/jobs/daily", query_string={"start_at": start_at}
+    )
+    assert output.status_code == HTTPStatus.OK
+
+    # Only the two jobs created on 2026-01-02 should be included
+    expected_daily = [
+        {"date": "2026-01-02", "count": 1, "key": "user1"},
+        {"date": "2026-01-02", "count": 1, "key": "user2"},
+    ]
+
+    assert output.json["daily"] == expected_daily
+
+
+@pytest.mark.parametrize(
+    "end_at",
+    [
+        "2026-01-02T00:00:00Z",
+        "2026-01-02T02:00:00+02:00",
+        "2026-01-02T00:00:00",
+    ],
+    ids=["z_suffix", "numeric_offset", "naive"],
+)
+def test_get_job_statistics_totals_end_at_is_utc(
+    end_at, statistics_data, mongo_app
+):
+    """Test end_at filter work identically regardless of ISO 8601 tz form."""
+    app, _ = mongo_app
+    output = app.get(
+        "/v1/statistics/jobs/totals", query_string={"end_at": end_at}
+    )
+    assert output.status_code == HTTPStatus.OK
+
+    # end_at is exclusive, so only the 2026-01-01 jobs should be included
+    expected_totals = [
+        {"count": 2, "key": "user1"},
+    ]
+
+    assert output.json["totals"] == expected_totals
+
+
+@pytest.mark.parametrize(
+    "end_at",
+    [
+        "2026-01-02T00:00:00Z",
+        "2026-01-02T02:00:00+02:00",
+        "2026-01-02T00:00:00",
+    ],
+    ids=["z_suffix", "numeric_offset", "naive"],
+)
+def test_get_job_statistics_daily_end_at_is_utc(
+    end_at, statistics_data, mongo_app
+):
+    """Test daily end_at filter work identically regardless of tz form."""
+    app, _ = mongo_app
+    output = app.get(
+        "/v1/statistics/jobs/daily", query_string={"end_at": end_at}
+    )
+    assert output.status_code == HTTPStatus.OK
+
+    # end_at is exclusive, so only the 2026-01-01 jobs should be included
+    expected_daily = [
+        {"date": "2026-01-01", "count": 2, "key": "user1"},
+    ]
+
+    assert output.json["daily"] == expected_daily
+
+
+@pytest.mark.parametrize(
     "path", ["/v1/statistics/jobs/totals", "/v1/statistics/jobs/daily"]
 )
 def test_get_job_statistics_invalid_group_by(path, mongo_app):
@@ -2495,40 +2605,6 @@ def test_get_job_statistics_daily_by_queue(statistics_data, mongo_app):
         {"date": "2026-01-01", "count": 1, "key": "queue2"},
         {"date": "2026-01-02", "count": 1, "key": "queue1"},
         {"date": "2026-01-02", "count": 1, "key": "queue2"},
-    ]
-
-    assert output.json["daily"] == expected_daily
-
-
-def test_get_job_statistics_totals_date_range(statistics_data, mongo_app):
-    """Test job statistics totals can be filtered by a date range."""
-    app, _ = mongo_app
-    output = app.get(
-        "/v1/statistics/jobs/totals?start_at=2026-01-02T00:00:00Z",
-    )
-    assert output.status_code == HTTPStatus.OK
-
-    # Expected totals from the statistics_data fixture for the specified range
-    expected_totals = [
-        {"count": 1, "key": "user1"},
-        {"count": 1, "key": "user2"},
-    ]
-
-    assert output.json["totals"] == expected_totals
-
-
-def test_get_job_statistics_daily_date_range(statistics_data, mongo_app):
-    """Test job statistics daily counts can be filtered by a date range."""
-    app, _ = mongo_app
-    output = app.get(
-        "/v1/statistics/jobs/daily?start_at=2026-01-02T00:00:00Z",
-    )
-    assert output.status_code == HTTPStatus.OK
-
-    # Expected counts from the statistics_data fixture for the specified range
-    expected_daily = [
-        {"date": "2026-01-02", "count": 1, "key": "user1"},
-        {"date": "2026-01-02", "count": 1, "key": "user2"},
     ]
 
     assert output.json["daily"] == expected_daily
