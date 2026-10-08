@@ -74,12 +74,10 @@ def build_event(
         "message": message,
         "detail": detail,
     }
-    # Preserve the exit_code key in the event if it's present in the context
-    if "exit_code" in context:
-        event["exit_code"] = context["exit_code"]
-    # Preserve the phase key in the event if it's present in the context
-    if "phase" in context:
-        event["phase"] = context["phase"]
+    # Preserve these context keys in the event if they're present
+    for key in ("exit_code", "phase"):
+        if key in context:
+            event[key] = context[key]
     return event
 
 

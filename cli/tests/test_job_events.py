@@ -26,6 +26,20 @@ import testflinger_cli
 
 from .conftest import URL
 
+WIDE_WIDTH = 200  # Force wide terminal width for table output tests
+
+
+@pytest.fixture(autouse=True)
+def wide_terminal(monkeypatch):
+    """Force a wide terminal width.
+
+    rich defaults to an 80-column terminal when stdout is not a TTY (as is
+    the case under pytest's capsys), which can wrap table cell content
+    across multiple lines. Setting COLUMNS avoids that so output assertions
+    can check for exact substrings.
+    """
+    monkeypatch.setenv("COLUMNS", str(WIDE_WIDTH))
+
 
 @pytest.fixture
 def sample_events():
@@ -33,20 +47,20 @@ def sample_events():
     return [
         {
             "event_name": "job_submitted",
-            "timestamp": {"$date": "2026-09-23T16:47:27.465Z"},
+            "timestamp": "2026-09-23T16:47:27.465000+00:00",
             "message": "Job submitted by user test-user into queue staging.",
             "detail": "",
         },
         {
             "event_name": "job_phase_started",
-            "timestamp": {"$date": "2026-09-23T16:47:33.647Z"},
+            "timestamp": "2026-09-23T16:47:33.647000+00:00",
             "message": "Phase setup started.",
             "detail": "",
             "phase": "setup",
         },
         {
             "event_name": "job_phase_completed",
-            "timestamp": {"$date": "2026-09-23T16:47:38.435Z"},
+            "timestamp": "2026-09-23T16:47:38.435000+00:00",
             "message": "Phase setup completed with exit code 0",
             "detail": "",
             "phase": "setup",
@@ -54,14 +68,14 @@ def sample_events():
         },
         {
             "event_name": "job_phase_started",
-            "timestamp": {"$date": "2026-09-23T16:47:38.980Z"},
+            "timestamp": "2026-09-23T16:47:38.980000+00:00",
             "message": "Phase provision started.",
             "detail": "",
             "phase": "provision",
         },
         {
             "event_name": "job_completed",
-            "timestamp": {"$date": "2026-09-23T17:08:47.554Z"},
+            "timestamp": "2026-09-23T17:08:47.554000+00:00",
             "message": "Job completed.",
             "detail": "",
         },
@@ -172,7 +186,7 @@ def test_job_events_table_missing_phase(capsys, requests_mock, job_id):
     events = [
         {
             "event_name": "job_submitted",
-            "timestamp": {"$date": "2026-09-23T16:47:27.465Z"},
+            "timestamp": "2026-09-23T16:47:27.465000+00:00",
             "message": "Job submitted",
             "detail": "",
         }
@@ -270,6 +284,23 @@ def test_job_events_http_404(requests_mock, job_id):
     assert exc_info.value.code == "Job not found"
 
 
+def test_job_events_http_other_error(requests_mock, job_id):
+    """Non-404 HTTP errors should exit with an error message, not crash."""
+    requests_mock.get(
+        f"{URL}/v1/events/job/{job_id}",
+        status_code=HTTPStatus.INTERNAL_SERVER_ERROR,
+        json={"message": "Internal server error"},
+    )
+
+    sys.argv = ["", "job-events", job_id]
+    cli = testflinger_cli.TestflingerCli()
+
+    with pytest.raises(SystemExit) as exc_info:
+        cli.job_events()
+
+    assert "Internal server error" in exc_info.value.code
+
+
 def test_job_events_empty_events_list(
     capsys, requests_mock, empty_events, job_id
 ):
@@ -299,7 +330,7 @@ def test_job_events_timestamp_formatting(
     events = [
         {
             "event_name": "job_submitted",
-            "timestamp": {"$date": "2026-09-23T16:47:27.465Z"},
+            "timestamp": "2026-09-23T16:47:27.465000+00:00",
             "message": "Job submitted",
             "detail": "",
         }

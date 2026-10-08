@@ -1989,6 +1989,11 @@ class TestflingerCli:
         # Extract events from the response
         events = response["events"]
 
+        for event in events:
+            event["timestamp"] = helpers.format_timestamp(
+                event.get("timestamp", "")
+            )
+
         if self.args.format == "json":
             print(json.dumps(events, sort_keys=True, indent=4))
         else:

@@ -18,7 +18,11 @@
 import pytest
 from testflinger_common.enums import JobEvent, JobState
 
-from testflinger.events import _MESSAGE_TEMPLATES, detect_new_result_events
+from testflinger.events import (
+    _MESSAGE_TEMPLATES,
+    build_event,
+    detect_new_result_events,
+)
 
 
 def _event_names(events: list[dict]) -> list[str]:
@@ -125,3 +129,23 @@ def test_all_job_events_have_template():
     """Test that all JobEvent values have a corresponding message template."""
     for event in JobEvent:
         assert event in _MESSAGE_TEMPLATES, f"Missing template for {event}"
+
+
+def test_build_event_preserves_exit_code_and_phase():
+    """Test build_event includes exit_code/phase when given in context."""
+    event = build_event(
+        JobEvent.JOB_PHASE_COMPLETED,
+        phase=JobState.SETUP,
+        exit_code=1,
+    )
+
+    assert event["exit_code"] == 1
+    assert event["phase"] == JobState.SETUP
+
+
+def test_build_event_omits_exit_code_and_phase_when_absent():
+    """Test build_event excludes exit_code/phase when not in context."""
+    event = build_event(JobEvent.JOB_SUBMITTED, client_id="bob")
+
+    assert "exit_code" not in event
+    assert "phase" not in event
