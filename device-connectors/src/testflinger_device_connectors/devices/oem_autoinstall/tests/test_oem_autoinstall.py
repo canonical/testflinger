@@ -21,6 +21,7 @@ import tempfile
 import textwrap
 import unittest
 from pathlib import Path
+from subprocess import run as run_subprocess
 from unittest.mock import Mock, call, patch
 
 import pytest
@@ -43,46 +44,39 @@ def write_files(path):
 def run_boot_helper(script, efibootmgr_output):
     with tempfile.TemporaryDirectory() as temp_dir:
         temp_path = Path(temp_dir)
-        bin_path = temp_path / "bin"
-        bin_path.mkdir()
-
-        (bin_path / "sudo").write_text(
-            '#!/bin/sh\nexec "$@"\n', encoding="utf-8"
-        )
-        (bin_path / "efibootmgr").write_text(
-            """#!/bin/sh
+        mock_sudo = """sudo() {
+shift
 if [ "$1" = "-o" ]; then
     printf '%s' "$2" > "$EFI_ORDER_FILE"
 else
-    cat "$EFI_OUTPUT_FILE"
+    while IFS= read -r line || [ -n "$line" ]; do
+        printf '%s\n' "$line"
+    done < "$EFI_OUTPUT_FILE"
 fi
-""",
-            encoding="utf-8",
-        )
-        (bin_path / "sudo").chmod(0o755)
-        (bin_path / "efibootmgr").chmod(0o755)
+}
+"""
 
-        script_path = temp_path / "boot-helper.sh"
-        script_path.write_text(script, encoding="utf-8")
         output_path = temp_path / "efibootmgr-output"
         output_path.write_text(efibootmgr_output, encoding="utf-8")
         order_path = temp_path / "efi-order"
         env = os.environ.copy()
         env.update(
             {
-                "PATH": f"{bin_path}:{env['PATH']}",
                 "EFI_OUTPUT_FILE": str(output_path),
                 "EFI_ORDER_FILE": str(order_path),
             }
         )
 
-        result = subprocess.run(
-            ["/bin/bash", str(script_path)],
+        result = run_subprocess(
+            ["/bin/bash"],
             capture_output=True,
             check=False,
             env=env,
+            input=mock_sudo + script,
             text=True,
         )
+        if result.returncode:
+            return result, ""
         order = order_path.read_text(encoding="utf-8")
         return result, order
 
@@ -165,10 +159,10 @@ class TestOemAutoinstall(unittest.TestCase):
         usb_output = textwrap.dedent("""\
             BootCurrent: 0000
             BootOrder: 0000,0001,0002,0007
-            Boot0000* Ubuntu HD(1,GPT,...)/File(\\EFI\\ubuntu\\shimaa64.efi)
+            Boot0000* ubuntu HD(1,GPT,...)/File(\\EFI\\ubuntu\\shimaa64.efi)
             Boot0001* UEFI: PXE IPv4 Adapter MAC(001122,1)/IPv4(...)
             Boot0002* UEFI: PXE IPv6 Adapter MAC(001122,1)/IPv6(...)
-            Boot0007* UEFI: KingstonDataTraveler\tVenHw(...)/USB(1,0)/HD(...)
+            Boot0007* UEFI: KingstonDataTraveler\tUsbWwid(...)/HD(...)
         """)
         ubuntu_output = textwrap.dedent("""\
             BootCurrent: 0008
