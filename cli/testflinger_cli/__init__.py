@@ -52,8 +52,6 @@ from testflinger_cli.auth import TestflingerCliAuth
 from testflinger_cli.consts import (
     DEFAULT_RESERVE_TIMEOUT,
     DEFAULT_SECRET_EXPIRATION,
-    STYLE_BOLD,
-    STYLE_RESET_ALL,
 )
 from testflinger_cli.enums import LogType, TestPhase
 from testflinger_cli.errors import (
@@ -71,6 +69,9 @@ logger = logging.getLogger(__name__)
 basedir = os.path.abspath(os.path.join(__file__, ".."))
 if os.path.exists(os.path.join(basedir, "setup.py")):
     sys.path.insert(0, basedir)
+
+STYLE_BOLD = "\033[1m"
+STYLE_RESET_ALL = "\033[0m"
 
 # Top-level (gross) states
 VALID_STATES = frozenset({"online", "offline", "maintenance"})

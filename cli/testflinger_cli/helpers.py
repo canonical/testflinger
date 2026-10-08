@@ -11,13 +11,10 @@ from typing import Optional
 import yaml
 from rich.console import Console
 from rich.table import Table
-from tabulate import tabulate
 
 from testflinger_cli.consts import (
     SNAP_NAME,
     SNAP_PRIVATE_DIRS,
-    STYLE_BOLD,
-    STYLE_RESET_ALL,
 )
 from testflinger_cli.errors import SnapPrivateFileError
 
@@ -295,5 +292,3 @@ def print_table(
         table.add_row(*row)
     console = Console()
     console.print(table)
-
-
