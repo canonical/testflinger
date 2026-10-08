@@ -1987,25 +1987,14 @@ class TestflingerCli:
         # Extract events from the response
         events = response["events"]
 
-        # Convert timestamps as human-readable strings
-        formatted_events = [
-            {
-                **event,
-                "timestamp": helpers.datetime_to_str(
-                    event.get("timestamp", "")
-                ),
-            }
-            for event in events
-        ]
-
         if self.args.format == "json":
-            print(json.dumps(formatted_events, sort_keys=True, indent=4))
+            print(json.dumps(events, sort_keys=True, indent=4))
         else:
             headers = self.args.fields
             # Extract event data for each header
             rows = [
                 [str(event.get(header, "")) for header in headers]
-                for event in formatted_events
+                for event in events
             ]
             helpers.print_table(
                 item="events",

@@ -9,6 +9,8 @@ from pathlib import Path
 from typing import Optional
 
 import yaml
+from rich.console import Console
+from rich.table import Table
 from tabulate import tabulate
 
 from testflinger_cli.consts import (
@@ -279,13 +281,20 @@ def print_table(
         return
 
     headers = [header.upper() for header in headers]
-    formatted_headers = [
-        f"{STYLE_BOLD}{header}{STYLE_RESET_ALL}" for header in headers
-    ]
-    if not hide_headers:
-        print(tabulate(rows, headers=formatted_headers, tablefmt="plain"))
-    else:
-        print(tabulate(rows, tablefmt="plain"))
+    table = Table(
+        header_style="bold",
+        box=None,
+        pad_edge=False,
+        title_justify="left",
+        show_header=not hide_headers,
+    )
+    for header in headers:
+        table.add_column(header, justify="left")
+
+    for row in rows:
+        table.add_row(*row)
+    console = Console()
+    console.print(table)
 
 
 def datetime_to_str(timestamp: dict) -> str:

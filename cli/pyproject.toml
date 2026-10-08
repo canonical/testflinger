@@ -13,6 +13,7 @@ dependencies = [
   "pytest-xdist>=3.8.0",
   "pyyaml>=6.0.2",
   "requests>=2.32.3",
+  "rich>=15.0.0",
   "strenum>=0.4.15",
   "tabulate>=0.10.0",
   "xdg-base-dirs>=6.0.2",
