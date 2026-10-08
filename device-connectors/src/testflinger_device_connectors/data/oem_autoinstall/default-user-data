@@ -130,7 +130,7 @@ autoinstall:
               local bootnum current_order new_order
 
               # Get Ubuntu boot number
-              bootnum=$(sudo efibootmgr -v | awk '{line=tolower($0)} line ~ /^boot[0-9a-f]+\**[[:space:]]/ && line ~ /ubuntu/ {print $1}' | head -n1 | cut -c5- | tr -d '*')
+              bootnum=$(sudo efibootmgr -v | awk '{line=tolower($0)} line ~ /^boot[0-9a-f]+\**[[:space:]]/ && line ~ /ubuntu/ && line !~ /usb/ {print $1}' | head -n1 | cut -c5- | tr -d '*')
 
               if [[ -z "$bootnum" ]]; then
                   echo "No Ubuntu boot entry found" >&2
