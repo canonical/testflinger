@@ -527,11 +527,12 @@ class Client:
         endpoint = f"/v1/client-permissions/{tf_client_id}"
         self.delete(endpoint)
 
-    def get_job_events(self, job_id: str) -> list[dict]:
+    def get_job_events(self, job_id: str) -> dict:
         """Get the events for a specified test job.
 
         :param job_id: ID for the test job
-        :return: List of dicts containing the events for the specified job
+        :return: Dict containing the job_id and a list of events for the
+            specified job
         """
         endpoint = f"/v1/events/job/{job_id}"
         data = self.get(endpoint)

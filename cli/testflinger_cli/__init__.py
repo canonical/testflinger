@@ -1984,6 +1984,7 @@ class TestflingerCli:
             if exc.status == HTTPStatus.NOT_FOUND:
                 # Error message is specified on server side
                 sys.exit(exc.msg)
+            sys.exit(f"Error retrieving job events: [{exc.status}] {exc.msg}")
 
         # Extract events from the response
         events = response["events"]

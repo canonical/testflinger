@@ -264,7 +264,10 @@ def regex_path(value, pattern: re.Pattern = PATH_PATTERN):
 
 
 def print_table(
-    item=str, headers=list[str], rows=list[list[str]], hide_headers=False
+    item: str,
+    headers: list[str],
+    rows: list[list[str]],
+    hide_headers: bool = False,
 ) -> None:
     """Print a table with headers and rows.
 
