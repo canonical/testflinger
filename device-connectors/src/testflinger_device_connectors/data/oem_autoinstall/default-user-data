@@ -58,7 +58,7 @@ autoinstall:
               local bootnum current_order new_order
 
               # Get USB boot number and avoid usb-ethernet dongles
-              bootnum=$(sudo efibootmgr -v | awk 'BEGIN {IGNORECASE=1} /Boot[0-9A-F]+\**[[:space:]]+.*USB/ && !/IP/ && !/MAC/ {print $1}' | head -n1 | cut -c5- | tr -d '*')
+              bootnum=$(sudo efibootmgr -v | awk '{line=tolower($0)} line ~ /^boot[0-9a-f]+\**[[:space:]]/ && line ~ /usb/ && line !~ /ipv[46]|mac\(/ {print $1}' | head -n1 | cut -c5- | tr -d '*')
 
               if [[ -z "$bootnum" ]]; then
                   echo "No USB boot entry found" >&2
@@ -130,7 +130,7 @@ autoinstall:
               local bootnum current_order new_order
 
               # Get Ubuntu boot number
-              bootnum=$(sudo efibootmgr -v | awk 'BEGIN {IGNORECASE=1} /Boot[0-9A-F]+\**[[:space:]]+.*Ubuntu/ {print $1}' | head -n1 | cut -c5- | tr -d '*')
+              bootnum=$(sudo efibootmgr -v | awk '{line=tolower($0)} line ~ /^boot[0-9a-f]+\**[[:space:]]/ && line ~ /ubuntu/ {print $1}' | head -n1 | cut -c5- | tr -d '*')
 
               if [[ -z "$bootnum" ]]; then
                   echo "No Ubuntu boot entry found" >&2
