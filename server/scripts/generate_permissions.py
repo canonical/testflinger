@@ -153,10 +153,7 @@ def diff_permissions(local_path: Path) -> bool:
 def main():
     """Generate or validate the permissions matrix."""
     parser = argparse.ArgumentParser(
-        description=(
-            "Generate or validate the permissions matrix "
-            "for Testflinger API endpoints"
-        )
+        description="Generate or validate the permissions matrix used by unit tests."
     )
     parser.add_argument(
         "--output",
