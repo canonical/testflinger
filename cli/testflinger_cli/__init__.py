@@ -1608,6 +1608,10 @@ class TestflingerCli:
         StatusLine.set_state(job_state)
         if msg:
             StatusLine.set_message(msg)
+            if job_state == "reserve":
+                # Show the fixed expiry message once; the status-line timer is
+                # intentionally paused while the job remains reserved.
+                StatusLine.refresh()
 
     def do_poll(
         self,
