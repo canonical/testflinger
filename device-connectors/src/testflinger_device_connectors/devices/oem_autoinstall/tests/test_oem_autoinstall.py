@@ -15,10 +15,13 @@
 """Tests for the OemAutoinstall class."""
 
 import json
+import os
 import subprocess
 import tempfile
+import textwrap
 import unittest
 from pathlib import Path
+from subprocess import run as run_subprocess
 from unittest.mock import Mock, call, patch
 
 import pytest
@@ -28,6 +31,54 @@ from testflinger_device_connectors.devices import ProvisioningError
 from testflinger_device_connectors.devices.oem_autoinstall.oem_autoinstall import (  # noqa: E501
     OemAutoinstall,
 )
+
+
+def write_files(path):
+    data = yaml.safe_load(path.read_text(encoding="utf-8"))
+    return {
+        entry["path"]: entry
+        for entry in data["autoinstall"]["user-data"]["write_files"]
+    }
+
+
+def run_boot_helper(script, efibootmgr_output):
+    with tempfile.TemporaryDirectory() as temp_dir:
+        temp_path = Path(temp_dir)
+        mock_sudo = """sudo() {
+shift
+if [ "$1" = "-o" ]; then
+    printf '%s' "$2" > "$EFI_ORDER_FILE"
+else
+    while IFS= read -r line || [ -n "$line" ]; do
+        printf '%s\n' "$line"
+    done < "$EFI_OUTPUT_FILE"
+fi
+}
+"""
+
+        output_path = temp_path / "efibootmgr-output"
+        output_path.write_text(efibootmgr_output, encoding="utf-8")
+        order_path = temp_path / "efi-order"
+        env = os.environ.copy()
+        env.update(
+            {
+                "EFI_OUTPUT_FILE": str(output_path),
+                "EFI_ORDER_FILE": str(order_path),
+            }
+        )
+
+        result = run_subprocess(
+            ["/bin/bash"],
+            capture_output=True,
+            check=False,
+            env=env,
+            input=mock_sudo + script,
+            text=True,
+        )
+        if result.returncode:
+            return result, ""
+        order = order_path.read_text(encoding="utf-8")
+        return result, order
 
 
 class TestOemAutoinstall(unittest.TestCase):
@@ -82,25 +133,84 @@ class TestOemAutoinstall(unittest.TestCase):
             "http://example.com/test-image.iso",
         )
 
-    def test_stock_ubuntu_boot_helper_matches_default(self):
-        """Test the stock image installs the established boot helper."""
+    def test_stock_boot_helpers_match_default(self):
+        """Test the stock image installs the established boot helpers."""
         device = OemAutoinstall(self.config_file.name, self.job_file.name)
-        script_path = "/usr/bin/set_ubuntu_boot.sh"
-
-        def write_files(path):
-            data = yaml.safe_load(path.read_text(encoding="utf-8"))
-            return {
-                entry["path"]: entry
-                for entry in data["autoinstall"]["user-data"]["write_files"]
-            }
 
         default_files = write_files(device.data_path / "default-user-data")
         stock_files = write_files(
             device.data_path / "stock" / "default-user-data"
         )
 
-        self.assertIn(script_path, stock_files)
-        self.assertEqual(stock_files[script_path], default_files[script_path])
+        for script_path in (
+            "/usr/bin/set_usb_boot.sh",
+            "/usr/bin/set_ubuntu_boot.sh",
+        ):
+            with self.subTest(script_path=script_path):
+                self.assertIn(script_path, stock_files)
+                self.assertEqual(
+                    stock_files[script_path], default_files[script_path]
+                )
+
+    def test_boot_helpers_set_expected_order(self):
+        """Test the embedded helpers select USB and internal Ubuntu."""
+        device = OemAutoinstall(self.config_file.name, self.job_file.name)
+        scripts = write_files(device.data_path / "default-user-data")
+        usb_output = textwrap.dedent("""\
+            BootCurrent: 0000
+            BootOrder: 0000,0001,0002,0007
+            Boot0000* ubuntu HD(1,GPT,...)/File(\\EFI\\ubuntu\\shimaa64.efi)
+            Boot0001* UEFI: PXE IPv4 Adapter MAC(001122,1)/IPv4(...)
+            Boot0002* UEFI: PXE IPv6 Adapter MAC(001122,1)/IPv6(...)
+            Boot0007* UEFI: KingstonDataTraveler\tUsbWwid(...)/HD(...)
+        """)
+        ubuntu_output = textwrap.dedent("""\
+            BootCurrent: 0008
+            BootOrder: 0008,0000,0001
+            Boot0008* Ubuntu installer USB(1,0)/File(\\EFI\\ubuntu\\shim.efi)
+            Boot0000* Ubuntu HD(1,GPT,...)/File(\\EFI\\ubuntu\\shimaa64.efi)
+            Boot0001* UEFI: PXE IPv4 Adapter MAC(001122,1)/IPv4(...)
+        """)
+        usb_nic_output = textwrap.dedent("""\
+            BootCurrent: 0005
+            BootOrder: 0004,0005,0000,0001,0002,0003
+            Boot0000* UEFI PC811 SED SK hynix HD(1,GPT,...)
+            Boot0001* USB NIC (IPV4) USB(15,0)/MAC(001122,0)/IPv4(...)
+            Boot0002* USB NIC (IPV6) USB(15,0)/MAC(001122,0)/IPv6(...)
+            Boot0003* UEFI HTTPs Boot USB(15,0)/MAC(001122,0)/IPv4(...)
+            Boot0004* UEFI Samsung Type-C USB(3,0)/HD(1,GPT,...)
+            Boot0005* Ubuntu HD(1,GPT,...)/File(\\EFI\\ubuntu\\shimx64.efi)
+        """)
+        cases = (
+            (
+                "/usr/bin/set_usb_boot.sh",
+                usb_output,
+                "0007,0000,0001,0002",
+            ),
+            (
+                "/usr/bin/set_ubuntu_boot.sh",
+                ubuntu_output,
+                "0000,0008,0001",
+            ),
+            (
+                "/usr/bin/set_usb_boot.sh",
+                usb_nic_output,
+                "0004,0005,0000,0001,0002,0003",
+            ),
+            (
+                "/usr/bin/set_ubuntu_boot.sh",
+                usb_nic_output,
+                "0005,0004,0000,0001,0002,0003",
+            ),
+        )
+
+        for script_path, output, expected_order in cases:
+            with self.subTest(script_path=script_path):
+                result, order = run_boot_helper(
+                    scripts[script_path]["content"], output
+                )
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(order, expected_order)
 
     def test_get_test_data_or_default(self):
         """Test get_test_data_or_default retrieves values correctly."""
