@@ -12,10 +12,7 @@ import yaml
 from rich.console import Console
 from rich.table import Table
 
-from testflinger_cli.consts import (
-    SNAP_NAME,
-    SNAP_PRIVATE_DIRS,
-)
+from testflinger_cli.consts import SNAP_NAME, SNAP_PRIVATE_DIRS
 from testflinger_cli.errors import SnapPrivateFileError
 
 # Only accept paths that are separated by forward slashes
