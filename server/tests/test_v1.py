@@ -2403,3 +2403,259 @@ def test_get_job_events(mongo_app, agent_auth_header):
         "job_submitted",
         "job_phase_started",
     }
+
+
+def test_add_job_statistics_on_job_post(mongo_app):
+    """Test that job statistics are added when a job is posted."""
+    app, mongo = mongo_app
+    job_data = {
+        "job_queue": "test",
+        "tags": ["foo"],
+    }
+    output = app.post("/v1/job", json=job_data)
+    assert output.status_code == HTTPStatus.OK
+    job_id = output.json.get("job_id")
+
+    # Verify that the job statistics are added as a document in job_statistics
+    job_statistics = mongo.job_statistics.find_one({"job_id": job_id})
+
+    assert job_statistics is not None
+    assert job_statistics["job_id"] == job_id
+    assert job_statistics["queue"] == "test"
+    assert "submitted_by" in job_statistics
+    assert "created_at" in job_statistics
+
+
+def test_get_job_statistics_totals_defaults(statistics_data, mongo_app):
+    """Test job statistics totals are grouped by submitter without filters."""
+    app, _ = mongo_app
+    output = app.get("/v1/statistics/jobs/totals")
+    assert output.status_code == HTTPStatus.OK
+
+    # Expected totals from the statistics_data fixture
+    expected_totals = [
+        {"count": 3, "key": "user1"},
+        {"count": 1, "key": "user2"},
+    ]
+
+    assert output.json["totals"] == expected_totals
+
+
+def test_get_job_statistics_daily_defaults(statistics_data, mongo_app):
+    """Test job statistics daily counts are grouped by submitter."""
+    app, _ = mongo_app
+    output = app.get("/v1/statistics/jobs/daily")
+    assert output.status_code == HTTPStatus.OK
+
+    # Expected daily counts from the statistics_data fixture
+    expected_daily = [
+        {"date": "2026-01-01", "count": 2, "key": "user1"},
+        {"date": "2026-01-02", "count": 1, "key": "user1"},
+        {"date": "2026-01-02", "count": 1, "key": "user2"},
+    ]
+
+    assert output.json["daily"] == expected_daily
+
+
+@pytest.mark.parametrize(
+    "start_at",
+    [
+        "2026-01-02T00:00:00Z",
+        "2026-01-02T02:00:00+02:00",
+        "2026-01-02T00:00:00",
+    ],
+    ids=["z_suffix", "numeric_offset", "naive"],
+)
+def test_get_job_statistics_totals_start_at_is_utc(
+    start_at, statistics_data, mongo_app
+):
+    """Test start_at filter work identically regardless of ISO 8601 tz form."""
+    app, _ = mongo_app
+    output = app.get(
+        "/v1/statistics/jobs/totals", query_string={"start_at": start_at}
+    )
+    assert output.status_code == HTTPStatus.OK
+
+    # Only the two jobs created on 2026-01-02 should be included
+    expected_totals = [
+        {"count": 1, "key": "user1"},
+        {"count": 1, "key": "user2"},
+    ]
+
+    assert output.json["totals"] == expected_totals
+
+
+@pytest.mark.parametrize(
+    "start_at",
+    [
+        "2026-01-02T00:00:00Z",
+        "2026-01-02T02:00:00+02:00",
+        "2026-01-02T00:00:00",
+    ],
+    ids=["z_suffix", "numeric_offset", "naive"],
+)
+def test_get_job_statistics_daily_start_at_is_utc(
+    start_at, statistics_data, mongo_app
+):
+    """Test daily time filter work identically regardless of tz form."""
+    app, _ = mongo_app
+    output = app.get(
+        "/v1/statistics/jobs/daily", query_string={"start_at": start_at}
+    )
+    assert output.status_code == HTTPStatus.OK
+
+    # Only the two jobs created on 2026-01-02 should be included
+    expected_daily = [
+        {"date": "2026-01-02", "count": 1, "key": "user1"},
+        {"date": "2026-01-02", "count": 1, "key": "user2"},
+    ]
+
+    assert output.json["daily"] == expected_daily
+
+
+@pytest.mark.parametrize(
+    "end_at",
+    [
+        "2026-01-02T00:00:00Z",
+        "2026-01-02T02:00:00+02:00",
+        "2026-01-02T00:00:00",
+    ],
+    ids=["z_suffix", "numeric_offset", "naive"],
+)
+def test_get_job_statistics_totals_end_at_is_utc(
+    end_at, statistics_data, mongo_app
+):
+    """Test end_at filter work identically regardless of ISO 8601 tz form."""
+    app, _ = mongo_app
+    output = app.get(
+        "/v1/statistics/jobs/totals", query_string={"end_at": end_at}
+    )
+    assert output.status_code == HTTPStatus.OK
+
+    # end_at is exclusive, so only the 2026-01-01 jobs should be included
+    expected_totals = [
+        {"count": 2, "key": "user1"},
+    ]
+
+    assert output.json["totals"] == expected_totals
+
+
+@pytest.mark.parametrize(
+    "end_at",
+    [
+        "2026-01-02T00:00:00Z",
+        "2026-01-02T02:00:00+02:00",
+        "2026-01-02T00:00:00",
+    ],
+    ids=["z_suffix", "numeric_offset", "naive"],
+)
+def test_get_job_statistics_daily_end_at_is_utc(
+    end_at, statistics_data, mongo_app
+):
+    """Test daily end_at filter work identically regardless of tz form."""
+    app, _ = mongo_app
+    output = app.get(
+        "/v1/statistics/jobs/daily", query_string={"end_at": end_at}
+    )
+    assert output.status_code == HTTPStatus.OK
+
+    # end_at is exclusive, so only the 2026-01-01 jobs should be included
+    expected_daily = [
+        {"date": "2026-01-01", "count": 2, "key": "user1"},
+    ]
+
+    assert output.json["daily"] == expected_daily
+
+
+@pytest.mark.parametrize(
+    "path", ["/v1/statistics/jobs/totals", "/v1/statistics/jobs/daily"]
+)
+def test_get_job_statistics_invalid_group_by(path, mongo_app):
+    """Test that an invalid group_by parameter returns a 422 error."""
+    app, _ = mongo_app
+    output = app.get(f"{path}?group_by=invalid")
+    assert output.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+    assert "Validation error" in output.json["message"]
+
+
+def test_get_job_statistics_totals_by_queue(statistics_data, mongo_app):
+    """Test job statistics totals are grouped by queue."""
+    app, _ = mongo_app
+    output = app.get("/v1/statistics/jobs/totals?group_by=queue")
+    assert output.status_code == HTTPStatus.OK
+
+    # Expected totals from the statistics_data fixture
+    expected_totals = [
+        {"count": 2, "key": "queue1"},
+        {"count": 2, "key": "queue2"},
+    ]
+
+    assert output.json["totals"] == expected_totals
+
+
+def test_get_job_statistics_daily_by_queue(statistics_data, mongo_app):
+    """Test job statistics daily counts are grouped by queue."""
+    app, _ = mongo_app
+    output = app.get("/v1/statistics/jobs/daily?group_by=queue")
+    assert output.status_code == HTTPStatus.OK
+
+    # Expected daily counts (per-day) from the statistics_data fixture
+    expected_daily = [
+        {"date": "2026-01-01", "count": 1, "key": "queue1"},
+        {"date": "2026-01-01", "count": 1, "key": "queue2"},
+        {"date": "2026-01-02", "count": 1, "key": "queue1"},
+        {"date": "2026-01-02", "count": 1, "key": "queue2"},
+    ]
+
+    assert output.json["daily"] == expected_daily
+
+
+@pytest.mark.parametrize(
+    "path", ["/v1/statistics/jobs/totals", "/v1/statistics/jobs/daily"]
+)
+def test_get_job_statistics_not_iso8601_datetime(
+    path, statistics_data, mongo_app
+):
+    """Test job statistics returns 422 if start_at is not a ISO8601 format."""
+    app, _ = mongo_app
+    output = app.get(
+        f"{path}?start_at=2026-01-02",
+    )
+    assert output.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+    assert "Validation error" in output.json["message"]
+
+
+def test_get_job_statistics_totals_with_filters(statistics_data, mongo_app):
+    """Test job statistics totals can be filtered by queue and submitter."""
+    app, _ = mongo_app
+    output = app.get(
+        "/v1/statistics/jobs/totals?queues=queue1&submitters=user1",
+    )
+    assert output.status_code == HTTPStatus.OK
+
+    # Expected totals from the statistics_data fixture with specified filters
+    expected_totals = [
+        {"count": 1, "key": "user1"},
+    ]
+
+    assert "user2" not in output.json
+    assert "queue2" not in output.json
+    assert output.json["totals"] == expected_totals
+
+
+def test_get_job_statistics_daily_with_filters(statistics_data, mongo_app):
+    """Test job statistics daily counts can be filtered by queue/submitter."""
+    app, _ = mongo_app
+    output = app.get(
+        "/v1/statistics/jobs/daily?queues=queue1&submitters=user1",
+    )
+    assert output.status_code == HTTPStatus.OK
+
+    # Expected counts from the statistics_data fixture with specified filters
+    expected_daily = [
+        {"date": "2026-01-01", "count": 1, "key": "user1"},
+    ]
+
+    assert "user2" not in output.json
+    assert "queue2" not in output.json
+    assert output.json["daily"] == expected_daily
