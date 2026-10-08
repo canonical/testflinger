@@ -42,15 +42,20 @@ TestPhases = [phase.value for phase in TestPhase]
 
 
 class UTCDateTime(fields.DateTime):
-    """DateTime field that normalizes deserialized values to naive UTC.
+    """DateTime field that normalizes values to naive UTC on load.
 
-    Accepts ISO 8601 input with a 'Z' suffix (e.g. ``2024-01-01T00:00:00Z``),
-    a numeric UTC offset (e.g. ``2024-01-01T02:00:00+02:00``), or no
-    timezone designator at all. The deserialized value is a naive ``datetime``
-    in UTC, matching how timestamps are stored and compared in MongoDB.
+    Matches how timestamps are stored and compared in MongoDB.
     """
 
     def _deserialize(self, value, attr, data, **kwargs):
+        """Deserialize to a naive UTC ``datetime``.
+
+        Accepts ISO 8601 input with a 'Z' suffix (e.g.
+        ``2024-01-01T00:00:00Z``), a numeric UTC offset (e.g.
+        ``2024-01-01T02:00:00+02:00``), or no timezone designator at all.
+        A timezone-aware input is converted to UTC before the timezone is
+        dropped, so the result is always a naive ``datetime`` in UTC.
+        """
         result = super()._deserialize(value, attr, data, **kwargs)
         if result.tzinfo is not None:
             result = result.astimezone(timezone.utc).replace(tzinfo=None)
