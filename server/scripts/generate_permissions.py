@@ -79,7 +79,11 @@ def generate_permissions(spec: dict) -> dict:
             continue
 
         # Convert OpenAPI path params from {param} to <param>
-        path_key = path.replace("{", "<").replace("}", ">")
+        path_key = (
+            path.replace("{", "<")
+            .replace("}", ">")
+            .replace("<queue>", "<queue_name>")
+        )
 
         path_permissions = {}
         for method in ("get", "post", "put", "patch", "delete"):

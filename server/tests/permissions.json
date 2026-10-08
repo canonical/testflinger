@@ -9,7 +9,7 @@
   "/v1/agents/images": {
     "POST": ["ADMIN","MANAGER","AGENT"]
   },
-  "/v1/agents/images/<queue>": {
+  "/v1/agents/images/<queue_name>": {
     "GET": ["ADMIN","MANAGER","CONTRIBUTOR"]
   },
   "/v1/agents/provision_logs/<agent_name>": {
