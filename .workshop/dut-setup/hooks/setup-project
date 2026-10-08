@@ -1,10 +1,15 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-key=/project/agent/devel/.workshop_noprovision/id_ed25519.pub
-while [[ ! -s "$key" ]]; do
-    sleep 1
-done
+keydir=/project/agent/devel/.testflinger/noprovision
+key="$keydir/id_ed25519.pub"
+
+# Generate the keypair if it hasn't been created yet (e.g. if the DUT was
+# launched before just start-dut had a chance to run ssh-keygen).
+if [[ ! -s "$key" ]]; then
+    mkdir -p "$keydir"
+    ssh-keygen -q -t ed25519 -N '' -f "$keydir/id_ed25519"
+fi
 
 install -d -m 700 "$HOME/.ssh"
 install -m 600 "$key" "$HOME/.ssh/authorized_keys"

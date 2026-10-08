@@ -47,7 +47,7 @@ SSH:
    dev -> <unique DUT hostname>.workshop:22
 
 The DUT is initialized automatically at launch. The host creates a test-only
-SSH key below ``agent/devel/.workshop_noprovision``; that directory is ignored
+SSH key below ``agent/devel/.testflinger/noprovision``; that directory is ignored
 by Git. The DUT setup SDK installs and enables SSH and authorizes its public
 key for the default ``workshop`` user. Jobs using this harness must set
 ``test_data.test_username: workshop``. The noprovision connector checks that

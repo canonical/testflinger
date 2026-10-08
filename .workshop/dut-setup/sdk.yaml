@@ -1,4 +1,10 @@
 name: dut-setup
-hooks:
-  - setup-base
-  - setup-project
+base: ubuntu@24.04
+architecture: amd64
+type: regular
+title: dut-setup
+summary: Configure DUT instance for noprovision testing
+description: |
+  Installs and enables SSH, then installs the noprovision SSH public key
+  so the agent can reach the DUT without password authentication.
+license: GPL-3.0

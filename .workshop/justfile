@@ -67,7 +67,7 @@ connect-expose: disconnect
 start-dut:
     #!/usr/bin/env bash
     set -euxo pipefail
-    keydir="agent/devel/.workshop_noprovision"
+    keydir="agent/devel/.testflinger/noprovision"
     mkdir -p "$keydir"
     if [ ! -f "$keydir/id_ed25519" ]; then
         ssh-keygen -q -t ed25519 -N '' -f "$keydir/id_ed25519"
@@ -93,10 +93,10 @@ check-dut: start start-dut
     dut_instance="$(lxc list --project "workshop.${USER}" --format csv -c n | grep -m1 '^dut-')"
     test -n "$dut_instance"
     dut_hostname="${dut_instance}.workshop"
-    sed "s/DUT_HOSTNAME/$dut_hostname/" agent/devel/noprovision-dut.yaml > agent/devel/.workshop_noprovision/noprovision-dut.yaml
+    sed "s/DUT_HOSTNAME/$dut_hostname/" agent/devel/noprovision-dut.yaml > agent/devel/.testflinger/noprovision/noprovision-dut.yaml
     workshop exec dev -- getent hosts "$dut_hostname"
     workshop exec dev -- bash -lc '
-        install -D -m 600 agent/devel/.workshop_noprovision/id_ed25519 ~/.ssh/id_ed25519
+        install -D -m 600 agent/devel/.testflinger/noprovision/id_ed25519 ~/.ssh/id_ed25519
         ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null workshop@'"$dut_hostname"' /bin/true
     '
 
