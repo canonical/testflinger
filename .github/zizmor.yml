@@ -1,0 +1,7 @@
+rules:
+  ref-version-mismatch:
+    ignore:
+      - charm-update-libs.yml:29
+  stale-action-refs:
+    ignore:
+      - charm-update-libs.yml:29
