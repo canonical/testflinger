@@ -19,6 +19,10 @@ import sys
 import threading
 import time
 
+from rich.console import Console
+from rich.live import Live
+from rich.text import Text
+
 # Save originals before we override them
 _original_print = builtins.print
 _original_input = builtins.input
@@ -41,6 +45,7 @@ class StatusLine:
     _started = False
     _running = False
     _timer_thread = None
+    _live = None
     _original_start_time = None  # Never reset, tracks total elapsed
     _start_time = None  # Reset in countdown mode, tracks display time
     _countdown_mode = False
@@ -79,8 +84,9 @@ class StatusLine:
         cls._running = False
         if cls._timer_thread:
             cls._timer_thread.join(timeout=2.0)
-        if cls._started:
-            sys.stdout.write("\n")
+        if cls._live is not None:
+            cls._live.stop()
+            cls._live = None
         sys.stdout.flush()
         builtins.print = _original_print
         builtins.input = _original_input
@@ -93,7 +99,6 @@ class StatusLine:
 
         while cls._running:
             with cls._print_lock:
-                cls.clear()
                 cls.draw()
             # Only redraw in TTY environment (no spam in CI/logs)
             time.sleep(1.0 / cls.update_rate)
@@ -152,9 +157,11 @@ class StatusLine:
             and cls._last_template_state == cls.state
         ):
             with cls._print_lock:
+                cls.clear()
                 _original_print(
                     f"[{cls._get_timestamp()}] [{cls.state}] {message}"
                 )
+                cls.draw()
         # if we track the last template and what state it was for, we can log
         # meaningful changes while within that state. We are already logging
         # state changes in set_state
@@ -228,16 +235,15 @@ class StatusLine:
 
     @classmethod
     def clear(cls):
-        """Clear the status line using ANSI sequences.
+        """Clear the live status display.
 
         Assumes lock is already held by caller.
         """
         if not cls._is_tty:
             return
 
-        # Move cursor to start of line, clear to end of line
-        sys.stdout.write("\r\033[K")
-        sys.stdout.flush()
+        if cls._live is not None:
+            cls._live.update(Text(""), refresh=True)
 
     @classmethod
     def draw(cls):
@@ -250,8 +256,10 @@ class StatusLine:
 
         timestamp = cls._get_timestamp()
         line = f"[{timestamp}] [{cls.state}] {cls.message}"
-        sys.stdout.write(line)
-        sys.stdout.flush()
+        if cls._live is not None:
+            cls._live.update(
+                Text(line, no_wrap=True, overflow="ellipsis"), refresh=True
+            )
 
     @staticmethod
     def print(*args, **kwargs):
@@ -292,6 +300,13 @@ class StatusLine:
 
         cls._started = True
         cls.configure(update_rate)
+        cls._live = Live(
+            console=Console(file=sys.stdout, force_terminal=True),
+            auto_refresh=False,
+            redirect_stdout=False,
+            redirect_stderr=False,
+        )
+        cls._live.start()
         builtins.print = cls.print
         builtins.input = cls.input
         cls.start()

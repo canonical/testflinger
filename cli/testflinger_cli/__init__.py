@@ -1589,7 +1589,8 @@ class TestflingerCli:
             # present time, the reservation start time is not available in the
             # job data and so this will have to be fixed once it it available.
             expire_time = now + timedelta(seconds=timeout)
-            msg = f"Reservation expires at: [{expire_time.isoformat()}]"
+            expire_str = expire_time.isoformat(timespec="seconds")
+            msg = f"Reservation expires at: [{expire_str}]"
             StatusLine.set_countdown(timeout)
         elif job_state in ("cancelled", "complete"):
             hours, minutes, seconds = StatusLine.get_elapsed_time()
