@@ -92,9 +92,13 @@ class StatusLine:
             return
 
         while cls._running:
-            with cls._print_lock:
-                cls.clear()
-                cls.draw()
+            # Reservation expiry is a fixed message. Redrawing it every second
+            # can appear as repeated lines in terminals that do not handle the
+            # carriage-return update reliably.
+            if cls.state != "reserve":
+                with cls._print_lock:
+                    cls.clear()
+                    cls.draw()
             # Only redraw in TTY environment (no spam in CI/logs)
             time.sleep(1.0 / cls.update_rate)
 
@@ -225,6 +229,13 @@ class StatusLine:
     def disable_countdown(cls):
         """Disable countdown mode."""
         cls._countdown_mode = False
+
+    @classmethod
+    def refresh(cls):
+        """Immediately redraw the status line once."""
+        with cls._print_lock:
+            cls.clear()
+            cls.draw()
 
     @classmethod
     def clear(cls):

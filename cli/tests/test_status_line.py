@@ -19,7 +19,71 @@ from unittest import mock
 
 from freezegun import freeze_time
 
+from testflinger_cli import TestflingerCli as CliClass
 from testflinger_cli.status_line import StatusLine
+
+
+class TestStatusLineTimer:
+    """Tests for periodic status-line updates."""
+
+    @mock.patch("testflinger_cli.status_line.time.sleep")
+    @mock.patch.object(StatusLine, "draw")
+    @mock.patch.object(StatusLine, "clear")
+    def test_timer_skips_redraw_while_reserved(
+        self, mock_clear, mock_draw, mock_sleep
+    ):
+        """A fixed reservation expiry message should not be redrawn."""
+        StatusLine._is_tty = True
+        StatusLine._running = True
+        StatusLine.state = "reserve"
+
+        def stop_after_one_tick(_):
+            StatusLine._running = False
+
+        mock_sleep.side_effect = stop_after_one_tick
+        StatusLine._timer_loop()
+
+        mock_clear.assert_not_called()
+        mock_draw.assert_not_called()
+
+    @mock.patch.object(StatusLine, "refresh")
+    @mock.patch.object(StatusLine, "set_countdown")
+    @mock.patch.object(StatusLine, "set_message")
+    @mock.patch.object(StatusLine, "set_state")
+    def test_entering_reserve_refreshes_expiry_once(
+        self, mock_set_state, mock_set_message, mock_countdown, mock_refresh
+    ):
+        """Entering reserve renders the expiry message immediately once."""
+        cli = object.__new__(CliClass)
+
+        cli._on_state_change("reserve", {"reserve_data": {"timeout": 30}})
+
+        mock_set_state.assert_called_once_with("reserve")
+        mock_countdown.assert_called_once_with(30)
+        assert mock_set_message.call_args.args[0].startswith(
+            "Reservation expires at:"
+        )
+        mock_refresh.assert_called_once()
+
+    @mock.patch("testflinger_cli.status_line.time.sleep")
+    @mock.patch.object(StatusLine, "draw")
+    @mock.patch.object(StatusLine, "clear")
+    def test_timer_continues_redraw_for_other_states(
+        self, mock_clear, mock_draw, mock_sleep
+    ):
+        """The elapsed status line should keep updating in other states."""
+        StatusLine._is_tty = True
+        StatusLine._running = True
+        StatusLine.state = "provision"
+
+        def stop_after_one_tick(_):
+            StatusLine._running = False
+
+        mock_sleep.side_effect = stop_after_one_tick
+        StatusLine._timer_loop()
+
+        mock_clear.assert_called_once()
+        mock_draw.assert_called_once()
 
 
 class TestStatusLineInit:
