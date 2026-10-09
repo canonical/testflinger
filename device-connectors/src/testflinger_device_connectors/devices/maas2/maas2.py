@@ -150,15 +150,6 @@ class Maas2:
         # If it fails the first time, try installing efitools snap
         if p.returncode:
             self._install_efitools_snap()
-            cmd = [
-                "ssh",
-                "-o",
-                "StrictHostKeyChecking=no",
-                "-o",
-                "UserKnownHostsFile=/dev/null",
-                "ubuntu@{}".format(self.config["device_ip"]),
-                "sudo efibootmgr -v",
-            ]
             try:
                 p = subprocess.run(
                     cmd,
