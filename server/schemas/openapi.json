@@ -28,6 +28,12 @@
           "job_id": {
             "type": "string"
           },
+          "links": {
+            "items": {
+              "$ref": "#/components/schemas/AgentLink"
+            },
+            "type": "array"
+          },
           "location": {
             "type": "string"
           },
@@ -92,6 +98,22 @@
         ],
         "type": "object"
       },
+      "AgentLink": {
+        "additionalProperties": false,
+        "properties": {
+          "label": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "label",
+          "url"
+        ],
+        "type": "object"
+      },
       "AgentOut": {
         "additionalProperties": false,
         "properties": {
@@ -111,6 +133,12 @@
           },
           "job_id": {
             "type": "string"
+          },
+          "links": {
+            "items": {
+              "$ref": "#/components/schemas/AgentLink"
+            },
+            "type": "array"
           },
           "location": {
             "type": "string"

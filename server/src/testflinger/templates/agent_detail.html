@@ -7,38 +7,58 @@
       <h1 class="p-heading--3">Agent Detail - {{ agent.name }}</h1>
     </div>
   </div>
-  <table aria-label="Agent table" class="p-table--mobile-card">
-    <tbody>
-      <tr>
-        <th scope="row">State</th>
-        <td>{{ agent.state }}</td>
-      </tr>
-      <tr>
-        <th scope="row">Location</th>
-        <td>{{ agent.location }}</td>
-      </tr>
-      <tr>
-        <th scope="row">Provision Type</th>
-        <td>{{ agent.provision_type }}</td>
-      </tr>
-      <tr>
-        <th scope="row">Comment</th>
-        <td>{{ agent.comment }}</td>
-      </tr>
-      <tr>
-        <th scope="row">Last updated</th>
-        <td>{{ agent.updated_at.strftime("%Y-%m-%d %H:%M:%S") }}</td>
-      </tr>
-      {% if agent.job and agent.job.job_id %}
-        <tr>
-          <th scope="row">Job</th>
-          <td>
-            <a href="{{ url_for('testflinger.job_detail', job_id=agent.job.job_id) }}">{{ agent.job.job_id }}</a>
-          </td>
-        </tr>
+  <div class="p-divider">
+    <div class="col-6 col-medium-3 p-divider__block">
+      <h2 class="p-muted-heading">Details</h2>
+      <table aria-label="Agent table" class="p-table--mobile-card">
+        <tbody>
+          <tr>
+            <th scope="row">State</th>
+            <td>{{ agent.state }}</td>
+          </tr>
+          <tr>
+            <th scope="row">Provision Type</th>
+            <td>{{ agent.provision_type }}</td>
+          </tr>
+          <tr>
+            <th scope="row">Comment</th>
+            <td>{{ agent.comment }}</td>
+          </tr>
+          <tr>
+            <th scope="row">Last updated</th>
+            <td>{{ agent.updated_at.strftime("%Y-%m-%d %H:%M:%S") }}</td>
+          </tr>
+          {% if agent.job and agent.job.job_id %}
+            <tr>
+              <th scope="row">Job</th>
+              <td>
+                <a href="{{ url_for('testflinger.job_detail', job_id=agent.job.job_id) }}">{{ agent.job.job_id }}</a>
+              </td>
+            </tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+    <div class="col-6 col-medium-3 p-divider__block">
+      <h2 class="p-muted-heading">External links</h2>
+      {% if agent.links %}
+        <ul class="p-list">
+          {% for link in agent.links %}
+            <li class="p-list__item">
+              <a href="{{ link.url }}" target="_blank" rel="noopener noreferrer">
+                View in {{ link.label }}
+                <i class="p-icon--external-link">Opens in a new tab</i>
+              </a>
+              <br>
+              <small class="u-text--muted">{{ link.url }}</small>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="u-text--muted">No external links for this agent.</p>
       {% endif %}
-    </tbody>
-  </table>
+    </div>
+  </div>
   <h2 class="p-muted-heading">Queues</h2>
   <table aria-label="Queues table" class="p-table--mobile-card">
     <thead>
