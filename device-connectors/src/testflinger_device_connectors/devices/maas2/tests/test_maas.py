@@ -131,6 +131,119 @@ def test_reset_efi_handles_non_ipv4_current_boot(mock_config_file):
         assert expected_order in boot_order_arg
 
 
+@patch("subprocess.run")
+def test_get_efi_data_times_out(mock_run, mock_config_file, caplog):
+    """Test that _get_efi_data returns None and logs when ssh times out."""
+    job_json = mock_config_file.parent / "job.json"
+    job_json.write_text(json.dumps({}))
+
+    mock_run.side_effect = subprocess.TimeoutExpired(cmd="ssh", timeout=60)
+
+    maas2 = Maas2(config=mock_config_file, job_data=job_json)
+    efi_data = maas2._get_efi_data()
+
+    assert efi_data is None
+    assert mock_run.call_count == 1
+    assert mock_run.call_args.kwargs["timeout"] == 60
+    assert "Timed out getting EFI data over SSH" in caplog.text
+
+
+@patch("subprocess.run")
+def test_get_efi_data_times_out_on_retry(mock_run, mock_config_file, caplog):
+    """Test that _get_efi_data returns None when the retry attempt
+    (after installing efitools snap) times out.
+    """
+    Process = namedtuple("Process", ["returncode", "stdout"])
+
+    job_json = mock_config_file.parent / "job.json"
+    job_json.write_text(json.dumps({}))
+
+    # 1: First efibootmgr fails
+    # 2: Install efitools snap succeeds
+    # 3: Alias efitools snap succeeds
+    # 4: Second efibootmgr attempt times out
+    mock_run.side_effect = [
+        Process(1, b""),
+        Process(0, b""),
+        Process(0, b""),
+        subprocess.TimeoutExpired(cmd="ssh", timeout=60),
+    ]
+
+    maas2 = Maas2(config=mock_config_file, job_data=job_json)
+    efi_data = maas2._get_efi_data()
+
+    assert efi_data is None
+    assert mock_run.call_count == 4
+    first_get_call, retry_get_call = (
+        mock_run.call_args_list[0],
+        mock_run.call_args_list[3],
+    )
+    assert first_get_call.kwargs["timeout"] == 60
+    assert retry_get_call.kwargs["timeout"] == 60
+    assert "Timed out getting EFI data over SSH" in caplog.text
+
+
+@patch("subprocess.run")
+def test_set_efi_data_times_out(mock_run, mock_config_file, caplog):
+    """Test that _set_efi_data logs and returns when ssh times out."""
+    job_json = mock_config_file.parent / "job.json"
+    job_json.write_text(json.dumps({}))
+
+    mock_run.side_effect = subprocess.TimeoutExpired(cmd="ssh", timeout=60)
+
+    maas2 = Maas2(config=mock_config_file, job_data=job_json)
+    maas2._set_efi_data("0001,0002,0000")
+
+    assert mock_run.call_count == 1
+    assert mock_run.call_args.kwargs["timeout"] == 60
+    assert "Timed out setting EFI boot order over SSH" in caplog.text
+
+
+@patch("subprocess.run")
+def test_install_efitools_snap_install_times_out(
+    mock_run, mock_config_file, caplog
+):
+    """Test that _install_efitools_snap returns and logs when the snap
+    install command times out.
+    """
+    job_json = mock_config_file.parent / "job.json"
+    job_json.write_text(json.dumps({}))
+
+    mock_run.side_effect = subprocess.TimeoutExpired(cmd="ssh", timeout=60)
+
+    maas2 = Maas2(config=mock_config_file, job_data=job_json)
+    maas2._install_efitools_snap()
+
+    assert mock_run.call_count == 1
+    assert mock_run.call_args.kwargs["timeout"] == 60
+    assert "Timed out installing efitools snap over SSH" in caplog.text
+
+
+@patch("subprocess.run")
+def test_install_efitools_snap_alias_times_out(
+    mock_run, mock_config_file, caplog
+):
+    """Test that _install_efitools_snap returns and logs when the snap
+    alias command times out, after the install command succeeds.
+    """
+    Process = namedtuple("Process", ["returncode", "stdout"])
+
+    job_json = mock_config_file.parent / "job.json"
+    job_json.write_text(json.dumps({}))
+
+    mock_run.side_effect = [
+        Process(0, b""),  # install succeeds
+        subprocess.TimeoutExpired(cmd="ssh", timeout=60),  # alias times out
+    ]
+
+    maas2 = Maas2(config=mock_config_file, job_data=job_json)
+    maas2._install_efitools_snap()
+
+    assert mock_run.call_count == 2
+    assert mock_run.call_args.kwargs["timeout"] == 60
+    assert "Timed out aliasing efitools snap over SSH" in caplog.text
+
+
 def test_maas_release_succeeds(mock_config_file, mock_config, capsys, caplog):
     """Test MAAS release succeeds and don't return any output."""
     Process = namedtuple("Process", ["returncode", "stdout"])
