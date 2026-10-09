@@ -107,9 +107,20 @@ class Maas2:
             "ubuntu@{}".format(self.config["device_ip"]),
             "sudo snap install efi-tools-ijohnson --devmode --edge",
         ]
-        subprocess.run(
-            cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=False
-        )
+        try:
+            subprocess.run(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                timeout=60,
+                check=False,
+            )
+        except subprocess.TimeoutExpired:
+            self._logger_error(
+                "Timed out installing efitools snap over SSH, device may "
+                "be unreachable"
+            )
+            return
         cmd = [
             "ssh",
             "-o",
@@ -119,9 +130,19 @@ class Maas2:
             "ubuntu@{}".format(self.config["device_ip"]),
             "sudo snap alias efi-tools-ijohnson.efibootmgr efibootmgr",
         ]
-        subprocess.run(
-            cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=False
-        )
+        try:
+            subprocess.run(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                timeout=60,
+                check=False,
+            )
+        except subprocess.TimeoutExpired:
+            self._logger_error(
+                "Timed out aliasing efitools snap over SSH, device may be "
+                "unreachable"
+            )
 
     def _get_efi_data(self):
         cmd = [
