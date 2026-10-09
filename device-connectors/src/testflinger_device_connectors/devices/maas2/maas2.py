@@ -133,9 +133,20 @@ class Maas2:
             "ubuntu@{}".format(self.config["device_ip"]),
             "sudo efibootmgr -v",
         ]
-        p = subprocess.run(
-            cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=False
-        )
+        try:
+            p = subprocess.run(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                timeout=60,
+                check=False,
+            )
+        except subprocess.TimeoutExpired:
+            self._logger_error(
+                "Timed out getting EFI data over SSH, device may be "
+                "unreachable"
+            )
+            return None
         # If it fails the first time, try installing efitools snap
         if p.returncode:
             self._install_efitools_snap()
@@ -148,12 +159,20 @@ class Maas2:
                 "ubuntu@{}".format(self.config["device_ip"]),
                 "sudo efibootmgr -v",
             ]
-            p = subprocess.run(
-                cmd,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                check=False,
-            )
+            try:
+                p = subprocess.run(
+                    cmd,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    timeout=60,
+                    check=False,
+                )
+            except subprocess.TimeoutExpired:
+                self._logger_error(
+                    "Timed out getting EFI data over SSH, device may be "
+                    "unreachable"
+                )
+                return None
         if p.returncode:
             return None
         # Use OrderedDict because often the NIC entries in EFI are in a good
@@ -176,9 +195,20 @@ class Maas2:
             "ubuntu@{}".format(self.config["device_ip"]),
             "sudo efibootmgr -o {}".format(boot_order),
         ]
-        p = subprocess.run(
-            cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=False
-        )
+        try:
+            p = subprocess.run(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                timeout=60,
+                check=False,
+            )
+        except subprocess.TimeoutExpired:
+            self._logger_error(
+                "Timed out setting EFI boot order over SSH, device may be "
+                "unreachable"
+            )
+            return
         if p.returncode:
             self._logger_error(
                 'Failed to set efi boot order to "{}":\n{}'.format(
