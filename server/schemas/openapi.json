@@ -183,6 +183,7 @@
               "admin",
               "manager",
               "contributor",
+              "orchestrator",
               "agent"
             ],
             "type": "string"
@@ -1637,6 +1638,7 @@
           "admin",
           "manager",
           "contributor",
+          "orchestrator",
           "agent"
         ]
       }
@@ -1717,7 +1719,8 @@
         "x-permission-roles": [
           "admin",
           "manager",
-          "contributor"
+          "contributor",
+          "orchestrator"
         ]
       }
     },
@@ -1917,7 +1920,8 @@
         "x-permission-roles": [
           "admin",
           "manager",
-          "contributor"
+          "contributor",
+          "orchestrator"
         ]
       }
     },
@@ -2557,6 +2561,7 @@
           "admin",
           "manager",
           "contributor",
+          "orchestrator",
           "agent"
         ]
       },
@@ -2872,6 +2877,7 @@
           "admin",
           "manager",
           "contributor",
+          "orchestrator",
           "agent"
         ]
       }
