@@ -35,3 +35,7 @@ DEFAULT_HTTP_PORT = 5000
 # Ingress related constants
 HAPROXY_EXTERNAL_HOSTNAME = "fqdn.example"
 INGRESS_NAME = "ingress"
+
+# Timeout for jubilant to wait for application to become active
+# Default timeout is 180 seconds which may not be enough on slower systems
+JUBILANT_TIMEOUT_SECONDS = 600

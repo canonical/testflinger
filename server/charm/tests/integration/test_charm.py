@@ -22,14 +22,11 @@ import pytest
 from .consts import (
     APP_NAME,
     DEFAULT_HTTP_PORT,
+    JUBILANT_TIMEOUT_SECONDS,
     MONGODB_CHARM,
     UPSTREAM_SOURCE,
 )
 from .helpers import app_is_up, retry
-
-# Timeout for jubilant to wait for application to become active
-# Default timeout is 180 seconds which may not be enough on slower systems
-JUBILANT_TIMEOUT_SECONDS = 600
 
 
 @pytest.mark.juju_setup
