@@ -183,8 +183,8 @@
               "admin",
               "manager",
               "contributor",
-              "agent",
-              "orchestrator"
+              "orchestrator",
+              "agent"
             ],
             "type": "string"
           }
@@ -1572,8 +1572,8 @@
           "admin",
           "manager",
           "contributor",
-          "agent",
-          "orchestrator"
+          "orchestrator",
+          "agent"
         ]
       }
     },
@@ -2495,8 +2495,8 @@
           "admin",
           "manager",
           "contributor",
-          "agent",
-          "orchestrator"
+          "orchestrator",
+          "agent"
         ]
       },
       "post": {
@@ -2811,8 +2811,8 @@
           "admin",
           "manager",
           "contributor",
-          "agent",
-          "orchestrator"
+          "orchestrator",
+          "agent"
         ]
       }
     },
