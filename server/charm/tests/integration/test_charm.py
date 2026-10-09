@@ -19,7 +19,12 @@ from pathlib import Path
 import jubilant
 import pytest
 
-from .consts import APP_NAME, DEFAULT_HTTP_PORT, MONGODB_CHARM, UPSTREAM_SOURCE
+from .consts import (
+    APP_NAME,
+    DEFAULT_HTTP_PORT,
+    MONGODB_CHARM,
+    UPSTREAM_SOURCE,
+)
 from .helpers import app_is_up, retry
 
 # Timeout for jubilant to wait for application to become active

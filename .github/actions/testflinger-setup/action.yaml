@@ -36,6 +36,7 @@ runs:
       run: |
         echo "::group::Install prerequisites"
         sudo snap install testflinger-cli
-        sudo snap install jq
+        # Prefer jq apt package as the snap is extremely out of date
+        sudo apt-get install -y jq
         sudo snap install yq
         echo "::endgroup::"
