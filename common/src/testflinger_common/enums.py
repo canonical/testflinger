@@ -135,7 +135,6 @@ class ServerRoles(StrEnum):
     ORCHESTRATOR = "orchestrator"
     AGENT = "agent"
 
-
     def __str__(self):
         """Return the string value of the role."""
         return self.value
