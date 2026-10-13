@@ -117,11 +117,11 @@ def test_job_events_json_format(capsys, requests_mock, sample_events, job_id):
         assert "timestamp" in event
         assert "message" in event
         assert "detail" in event
-        # Phase and status are optional, check if they exist before asserting
+        # Phase and exit_code are optional, check if they exist before assert
         if "phase" in event:
             assert isinstance(event["phase"], str)
-        if "status" in event:
-            assert isinstance(event["status"], int)
+        if "exit_code" in event:
+            assert isinstance(event["exit_code"], int)
 
 
 def test_job_events_table_format_default(

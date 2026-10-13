@@ -64,14 +64,19 @@ class UTCDateTime(fields.DateTime):
         return result
 
     def _serialize(self, value, attr, obj, **kwargs):
-        """Serialize a naive ``datetime`` as explicit UTC.
+        """Serialize a ``datetime`` as explicit UTC.
 
-        Assumes a naive ``datetime`` value is already UTC and attaches
-        ``timezone.utc`` so the output string carries an explicit UTC
-        offset instead of being emitted as timezone-naive.
+        A naive ``datetime`` value is assumed to already be UTC and has
+        ``timezone.utc`` attached. An aware ``datetime`` with a different
+        offset is converted to UTC. Either way, the output string carries
+        an explicit UTC offset instead of being timezone-naive or using a
+        non-UTC offset.
         """
-        if value is not None and value.tzinfo is None:
-            value = value.replace(tzinfo=timezone.utc)
+        if value is not None:
+            if value.tzinfo is None:
+                value = value.replace(tzinfo=timezone.utc)
+            else:
+                value = value.astimezone(timezone.utc)
         return super()._serialize(value, attr, obj, **kwargs)
 
 
