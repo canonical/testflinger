@@ -129,10 +129,12 @@ class TestflingerAgent:
             "location": location,
             "queues": queues,
             "provision_type": provision_type,
-            "links": links,
         }
         if identifier:
             agent_data["identifier"] = identifier
+
+        if links:
+            agent_data["links"] = links
 
         self.client.post_agent_data(agent_data)
 
