@@ -174,12 +174,8 @@ def test_get_efi_data_times_out_on_retry(mock_run, mock_config_file, caplog):
 
     assert efi_data is None
     assert mock_run.call_count == 4
-    first_get_call, retry_get_call = (
-        mock_run.call_args_list[0],
-        mock_run.call_args_list[3],
-    )
-    assert first_get_call.kwargs["timeout"] == 60
-    assert retry_get_call.kwargs["timeout"] == 60
+    assert mock_run.call_args_list[0].kwargs["timeout"] == 60
+    assert mock_run.call_args_list[3].kwargs["timeout"] == 60
     assert "Timed out getting EFI data over SSH" in caplog.text
 
 
