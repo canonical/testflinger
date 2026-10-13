@@ -2659,3 +2659,126 @@ def test_get_job_statistics_daily_with_filters(statistics_data, mongo_app):
     assert "user2" not in output.json
     assert "queue2" not in output.json
     assert output.json["daily"] == expected_daily
+
+
+def test_agents_post_links(mongo_app, agent_auth_header):
+    """Test that agent links are stored and returned by the API."""
+
+    VALID_AGENT_LINKS = [
+        {"label": "Grafana", "url": "https://grafana.example.com/d/abc"},
+        {"label": "Lab wiki", "url": "http://wiki.example.com/lab-3"},
+    ]
+
+    app, mongo = mongo_app
+    agent_name = "agent1"
+    agent_data = {"queues": ["q1"], "links": VALID_AGENT_LINKS}
+
+    output = app.post(
+        f"/v1/agents/data/{agent_name}",
+        json=agent_data,
+        headers=agent_auth_header,
+    )
+    assert output.status_code == HTTPStatus.OK
+
+    # Links are persisted as-is on the agent document
+    agent_record = mongo.agents.find_one({"name": agent_name})
+    assert agent_record["links"] == VALID_AGENT_LINKS
+
+    # Links are returned when retrieving a single agent
+    output = app.get(f"/v1/agents/data/{agent_name}")
+    assert output.status_code == HTTPStatus.OK
+    assert output.json["links"] == VALID_AGENT_LINKS
+
+    # Links are returned when retrieving all agents
+    output = app.get("/v1/agents/data")
+    assert output.status_code == HTTPStatus.OK
+    assert output.json[0]["links"] == VALID_AGENT_LINKS
+
+
+def test_agents_post_links_replaces_existing(mongo_app, agent_auth_header):
+    """Test that posting links again replaces the previous list."""
+    app, mongo = mongo_app
+    agent_name = "agent1"
+    new_links = [{"label": "Docs", "url": "https://docs.example.com"}]
+
+
+    VALID_AGENT_LINKS = [
+        {"label": "Grafana", "url": "https://grafana.example.com/d/abc"},
+        {"label": "Lab wiki", "url": "http://wiki.example.com/lab-3"},
+    ]
+
+    for links in (VALID_AGENT_LINKS, new_links):
+        output = app.post(
+            f"/v1/agents/data/{agent_name}",
+            json={"links": links},
+            headers=agent_auth_header,
+        )
+        assert output.status_code == HTTPStatus.OK
+
+    agent_record = mongo.agents.find_one({"name": agent_name})
+    assert agent_record["links"] == new_links
+
+
+def test_agents_post_without_links(mongo_app, agent_auth_header):
+    """Test that links are optional and absent when never provided."""
+    app, _ = mongo_app
+    agent_name = "agent1"
+
+    output = app.post(
+        f"/v1/agents/data/{agent_name}",
+        json={"queues": ["q1"], "location": "here"},
+        headers=agent_auth_header,
+    )
+    assert output.status_code == HTTPStatus.OK
+
+    output = app.get(f"/v1/agents/data/{agent_name}")
+    assert output.status_code == HTTPStatus.OK
+    assert "links" not in output.json
+
+
+@pytest.mark.parametrize(
+    "links",
+    [
+        # Dangerous URL schemes that would execute in an href
+        [{"label": "xss", "url": "javascript:alert(1)"}],
+        [{"label": "xss", "url": "JavaScript:alert(document.cookie)"}],
+        [{"label": "xss", "url": "data:text/html,<script>alert(1)</script>"}],
+        [{"label": "xss", "url": "vbscript:msgbox(1)"}],
+        # Not absolute URLs
+        [{"label": "relative", "url": "/agents/agent1"}],
+        [{"label": "no scheme", "url": "grafana.example.com"}],
+        [{"label": "empty", "url": ""}],
+        [{"label": "null", "url": None}],
+        # Missing required keys
+        [{"label": "no url"}],
+        [{"url": "https://example.com"}],
+        [{}],
+        # Unknown nested keys
+        [{"label": "x", "url": "https://example.com", "target": "_self"}],
+        # Wrong types
+        [{"label": 123, "url": "https://example.com"}],
+        ["https://example.com"],
+        {"label": "x", "url": "https://example.com"},
+        "https://example.com",
+        # One bad entry rejects the whole list
+        [
+            {"label": "ok", "url": "https://example.com"},
+            {"label": "bad", "url": "javascript:alert(1)"},
+        ],
+    ],
+)
+def test_agents_post_invalid_links(mongo_app, agent_auth_header, links):
+    """Test that invalid links are rejected and nothing is stored."""
+    app, mongo = mongo_app
+    agent_name = "agent1"
+
+    output = app.post(
+        f"/v1/agents/data/{agent_name}",
+        json={"queues": ["q1"], "links": links},
+        headers=agent_auth_header,
+    )
+
+    assert output.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+    assert "links" in output.json["detail"]["json"]
+    # The whole payload is rejected, not just the links field
+    assert mongo.agents.find_one({"name": agent_name}) is None
