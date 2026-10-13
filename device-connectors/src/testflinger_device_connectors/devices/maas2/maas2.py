@@ -167,7 +167,7 @@ class Maas2:
                 "Timed out getting EFI data over SSH, device may be "
                 "unreachable"
             )
-            return None
+            return
         # If it fails the first time, try installing efitools snap
         if p.returncode:
             self._install_efitools_snap()
@@ -184,7 +184,7 @@ class Maas2:
                     "Timed out getting EFI data over SSH, device may be "
                     "unreachable"
                 )
-                return None
+                return
         if p.returncode:
             return None
         # Use OrderedDict because often the NIC entries in EFI are in a good
