@@ -74,7 +74,7 @@ class AgentLink(Schema):
     """Link schema for links provided for each agent."""
 
     label = fields.String(required=True)
-    url = fields.String(required=True)
+    url = fields.URL(required=True)
 
 
 class AgentIn(Schema):

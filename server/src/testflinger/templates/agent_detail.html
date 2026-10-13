@@ -8,7 +8,7 @@
     </div>
   </div>
   <div class="p-divider">
-    <div class="col-6 col-medium-3 p-divider__block">
+    <div class="col-8 col-medium-3 p-divider__block">
       <h2 class="p-muted-heading">Details</h2>
       <table aria-label="Agent table" class="p-table--mobile-card">
         <tbody>
@@ -43,18 +43,16 @@
         </tbody>
       </table>
     </div>
-    <div class="col-6 col-medium-3 p-divider__block">
+    <div class="col-4 col-medium-3 p-divider__block">
       <h2 class="p-muted-heading">External links</h2>
       {% if agent.links %}
         <ul class="p-list">
           {% for link in agent.links %}
             <li class="p-list__item">
               <a href="{{ link.url }}" target="_blank" rel="noopener noreferrer">
-                View in {{ link.label }}
+                {{ link.label }}
                 <i class="p-icon--external-link">Opens in a new tab</i>
               </a>
-              <br>
-              <small class="u-text--muted">{{ link.url }}</small>
             </li>
           {% endfor %}
         </ul>

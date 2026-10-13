@@ -48,7 +48,7 @@ SCHEMA_V1 = {
     voluptuous.Optional("links"): [
         {
             voluptuous.Required("label"): str,
-            voluptuous.Required("url"): str,
+            voluptuous.Required("url"): voluptuous.Url(),
         }
     ],
     # only the last `output_bytes` of the log will be included

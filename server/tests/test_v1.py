@@ -2663,15 +2663,14 @@ def test_get_job_statistics_daily_with_filters(statistics_data, mongo_app):
 
 def test_agents_post_links(mongo_app, agent_auth_header):
     """Test that agent links are stored and returned by the API."""
-
-    VALID_AGENT_LINKS = [
+    valid_agent_links = [
         {"label": "Grafana", "url": "https://grafana.example.com/d/abc"},
         {"label": "Lab wiki", "url": "http://wiki.example.com/lab-3"},
     ]
 
     app, mongo = mongo_app
     agent_name = "agent1"
-    agent_data = {"queues": ["q1"], "links": VALID_AGENT_LINKS}
+    agent_data = {"queues": ["q1"], "links": valid_agent_links}
 
     output = app.post(
         f"/v1/agents/data/{agent_name}",
@@ -2682,17 +2681,17 @@ def test_agents_post_links(mongo_app, agent_auth_header):
 
     # Links are persisted as-is on the agent document
     agent_record = mongo.agents.find_one({"name": agent_name})
-    assert agent_record["links"] == VALID_AGENT_LINKS
+    assert agent_record["links"] == valid_agent_links
 
     # Links are returned when retrieving a single agent
     output = app.get(f"/v1/agents/data/{agent_name}")
     assert output.status_code == HTTPStatus.OK
-    assert output.json["links"] == VALID_AGENT_LINKS
+    assert output.json["links"] == valid_agent_links
 
     # Links are returned when retrieving all agents
     output = app.get("/v1/agents/data")
     assert output.status_code == HTTPStatus.OK
-    assert output.json[0]["links"] == VALID_AGENT_LINKS
+    assert output.json[0]["links"] == valid_agent_links
 
 
 def test_agents_post_links_replaces_existing(mongo_app, agent_auth_header):
@@ -2701,13 +2700,12 @@ def test_agents_post_links_replaces_existing(mongo_app, agent_auth_header):
     agent_name = "agent1"
     new_links = [{"label": "Docs", "url": "https://docs.example.com"}]
 
-
-    VALID_AGENT_LINKS = [
+    valid_agent_links = [
         {"label": "Grafana", "url": "https://grafana.example.com/d/abc"},
         {"label": "Lab wiki", "url": "http://wiki.example.com/lab-3"},
     ]
 
-    for links in (VALID_AGENT_LINKS, new_links):
+    for links in (valid_agent_links, new_links):
         output = app.post(
             f"/v1/agents/data/{agent_name}",
             json={"links": links},
