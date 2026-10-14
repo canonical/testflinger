@@ -1,20 +1,21 @@
+{% set group_label = "Queue" if group_by == "queue" else "Client ID" %}
 <table class="p-table--mobile-card"
        aria-label="Table showing statistics for Testflinger users">
   <thead>
     <tr>
-      <th>{{ "Queue" if group_by == "queue" else "Client ID" }}</th>
+      <th>{{ group_label }}</th>
       <th>Count</th>
     </tr>
   </thead>
   <tbody>
     {% for total in job_totals %}
       <tr>
-        <td data-heading="{{ 'Queue' if group_by == 'queue' else 'Client ID' }}">{{ total.key }}</td>
+        <td data-heading="{{ group_label }}">{{ total.key }}</td>
         <td data-heading="Count">{{ total.count }}</td>
       </tr>
     {% endfor %}
     <tr>
-      <td data-heading="{{ 'Queue' if group_by == 'queue' else 'Client ID' }}">
+      <td data-heading="{{ group_label }}">
         <strong>Total</strong>
       </td>
       <td data-heading="Count">

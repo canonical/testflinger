@@ -133,6 +133,7 @@ main {
 .tag-input-group {
     display: flex;
     gap: 2rem;
+    margin-bottom: .5rem;
 }
 
 .tag-input {

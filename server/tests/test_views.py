@@ -695,7 +695,7 @@ def test_statistics_hub_view(mongo_app):
     assert response.status_code == HTTPStatus.OK
     html = response.data.decode()
     assert 'href="/statistics/jobs"' in html
-    assert "Job Statistics" in html
+    assert "Jobs" in html
 
 
 def test_statistics_jobs_default_group_by(statistics_data, mongo_app):

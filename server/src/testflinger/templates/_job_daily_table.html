@@ -1,9 +1,10 @@
+{% set group_label = "Queue" if group_by == "queue" else "Client ID" %}
 <table class="p-table--mobile-card"
        aria-label="Table showing per-day job statistics for Testflinger">
   <thead>
     <tr>
       <th>Date</th>
-      <th>{{ "Queue" if group_by == "queue" else "Client ID" }}</th>
+      <th>{{ group_label }}</th>
       <th>Count</th>
     </tr>
   </thead>
@@ -13,12 +14,12 @@
       {% for entry in entries %}
         <tr>
           {% if loop.first %}<td rowspan="{{ entries|length + 1 }}" data-heading="Date">{{ date }}</td>{% endif %}
-          <td data-heading="{{ 'Queue' if group_by == 'queue' else 'Client ID' }}">{{ entry.key }}</td>
+          <td data-heading="{{ group_label }}">{{ entry.key }}</td>
           <td data-heading="Count">{{ entry.count }}</td>
         </tr>
       {% endfor %}
       <tr>
-        <td data-heading="{{ 'Queue' if group_by == 'queue' else 'Client ID' }}">
+        <td data-heading="{{ group_label }}">
           <strong>Total</strong>
         </td>
         <td data-heading="Count">
