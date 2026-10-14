@@ -343,6 +343,15 @@ def seconds_to_hms(seconds: float) -> str:
     return f"{hours:02d}h {minutes:02d}m {seconds:02d}s"
 
 
+def _parse_utc_date(value: str) -> datetime:
+    """Parse a ``%Y-%m-%d`` string into a UTC datetime.
+
+    :param value: Date string in ``%Y-%m-%d`` format.
+    :raises ValueError: If ``value`` is not a valid ``%Y-%m-%d`` date.
+    """
+    return datetime.strptime(value, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+
+
 @views.route("/statistics")
 def statistics():
     """Statistics hub view definition."""
@@ -352,27 +361,31 @@ def statistics():
 @views.route("/statistics/jobs")
 def statistics_jobs():
     """Job statistics view definition."""
-    # Default to the last 7 days for the statistics view
-    seven_days_ago = datetime.now(tz=timezone.utc) - timedelta(days=7)
-
     # Get job data for the statistics view
     group_by = request.args.get("group_by", "submitted_by")
     if group_by not in ("queue", "submitted_by"):
         group_by = "submitted_by"
 
+    # Default to the last 7 days for the statistics view
+    seven_days_ago = datetime.now(tz=timezone.utc) - timedelta(days=7)
     default_start_date = seven_days_ago.strftime("%Y-%m-%d")
     default_stop_date = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
 
     start_date = request.args.get("start", default_start_date)
     stop_date = request.args.get("stop", default_stop_date)
 
-    # Convert start and stop dates to datetime objects for the query
-    start_datetime = datetime.strptime(start_date, "%Y-%m-%d").replace(
-        tzinfo=timezone.utc
-    )
-    stop_datetime = datetime.strptime(stop_date, "%Y-%m-%d").replace(
-        tzinfo=timezone.utc
-    ) + timedelta(days=1)
+    # Convert start and stop dates to datetime objects for the query,
+    # falling back to the defaults if the query string value is malformed.
+    try:
+        start_datetime = _parse_utc_date(start_date)
+    except ValueError:
+        start_date = default_start_date
+        start_datetime = _parse_utc_date(default_start_date)
+    try:
+        stop_datetime = _parse_utc_date(stop_date) + timedelta(days=1)
+    except ValueError:
+        stop_date = default_stop_date
+        stop_datetime = _parse_utc_date(default_stop_date) + timedelta(days=1)
 
     selected_queues = request.args.getlist("queues")
     selected_submitters = request.args.getlist("submitters")
