@@ -94,7 +94,9 @@ def job_id():
     return str(uuid.uuid4())
 
 
-def test_job_events_json_format(capsys, requests_mock, sample_events, job_id):
+def test_job_events_json_format(
+    capsys, requests_mock, sample_events, job_id, monkeypatch
+):
     """JSON output should include all events fields."""
     events_response = {"job_id": job_id, "events": sample_events}
     requests_mock.get(
@@ -102,7 +104,9 @@ def test_job_events_json_format(capsys, requests_mock, sample_events, job_id):
         json=events_response,
     )
 
-    sys.argv = ["", "job-events", job_id, "--format", "json"]
+    monkeypatch.setattr(
+        sys, "argv", ["", "job-events", job_id, "--format", "json"]
+    )
     cli = testflinger_cli.TestflingerCli()
     cli.job_events()
 
@@ -112,20 +116,20 @@ def test_job_events_json_format(capsys, requests_mock, sample_events, job_id):
     assert len(output) == len(sample_events)
 
     # Verify each event contains all expected fields
-    for event in output:
-        assert "event_name" in event
-        assert "timestamp" in event
-        assert "message" in event
-        assert "detail" in event
-        # Phase and exit_code are optional, check if they exist before assert
-        if "phase" in event:
-            assert isinstance(event["phase"], str)
-        if "exit_code" in event:
-            assert isinstance(event["exit_code"], int)
+    for input_event, output_event in zip(sample_events, output, strict=True):
+        assert "event_name" in output_event
+        assert "timestamp" in output_event
+        assert "message" in output_event
+        assert "detail" in output_event
+        # Phase and exit_code are optional
+        if "phase" in input_event:
+            assert isinstance(output_event["phase"], str)
+        if "exit_code" in input_event:
+            assert isinstance(output_event["exit_code"], int)
 
 
 def test_job_events_table_format_default(
-    capsys, requests_mock, sample_events, job_id
+    capsys, requests_mock, sample_events, job_id, monkeypatch
 ):
     """Table output should display default columns."""
     events_response = {"job_id": job_id, "events": sample_events}
@@ -134,7 +138,7 @@ def test_job_events_table_format_default(
         json=events_response,
     )
 
-    sys.argv = ["", "job-events", job_id]
+    monkeypatch.setattr(sys, "argv", ["", "job-events", job_id])
     cli = testflinger_cli.TestflingerCli()
     cli.job_events()
 
@@ -153,7 +157,7 @@ def test_job_events_table_format_default(
 
 
 def test_job_events_table_no_headers(
-    capsys, requests_mock, sample_events, job_id
+    capsys, requests_mock, sample_events, job_id, monkeypatch
 ):
     """Table output with --no-headers should not display headers."""
     events_response = {"job_id": job_id, "events": sample_events}
@@ -162,7 +166,9 @@ def test_job_events_table_no_headers(
         json=events_response,
     )
 
-    sys.argv = ["", "job-events", job_id, "--no-headers"]
+    monkeypatch.setattr(
+        sys, "argv", ["", "job-events", job_id, "--no-headers"]
+    )
     cli = testflinger_cli.TestflingerCli()
     cli.job_events()
 
@@ -180,7 +186,9 @@ def test_job_events_table_no_headers(
         assert event["message"] in output
 
 
-def test_job_events_table_missing_phase(capsys, requests_mock, job_id):
+def test_job_events_table_missing_phase(
+    capsys, requests_mock, job_id, monkeypatch
+):
     """Table output should show empty for events without phase."""
     # Non-phase event
     events = [
@@ -197,7 +205,11 @@ def test_job_events_table_missing_phase(capsys, requests_mock, job_id):
         json=events_response,
     )
 
-    sys.argv = ["", "job-events", job_id]
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["", "job-events", job_id, "--fields", "event_name,phase"],
+    )
     cli = testflinger_cli.TestflingerCli()
     cli.job_events()
 
@@ -206,15 +218,15 @@ def test_job_events_table_missing_phase(capsys, requests_mock, job_id):
 
     # Verify event is present but phase is empty
     assert "job_submitted" in output
-    # Phase column should exist but be empty for this event
     lines = output.split("\n")
     event_line = [line for line in lines if "job_submitted" in line][0]
-    # The line should have the event but empty phase cell
-    assert len(event_line.split()) > 0
+    # The only visible content on the row should be the event name, i.e.
+    # the phase cell is blank
+    assert event_line.strip() == "job_submitted"
 
 
 def test_job_events_with_fields_argument(
-    capsys, requests_mock, sample_events, job_id
+    capsys, requests_mock, sample_events, job_id, monkeypatch
 ):
     """--fields argument should customize output columns."""
     events_response = {"job_id": job_id, "events": sample_events}
@@ -224,13 +236,17 @@ def test_job_events_with_fields_argument(
     )
 
     selected_fields = ["event_name", "message"]
-    sys.argv = [
-        "",
-        "job-events",
-        job_id,
-        "--fields",
-        ",".join(selected_fields),
-    ]
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "",
+            "job-events",
+            job_id,
+            "--fields",
+            ",".join(selected_fields),
+        ],
+    )
     cli = testflinger_cli.TestflingerCli()
     cli.job_events()
 
@@ -247,27 +263,39 @@ def test_job_events_with_fields_argument(
         assert header.upper() not in output
 
 
-def test_job_events_invalid_field_name(requests_mock, sample_events, job_id):
+def test_job_events_invalid_field_name(
+    capsys, requests_mock, sample_events, job_id, monkeypatch
+):
     """An invalid field name should raise error."""
     events_response = {"job_id": job_id, "events": sample_events}
     requests_mock.get(
         f"{URL}/v1/events/job/{job_id}",
         json=events_response,
     )
-    sys.argv = [
-        "",
-        "job-events",
-        job_id,
-        "--fields",
-        "event_name,invalid_field",
-    ]
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "",
+            "job-events",
+            job_id,
+            "--fields",
+            "event_name,invalid_field",
+        ],
+    )
 
-    # Exit is raised before calling job_events is called due to invalid field
-    with pytest.raises(SystemExit):
+    # argparse rejects the invalid choice and exits with status 2 before
+    # job_events is ever called
+    with pytest.raises(SystemExit) as exc_info:
         testflinger_cli.TestflingerCli()
 
+    assert exc_info.value.code == 2
+    stderr = capsys.readouterr().err
+    assert "invalid_field" in stderr
+    assert "invalid choice" in stderr
 
-def test_job_events_http_404(requests_mock, job_id):
+
+def test_job_events_http_404(requests_mock, job_id, monkeypatch):
     """404 error should exit with proper message."""
     requests_mock.get(
         f"{URL}/v1/events/job/{job_id}",
@@ -275,16 +303,16 @@ def test_job_events_http_404(requests_mock, job_id):
         json={"message": "Job not found"},
     )
 
-    sys.argv = ["", "job-events", job_id]
+    monkeypatch.setattr(sys, "argv", ["", "job-events", job_id])
     cli = testflinger_cli.TestflingerCli()
 
     with pytest.raises(SystemExit) as exc_info:
         cli.job_events()
 
-    assert exc_info.value.code == "Job not found"
+    assert "Job not found" in exc_info.value.code
 
 
-def test_job_events_http_other_error(requests_mock, job_id):
+def test_job_events_http_other_error(requests_mock, job_id, monkeypatch):
     """Non-404 HTTP errors should exit with an error message, not crash."""
     requests_mock.get(
         f"{URL}/v1/events/job/{job_id}",
@@ -292,7 +320,7 @@ def test_job_events_http_other_error(requests_mock, job_id):
         json={"message": "Internal server error"},
     )
 
-    sys.argv = ["", "job-events", job_id]
+    monkeypatch.setattr(sys, "argv", ["", "job-events", job_id])
     cli = testflinger_cli.TestflingerCli()
 
     with pytest.raises(SystemExit) as exc_info:
@@ -302,7 +330,7 @@ def test_job_events_http_other_error(requests_mock, job_id):
 
 
 def test_job_events_empty_events_list(
-    capsys, requests_mock, empty_events, job_id
+    capsys, requests_mock, empty_events, job_id, monkeypatch
 ):
     """Empty events list should display an appropriate message."""
     events_response = {"job_id": job_id, "events": empty_events}
@@ -311,7 +339,7 @@ def test_job_events_empty_events_list(
         json=events_response,
     )
 
-    sys.argv = ["", "job-events", job_id]
+    monkeypatch.setattr(sys, "argv", ["", "job-events", job_id])
     cli = testflinger_cli.TestflingerCli()
     cli.job_events()
 
@@ -319,12 +347,12 @@ def test_job_events_empty_events_list(
     output = captured.out
 
     # Verify no-data message is shown
-    assert "No events found matching specified criteria" in output
+    assert "No events found" in output
 
 
 @pytest.mark.parametrize("output_format", ["json", "table"])
 def test_job_events_timestamp_formatting(
-    capsys, requests_mock, job_id, output_format
+    capsys, requests_mock, job_id, output_format, monkeypatch
 ):
     """Timestamps should be formatted consistently in both formats."""
     events = [
@@ -341,7 +369,9 @@ def test_job_events_timestamp_formatting(
         json=events_response,
     )
 
-    sys.argv = ["", "job-events", job_id, "--format", output_format]
+    monkeypatch.setattr(
+        sys, "argv", ["", "job-events", job_id, "--format", output_format]
+    )
     cli = testflinger_cli.TestflingerCli()
     cli.job_events()
 

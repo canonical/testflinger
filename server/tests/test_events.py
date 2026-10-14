@@ -149,3 +149,25 @@ def test_build_event_omits_exit_code_and_phase_when_absent():
 
     assert "exit_code" not in event
     assert "phase" not in event
+
+
+def test_build_event_drops_unknown_context_keys():
+    """Test build_event drops context keys other than exit_code/phase."""
+    event = build_event(
+        JobEvent.JOB_PHASE_COMPLETED,
+        phase=JobState.SETUP,
+        exit_code=1,
+        unknown_key="fake_value",
+    )
+
+    assert "unknown_key" not in event
+    assert event["phase"] == JobState.SETUP
+    assert event["exit_code"] == 1
+    assert set(event) == {
+        "event_name",
+        "timestamp",
+        "message",
+        "detail",
+        "phase",
+        "exit_code",
+    }

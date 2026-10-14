@@ -1981,9 +1981,6 @@ class TestflingerCli:
         try:
             response = self.client.get_job_events(self.args.job_id)
         except client.HTTPError as exc:
-            if exc.status == HTTPStatus.NOT_FOUND:
-                # Error message is specified on server side
-                sys.exit(exc.msg)
             sys.exit(f"Error retrieving job events: [{exc.status}] {exc.msg}")
 
         # Extract events from the response

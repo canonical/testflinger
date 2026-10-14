@@ -533,6 +533,7 @@ class Client:
         :param job_id: ID for the test job
         :return: Dict containing the job_id and a list of events for the
             specified job
+        :raises HTTPError: On any HTTP error response from the server.
         """
         endpoint = f"/v1/events/job/{job_id}"
         data = self.get(endpoint)

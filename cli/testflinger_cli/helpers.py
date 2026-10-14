@@ -274,7 +274,7 @@ def print_table(
     :param hide_headers: If True, do not print the headers
     """
     if not rows:
-        print(f"No {item} found matching specified criteria.")
+        print(f"No {item} found.")
         return
 
     headers = [header.upper() for header in headers]
@@ -282,7 +282,6 @@ def print_table(
         header_style="bold",
         box=None,
         pad_edge=False,
-        title_justify="left",
         show_header=not hide_headers,
     )
     for header in headers:

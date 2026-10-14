@@ -15,7 +15,8 @@
 #
 """Testflinger v1 OpenAPI schemas."""
 
-from datetime import timezone
+import typing
+from datetime import datetime, timezone
 
 from apiflask import Schema, fields, validators
 from apiflask.validators import Length, OneOf, Regexp
@@ -49,7 +50,9 @@ class UTCDateTime(fields.DateTime):
     format is always explicit about the UTC offset.
     """
 
-    def _deserialize(self, value, attr, data, **kwargs):
+    def _deserialize(
+        self, value: typing.Any, attr: str | None, data: typing.Any, **kwargs
+    ) -> datetime:
         """Deserialize to a naive UTC ``datetime``.
 
         Accepts ISO 8601 input with a 'Z' suffix (e.g.
@@ -63,7 +66,13 @@ class UTCDateTime(fields.DateTime):
             result = result.astimezone(timezone.utc).replace(tzinfo=None)
         return result
 
-    def _serialize(self, value, attr, obj, **kwargs):
+    def _serialize(
+        self,
+        value: datetime | None,
+        attr: str | None,
+        obj: typing.Any,
+        **kwargs,
+    ) -> typing.Any:
         """Serialize a ``datetime`` as explicit UTC.
 
         A naive ``datetime`` value is assumed to already be UTC and has

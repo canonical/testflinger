@@ -220,4 +220,4 @@ def test_print_table_empty_rows(capsys):
     output = captured.out
 
     # Verify no-data message is shown
-    assert "No events found matching specified criteria." in output
+    assert "No events found." in output

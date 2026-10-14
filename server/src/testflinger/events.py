@@ -62,6 +62,9 @@ def build_event(
     provided context. The event is recorded with the timestamp of when the
     event was recorded by the caller.
 
+    Any context keys not explicitly preserved will be dropped from the event
+    dictionary.
+
     :param event_type: The type of the event.
     :param detail: Additional details for the event.
     :param context: Additional context for formatting the message.
