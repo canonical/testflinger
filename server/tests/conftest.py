@@ -214,6 +214,7 @@ def sorted_roles():
     """Roles listed from least to most privileged."""
     return [
         ServerRoles.AGENT,
+        ServerRoles.ORCHESTRATOR,
         ServerRoles.CONTRIBUTOR,
         ServerRoles.MANAGER,
         ServerRoles.ADMIN,

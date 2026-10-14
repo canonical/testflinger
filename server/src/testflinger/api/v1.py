@@ -95,7 +95,12 @@ def get_version():
 
 @v1.post("/job")
 @authenticate
-@require_role(ServerRoles.ADMIN, ServerRoles.MANAGER, ServerRoles.CONTRIBUTOR)
+@require_role(
+    ServerRoles.ADMIN,
+    ServerRoles.MANAGER,
+    ServerRoles.CONTRIBUTOR,
+    ServerRoles.ORCHESTRATOR,
+)
 @v1.input(schemas.Job, location="json")
 @v1.output(schemas.JobId)
 def job_post(json_data: dict) -> dict:
@@ -704,7 +709,12 @@ def result_get(job_id: str):
 
 @v1.post("/job/<job_id>/action")
 @authenticate
-@require_role(ServerRoles.ADMIN, ServerRoles.MANAGER, ServerRoles.CONTRIBUTOR)
+@require_role(
+    ServerRoles.ADMIN,
+    ServerRoles.MANAGER,
+    ServerRoles.CONTRIBUTOR,
+    ServerRoles.ORCHESTRATOR,
+)
 @v1.input(schemas.ActionIn, location="json")
 def action_post(job_id, json_data):
     """Take action on the job status for a specified job ID.
@@ -839,7 +849,12 @@ def agents_get_all():
 
 @v1.get("/agents/data/<agent_name>")
 @authenticate
-@require_role(*ServerRoles)
+@require_role(
+    ServerRoles.ADMIN,
+    ServerRoles.MANAGER,
+    ServerRoles.CONTRIBUTOR,
+    ServerRoles.AGENT,
+)
 @v1.output(schemas.AgentOut)
 def agents_get_one(agent_name):
     """Get the information from a specified agent.
