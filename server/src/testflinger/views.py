@@ -347,6 +347,7 @@ def _parse_utc_date(value: str) -> datetime:
     """Parse a ``%Y-%m-%d`` string into a UTC datetime.
 
     :param value: Date string in ``%Y-%m-%d`` format.
+    :return: UTC datetime for the given date.
     :raises ValueError: If ``value`` is not a valid ``%Y-%m-%d`` date.
     """
     return datetime.strptime(value, "%Y-%m-%d").replace(tzinfo=timezone.utc)
@@ -367,9 +368,9 @@ def statistics_jobs():
         group_by = "submitted_by"
 
     # Default to the last 7 days for the statistics view
-    seven_days_ago = datetime.now(tz=timezone.utc) - timedelta(days=7)
-    default_start_date = seven_days_ago.strftime("%Y-%m-%d")
-    default_stop_date = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
+    now = datetime.now(tz=timezone.utc)
+    default_start_date = (now - timedelta(days=7)).strftime("%Y-%m-%d")
+    default_stop_date = now.strftime("%Y-%m-%d")
 
     start_date = request.args.get("start", default_start_date)
     stop_date = request.args.get("stop", default_stop_date)
