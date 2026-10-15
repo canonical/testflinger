@@ -272,6 +272,7 @@ flowchart LR
   subgraph server["Testflinger server"]
     direction TB
     api["REST API"]
+    ui["Web UI"]
     subgraph queues["Job queues"]
       queueA2["Queue A2"]
       queueB1["Queue B1"]
@@ -292,9 +293,9 @@ flowchart LR
 
   subgraph clients["Clients"]
     direction TB
+    user["User"]
     cli["Testflinger CLI"]
-    action["submit GitHub action"]
-    ui["Web UI"]
+    action["Submit GitHub action"]
   end
 
   subgraph Devices
@@ -302,10 +303,12 @@ flowchart LR
     dutB["Device under test"]
   end
 
-  clients -->|submit and track jobs| api
-  api -->|hold jobs| queues
-  agentA -->|polls its queues| queues
-  agentB -->|polls its queues| queues
+  user -->|calls| cli
+  action -->|calls| cli
+  cli -->|submit and track jobs| api
+  user -->|views job, agent and queue status| ui
+  api <-->|enqueues and dequeues jobs| queues
+  agentA <-->|polls its queues and reports results| api
+  agentB <-->|polls its queues and reports results| api
   connectorA -->|provision and operate| dutA
   connectorB -->|provision and operate| dutB
-  host -->|report results| api
