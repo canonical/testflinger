@@ -17,7 +17,7 @@
 
 import re
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from http import HTTPStatus
 from unittest.mock import patch
 
@@ -28,6 +28,7 @@ from testflinger_common.enums import LogType, TestPhase
 
 from testflinger.database import get_agents
 from testflinger.views import (
+    _parse_utc_date,
     agent_detail,
     as_yaml,
     build_job_yaml,
@@ -687,6 +688,19 @@ def test_agent_detail_provision_log_with_client_id(testapp):
     assert "client-B" in html
 
 
+def test_parse_utc_date_valid():
+    """Test that a valid date string parses to a tz-aware UTC datetime."""
+    assert _parse_utc_date("2026-01-15") == datetime(
+        2026, 1, 15, tzinfo=timezone.utc
+    )
+
+
+def test_parse_utc_date_invalid():
+    """Test that a malformed date string raises ValueError."""
+    with pytest.raises(ValueError, match="does not match format"):
+        _parse_utc_date("not-a-date")
+
+
 def test_statistics_hub_view(mongo_app):
     """Test the statistics hub page links to the job statistics page."""
     app, _ = mongo_app
@@ -749,6 +763,37 @@ def test_statistics_jobs_invalid_dates_default_to_last_week(mongo_app):
     assert response.status_code == HTTPStatus.OK
 
 
+def test_statistics_jobs_invalid_dates_render_default_range(mongo_app):
+    """Test malformed dates fall back to actually querying the last 7 days."""
+    app, mongo = mongo_app
+    now = datetime.now(tz=timezone.utc)
+    mongo.job_statistics.insert_many(
+        [
+            {
+                "job_id": str(uuid.uuid4()),
+                "queue": "recent-queue",
+                "submitted_by": "recent-user",
+                "created_at": now,
+            },
+            {
+                "job_id": str(uuid.uuid4()),
+                "queue": "old-queue",
+                "submitted_by": "old-user",
+                "created_at": now - timedelta(days=10),
+            },
+        ]
+    )
+
+    response = app.get("/statistics/jobs?start=not-a-date&stop=also-bad")
+
+    assert response.status_code == HTTPStatus.OK
+    html = response.data.decode()
+    # Malformed params are replaced with the default start/stop dates.
+    assert f'value="{now.strftime("%Y-%m-%d")}"' in html
+    assert "recent-user" in html
+    assert "old-user" not in html
+
+
 def test_statistics_jobs_filters_by_queue(statistics_data, mongo_app):
     """Test the job statistics page filters totals/daily counts by queue."""
     app, _ = mongo_app
@@ -782,3 +827,102 @@ def test_statistics_jobs_lists_available_queues_and_submitters(mongo_app):
     html = response.data.decode()
     assert "advertised-queue" in html
     assert "user1" in html
+
+
+def test_statistics_jobs_filters_by_submitter(statistics_data, mongo_app):
+    """Test the job statistics page filters counts by submitter."""
+    app, _ = mongo_app
+    response = app.get(
+        "/statistics/jobs?submitters=user2&start=2026-01-01&stop=2026-01-03"
+    )
+
+    assert response.status_code == HTTPStatus.OK
+    html = response.data.decode()
+    assert "user2" in html
+    assert "user1" not in html
+    assert '<span class="p-chip__value">user2</span>' in html
+
+
+def test_statistics_jobs_filters_by_queue_and_submitter(
+    statistics_data, mongo_app
+):
+    """Test that queue and submitter filters combine with AND semantics."""
+    app, _ = mongo_app
+    response = app.get(
+        "/statistics/jobs?group_by=queue&queues=queue2&submitters=user1"
+        "&start=2026-01-01&stop=2026-01-03"
+    )
+
+    assert response.status_code == HTTPStatus.OK
+    html = response.data.decode()
+    # Only the queue2/user1 jobs (both on 2026-01-01 and 2026-01-02) match.
+    assert "2026-01-01" in html
+    assert "2026-01-02" in html
+    # queue1 never has a user1 job in the fixture, so it drops out.
+    assert "queue1" not in html
+
+
+def test_statistics_jobs_stop_date_is_inclusive(statistics_data, mongo_app):
+    """Test that jobs created on the stop date itself are included."""
+    app, _ = mongo_app
+    response = app.get("/statistics/jobs?start=2026-01-02&stop=2026-01-02")
+
+    assert response.status_code == HTTPStatus.OK
+    html = response.data.decode()
+    # user2's job was created on 2026-01-02, which is both start and stop.
+    assert "user2" in html
+
+
+def test_statistics_jobs_default_date_range(mongo_app):
+    """Test the default range covers the last 7 days but not older jobs."""
+    app, mongo = mongo_app
+    now = datetime.now(tz=timezone.utc)
+    mongo.job_statistics.insert_many(
+        [
+            {
+                "job_id": str(uuid.uuid4()),
+                "queue": "recent-queue",
+                "submitted_by": "recent-user",
+                "created_at": now,
+            },
+            {
+                "job_id": str(uuid.uuid4()),
+                "queue": "old-queue",
+                "submitted_by": "old-user",
+                "created_at": now - timedelta(days=10),
+            },
+        ]
+    )
+
+    response = app.get("/statistics/jobs")
+
+    assert response.status_code == HTTPStatus.OK
+    html = response.data.decode()
+    assert "recent-user" in html
+    assert "old-user" not in html
+
+
+def test_statistics_jobs_no_results(mongo_app):
+    """Test that an empty result set renders a zero total, not an error."""
+    app, _ = mongo_app
+    response = app.get("/statistics/jobs?start=2000-01-01&stop=2000-01-02")
+
+    assert response.status_code == HTTPStatus.OK
+    html = response.data.decode()
+    assert "<strong>0</strong>" in html
+
+
+def test_statistics_jobs_multiple_selected_values_render_chips(
+    statistics_data, mongo_app
+):
+    """Test that multiple selected queues/submitters each render a chip."""
+    app, _ = mongo_app
+    response = app.get(
+        "/statistics/jobs?group_by=queue&queues=queue1&queues=queue2"
+        "&start=2026-01-01&stop=2026-01-03"
+    )
+
+    assert response.status_code == HTTPStatus.OK
+    html = response.data.decode()
+    assert '<span class="p-chip__value">queue1</span>' in html
+    assert '<span class="p-chip__value">queue2</span>' in html
