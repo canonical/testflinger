@@ -165,7 +165,7 @@ To include raw Mermaid diagrams in your documentation, use the `mermaid` directi
 
 To use Mermaid diagrams, ensure that the `sphinxcontrib.mermaid` extension is included in your `conf.py` file under `extensions`.
 
-You can generate a Canonical brand-styled diagrams using the internal [Diagram registry](https://canonical.github.io/diagram-registry/), which supports exporting diagrams in various formats.
+You can generate Canonical brand-styled diagrams using the internal [Diagram registry](https://canonical.github.io/diagram-registry/), which supports exporting diagrams in various formats.
 
 ## Troubleshooting
 
