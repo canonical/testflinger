@@ -341,3 +341,92 @@ def seconds_to_hms(seconds: float) -> str:
     minutes = (seconds % 3600) // 60
     seconds = seconds % 60
     return f"{hours:02d}h {minutes:02d}m {seconds:02d}s"
+
+
+def _parse_utc_date(value: str) -> datetime:
+    """Parse a ``%Y-%m-%d`` string into a UTC datetime.
+
+    :param value: Date string in ``%Y-%m-%d`` format.
+    :return: UTC datetime for the given date.
+    :raises ValueError: If ``value`` is not a valid ``%Y-%m-%d`` date.
+    """
+    return datetime.strptime(value, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+
+
+@views.route("/statistics")
+def statistics():
+    """Statistics hub view definition."""
+    return render_template("statistics.html")
+
+
+@views.route("/statistics/jobs")
+def statistics_jobs():
+    """Job statistics view definition."""
+    # Get job data for the statistics view
+    group_by = request.args.get("group_by", "submitted_by")
+    if group_by not in ("queue", "submitted_by"):
+        group_by = "submitted_by"
+
+    # Default to the last 7 days for the statistics view
+    now = datetime.now(tz=timezone.utc)
+    default_start_date = (now - timedelta(days=6)).strftime("%Y-%m-%d")
+    default_stop_date = now.strftime("%Y-%m-%d")
+
+    start_date = request.args.get("start", default_start_date)
+    stop_date = request.args.get("stop", default_stop_date)
+
+    # Convert start and stop dates to datetime objects for the query,
+    # falling back to the defaults if the query string value is malformed.
+    try:
+        start_datetime = _parse_utc_date(start_date)
+    except ValueError:
+        start_date = default_start_date
+        start_datetime = _parse_utc_date(default_start_date)
+    try:
+        stop_datetime = _parse_utc_date(stop_date) + timedelta(days=1)
+    except ValueError:
+        stop_date = default_stop_date
+        stop_datetime = _parse_utc_date(default_stop_date) + timedelta(days=1)
+
+    selected_queues = request.args.getlist("queues")
+    selected_submitters = request.args.getlist("submitters")
+
+    job_totals = database.get_job_statistics_totals(
+        group_by=group_by,
+        start_at=start_datetime,
+        end_at=stop_datetime,
+        queues=selected_queues or None,
+        submitters=selected_submitters or None,
+    )
+    job_daily = database.get_job_statistics_daily(
+        group_by=group_by,
+        start_at=start_datetime,
+        end_at=stop_datetime,
+        queues=selected_queues or None,
+        submitters=selected_submitters or None,
+    )
+
+    # For available_queues, only list the queues that are actually being
+    # serviced by an agent. An advertised queue does not necessarily have
+    # an agent listening to it.
+    filters = {
+        "start_date": start_date,
+        "stop_date": stop_date,
+        "available_queues": sorted(database.get_all_agent_queue_names()),
+        "available_submitters": sorted(
+            {
+                permissions["client_id"]
+                for permissions in database.get_all_client_permissions()
+            }
+        ),
+        "selected_queues": selected_queues,
+        "selected_submitters": selected_submitters,
+    }
+
+    return render_template(
+        "statistics_jobs.html",
+        job_totals=job_totals,
+        job_daily=job_daily,
+        group_by=group_by,
+        filters=filters,
+    )
