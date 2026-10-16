@@ -1620,7 +1620,7 @@ def test_search_jobs_datetime_iso8601(mongo_app):
     )
     output = app.get("/v1/job/search?tags=foo")
     assert 200 == output.status_code
-    assert output.json[0]["created_at"] == "2020-01-01T00:00:00Z"
+    assert output.json[0]["created_at"] == "2020-01-01T00:00:00+00:00"
 
 
 def test_get_queue_wait_times(mongo_app):
