@@ -816,8 +816,9 @@ def test_statistics_jobs_lists_available_queues_and_submitters(mongo_app):
 
     # On purpose not using the statistics_data fixture so we can have
     # more control and visibility of *all* queues and client_ids.
+    mongo.agents.insert_one({"name": "agent1", "queues": ["serviced-queue"]})
     mongo.queues.insert_one(
-        {"name": "advertised-queue", "description": "desc"}
+        {"name": "advertised-only-queue", "description": "desc"}
     )
     mongo.client_permissions.insert_one({"client_id": "user1"})
 
@@ -825,7 +826,8 @@ def test_statistics_jobs_lists_available_queues_and_submitters(mongo_app):
 
     assert response.status_code == HTTPStatus.OK
     html = response.data.decode()
-    assert "advertised-queue" in html
+    assert "serviced-queue" in html
+    assert "advertised-only-queue" not in html
     assert "user1" in html
 
 

@@ -369,7 +369,7 @@ def statistics_jobs():
 
     # Default to the last 7 days for the statistics view
     now = datetime.now(tz=timezone.utc)
-    default_start_date = (now - timedelta(days=7)).strftime("%Y-%m-%d")
+    default_start_date = (now - timedelta(days=6)).strftime("%Y-%m-%d")
     default_stop_date = now.strftime("%Y-%m-%d")
 
     start_date = request.args.get("start", default_start_date)
@@ -406,10 +406,13 @@ def statistics_jobs():
         submitters=selected_submitters or None,
     )
 
+    # For available_queues, only list the queues that are actually being
+    # serviced by an agent. An advertised queue does not necessarily have
+    # an agent listening to it.
     filters = {
         "start_date": start_date,
         "stop_date": stop_date,
-        "available_queues": sorted({queue["name"] for queue in queues_data()}),
+        "available_queues": sorted(database.get_all_agent_queue_names()),
         "available_submitters": sorted(
             {
                 permissions["client_id"]
