@@ -28,6 +28,12 @@
           "job_id": {
             "type": "string"
           },
+          "links": {
+            "items": {
+              "$ref": "#/components/schemas/AgentLink"
+            },
+            "type": "array"
+          },
           "location": {
             "type": "string"
           },
@@ -150,6 +156,23 @@
         ],
         "type": "object"
       },
+      "AgentLink": {
+        "additionalProperties": false,
+        "properties": {
+          "label": {
+            "type": "string"
+          },
+          "url": {
+            "format": "url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "label",
+          "url"
+        ],
+        "type": "object"
+      },
       "AgentOut": {
         "additionalProperties": false,
         "properties": {
@@ -169,6 +192,12 @@
           },
           "job_id": {
             "type": "string"
+          },
+          "links": {
+            "items": {
+              "$ref": "#/components/schemas/AgentLink"
+            },
+            "type": "array"
           },
           "location": {
             "type": "string"
@@ -292,6 +321,7 @@
               "admin",
               "manager",
               "contributor",
+              "orchestrator",
               "agent"
             ],
             "type": "string"
@@ -1835,6 +1865,7 @@
           "admin",
           "manager",
           "contributor",
+          "orchestrator",
           "agent"
         ]
       }
@@ -1915,7 +1946,8 @@
         "x-permission-roles": [
           "admin",
           "manager",
-          "contributor"
+          "contributor",
+          "orchestrator"
         ]
       }
     },
@@ -2115,7 +2147,8 @@
         "x-permission-roles": [
           "admin",
           "manager",
-          "contributor"
+          "contributor",
+          "orchestrator"
         ]
       }
     },
@@ -2755,6 +2788,7 @@
           "admin",
           "manager",
           "contributor",
+          "orchestrator",
           "agent"
         ]
       },
@@ -3070,6 +3104,7 @@
           "admin",
           "manager",
           "contributor",
+          "orchestrator",
           "agent"
         ]
       }
@@ -3520,6 +3555,7 @@
           "admin",
           "manager",
           "contributor",
+          "orchestrator",
           "agent"
         ]
       },

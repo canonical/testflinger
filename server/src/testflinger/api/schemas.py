@@ -77,6 +77,13 @@ class ProvisionLogsIn(Schema):
     detail = fields.String(required=False)
 
 
+class AgentLink(Schema):
+    """Link schema for links provided for each agent."""
+
+    label = fields.String(required=True)
+    url = fields.URL(required=True)
+
+
 class AgentIn(Schema):
     """Agent data input schema."""
 
@@ -88,6 +95,7 @@ class AgentIn(Schema):
     queues = fields.List(fields.String(), required=False)
     state = fields.String(required=False)
     comment = fields.String(required=False)
+    links = fields.List(fields.Nested(AgentLink), required=False)
 
 
 class AgentJob(Schema):
@@ -115,6 +123,7 @@ class AgentOut(Schema):
     comment = fields.String(required=False)
     restricted_to = fields.Dict(required=False)
     job = fields.Nested(AgentJob, required=False, allow_none=True)
+    links = fields.List(fields.Nested(AgentLink), required=False)
 
 
 class ActionIn(Schema):

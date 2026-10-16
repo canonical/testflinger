@@ -66,6 +66,9 @@ class TestClient:
                 "execution_basedir": self.tmpdir,
                 "logging_basedir": self.tmpdir,
                 "results_basedir": os.path.join(self.tmpdir, "results"),
+                "links": [
+                    {"url": "https://testurl.com", "label": "Test Label"}
+                ],
             }
         )
         testflinger_agent.configure_logging(self.config)
@@ -515,6 +518,7 @@ class TestClient:
                     "queues": self.config["job_queues"],
                     "location": self.config["location"],
                     "provision_type": self.config["provision_type"],
+                    "links": self.config["links"],
                 }
             )
 
