@@ -5,6 +5,7 @@ RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y expect b
 RUN pipx install uv && ln -s /root/.local/bin/uv /usr/local/bin/uv
 RUN adduser -u 1000 --disabled-password ubuntu || /bin/true
 RUN echo "ubuntu ALL=(root) NOPASSWD:ALL" > /etc/sudoers.d/ubuntu && \
+    echo 'Defaults:ubuntu env_keep += "http_proxy https_proxy no_proxy HTTP_PROXY HTTPS_PROXY NO_PROXY"' >> /etc/sudoers.d/ubuntu && \
     chmod 0440 /etc/sudoers.d/ubuntu
 #Avoid sudo rlimit error
 RUN echo "Set disable_coredump false" >> /etc/sudo.conf
