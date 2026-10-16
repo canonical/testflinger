@@ -15,7 +15,8 @@
 #
 """Testflinger v1 OpenAPI schemas."""
 
-from datetime import timezone
+import typing
+from datetime import datetime, timezone
 
 from apiflask import Schema, fields, validators
 from apiflask.validators import Length, OneOf, Regexp
@@ -42,12 +43,16 @@ TestPhases = [phase.value for phase in TestPhase]
 
 
 class UTCDateTime(fields.DateTime):
-    """DateTime field that normalizes values to naive UTC on load.
+    """DateTime field that normalizes values to UTC on load and dump.
 
-    Matches how timestamps are stored and compared in MongoDB.
+    Matches how timestamps are stored and compared in MongoDB: naive
+    ``datetime`` values are treated as UTC internally, while the wire
+    format is always explicit about the UTC offset.
     """
 
-    def _deserialize(self, value, attr, data, **kwargs):
+    def _deserialize(
+        self, value: typing.Any, attr: str | None, data: typing.Any, **kwargs
+    ) -> datetime:
         """Deserialize to a naive UTC ``datetime``.
 
         Accepts ISO 8601 input with a 'Z' suffix (e.g.
@@ -61,12 +66,27 @@ class UTCDateTime(fields.DateTime):
             result = result.astimezone(timezone.utc).replace(tzinfo=None)
         return result
 
-    def _serialize(self, value, attr, obj, **kwargs):
-        """Serialize to ISO8601 string with 'Z' suffix for UTC."""
-        if value is None:
-            return None
-        # Format as ISO8601 with 'Z' suffix for UTC
-        return value.isoformat(timespec="seconds") + "Z"
+    def _serialize(
+        self,
+        value: datetime | None,
+        attr: str | None,
+        obj: typing.Any,
+        **kwargs,
+    ) -> typing.Any:
+        """Serialize a ``datetime`` as explicit UTC.
+
+        A naive ``datetime`` value is assumed to already be UTC and has
+        ``timezone.utc`` attached. An aware ``datetime`` with a different
+        offset is converted to UTC. Either way, the output string carries
+        an explicit UTC offset instead of being timezone-naive or using a
+        non-UTC offset.
+        """
+        if value is not None:
+            if value.tzinfo is None:
+                value = value.replace(tzinfo=timezone.utc)
+            else:
+                value = value.astimezone(timezone.utc)
+        return super()._serialize(value, attr, obj, **kwargs)
 
 
 class ProvisionLogsIn(Schema):
@@ -836,10 +856,11 @@ class Event(Schema):
     """Event schema."""
 
     event_name = fields.String(required=True)
-    timestamp = fields.DateTime(required=True)
+    timestamp = UTCDateTime(required=True)
     message = fields.String(required=False)
     detail = fields.String(required=False)
-    status = fields.Integer(required=False, allow_none=True)
+    exit_code = fields.Integer(required=False, allow_none=True)
+    phase = fields.String(required=False, allow_none=True)
 
 
 class JobEventsOut(Schema):
