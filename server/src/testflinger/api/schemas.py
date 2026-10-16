@@ -61,6 +61,13 @@ class UTCDateTime(fields.DateTime):
             result = result.astimezone(timezone.utc).replace(tzinfo=None)
         return result
 
+    def _serialize(self, value, attr, obj, **kwargs):
+        """Serialize to ISO8601 string with 'Z' suffix for UTC."""
+        if value is None:
+            return None
+        # Format as ISO8601 with 'Z' suffix for UTC
+        return value.isoformat(timespec="seconds") + "Z"
+
 
 class ProvisionLogsIn(Schema):
     """Provision logs input schema."""
@@ -474,10 +481,15 @@ class JobSearchRequest(Schema):
     )
 
 
-class JobSearchResponse(Schema):
-    """Job search response schema."""
+class JobSearchResult(Schema):
+    """Job search result schema.
 
-    jobs = fields.List(fields.Nested(Job), required=True)
+    Lightweight job information returned by search.
+    """
+
+    job_id = fields.String(required=True)
+    created_at = UTCDateTime(required=False)
+    job_state = fields.String(required=False)
 
 
 class ResultStatus(Schema):

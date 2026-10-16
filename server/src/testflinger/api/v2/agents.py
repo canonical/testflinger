@@ -48,16 +48,16 @@ def _attach_restricted_to(agents: list[dict]) -> None:
 
 
 def _check_mode_state(json_data: dict) -> list[str]:
-    """Validate the mode/state combination of an incoming agent report.
+    """Validate mode/state combination against v2 API contract.
 
-    The agent reports its actual operating mode via the ``mode`` field.
-    For modes that support a sub-state, it may also report ``state``.
-    For modes that do not support a sub-state (offline, restart), any
-    ``state`` is an error.
+    For modes that support sub-state (ONLINE, MAINTENANCE), state may be
+    provided. For modes that do not (OFFLINE, RESTART), state must not
+    appear. When a mode which does not support sub-state is provided, the
+    state is cleared.
 
-    :param json_data: Parsed request body from agent heartbeat; not modified.
-    :return: Field names to unset on the stored record.
-    :raises HTTPException: 400 if mode and state contradict each other.
+    :param json_data: Parsed request body; not modified.
+    :return: Field names to unset (e.g., ["state"] for no-substate modes).
+    :raises HTTPException: 400 if mode and state violate the v2 contract.
     """
     mode = json_data.get("mode")
     if mode is None or AgentMode(mode).has_substate:
@@ -80,7 +80,7 @@ def agents_get_all():
     """Get all agent data."""
     agents = database.get_agents_v2()
     _attach_restricted_to(agents)
-    return jsonify(agents)
+    return agents
 
 
 @v2.get("/agents/<agent_name>/data")
@@ -97,10 +97,10 @@ def agents_get_one(agent_name):
     """
     agent_data = database.get_agent_info_v2(agent_name)
     if not agent_data:
-        return {}, HTTPStatus.NOT_FOUND
+        abort(HTTPStatus.NOT_FOUND, message="Agent not found")
 
     _attach_restricted_to([agent_data])
-    return jsonify(agent_data)
+    return agent_data
 
 
 @v2.post("/agents/<agent_name>/data")
@@ -127,12 +127,29 @@ def agents_post(agent_name, json_data):
     """
     unset = _check_mode_state(json_data)
 
+    # Convert v2 REST input format (flat strings) to v2 database format
+    # (nested dicts)
+    # This is where the REST API schema becomes database schema
+    updated_at = datetime.now(timezone.utc)
+
+    if isinstance(json_data.get("mode"), str):
+        json_data["mode"] = {
+            "value": json_data["mode"],
+            "changed_at": updated_at,
+        }
+
+    if isinstance(json_data.get("state"), str):
+        json_data["state"] = {
+            "value": json_data["state"],
+            "changed_at": updated_at,
+        }
+
     json_data["name"] = agent_name
-    json_data["updated_at"] = datetime.now(timezone.utc)
+    json_data["updated_at"] = updated_at
     # extract log from data so we can push it instead of setting it
     log = json_data.pop("log", [])
 
-    database.upsert_agent_document_v2(
+    database.upsert_agent_document(
         agent_name,
         json_data,
         log,
@@ -153,6 +170,7 @@ def agents_post(agent_name, json_data):
 @authenticate
 @require_role(ServerRoles.ADMIN)
 @v2.input(schemas.CommandedModeIn, location="json")
+@v2.doc(responses={204: "No Content"})
 def agents_patch_commanded_mode(agent_name, json_data):
     """Command an agent to change its operating mode.
 
@@ -169,7 +187,7 @@ def agents_patch_commanded_mode(agent_name, json_data):
     database.set_agent_commanded_mode(
         agent_name,
         json_data["commanded_mode"],
-        json_data["comment"],
+        json_data.get("comment", ""),
         changed_by=g.client_id,
     )
-    return jsonify({"status": "OK"})
+    return "", HTTPStatus.NO_CONTENT

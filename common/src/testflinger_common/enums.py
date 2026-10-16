@@ -110,16 +110,10 @@ class AgentMode(StrEnum):
     #  longer needed.
     @classmethod
     def from_state(cls, state: str | None) -> "AgentMode":
-        """Infer the mode implied by a bare ``AgentState``.
+        """Infer mode from a bare state value (v1 translation).
 
-        Some agent records carry a state and no mode: those written
-        before modes existed, and those reported by clients of an API
-        version that predates them.  Three states named a mode before
-        the distinction was drawn; every other state is something an
-        agent does while online.
-
-        :param state: Reported agent state, if any.
-        :return: The mode the state implies.
+        Temporary v1 compatibility: Three state values represent modes
+        (offline, restart, maintenance); all others represent the online mode.
         """
         if state in (cls.OFFLINE, cls.RESTART, cls.MAINTENANCE):
             return cls(state)
@@ -139,12 +133,13 @@ AgentState = _extend_phase(
     },
     doc=(
         "Current sub-state of an agent within its operating mode.\n\n"
-        "WAITING (idle sub-state used by ONLINE and MAINTENANCE modes).\n\n"
-        "OFFLINE and RESTART modes carry no AgentState.\n\n"
+        "WAITING is the idle sub-state for ONLINE and MAINTENANCE modes.\n\n"
+        "OFFLINE and RESTART modes carry no AgentState."
         # TODO: once support for v1 endpoints is no longer needed, the
-        #  UNKNOWN enum can be removed.
-        "UNKNOWN is used internally by the agent when unable to retrieve "
-        "state."
+        #  UNKNOWN, OFFLINE, RESTART, and MAINTENANCE enum values can be
+        #  removed.
+        "\n\nUNKNOWN, OFFLINE, RESTART, MAINTENANCE are retained for v1 "
+        "translation."
     ),
 )
 

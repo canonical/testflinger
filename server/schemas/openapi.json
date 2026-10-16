@@ -641,18 +641,22 @@
         ],
         "type": "object"
       },
-      "JobSearchResponse": {
+      "JobSearchResult": {
         "additionalProperties": false,
         "properties": {
-          "jobs": {
-            "items": {
-              "$ref": "#/components/schemas/Job"
-            },
-            "type": "array"
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "job_id": {
+            "type": "string"
+          },
+          "job_state": {
+            "type": "string"
           }
         },
         "required": [
-          "jobs"
+          "job_id"
         ],
         "type": "object"
       },
@@ -1978,7 +1982,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/JobSearchResponse"
+                  "$ref": "#/components/schemas/JobSearchResult"
                 }
               }
             },
@@ -3440,13 +3444,8 @@
           }
         },
         "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            },
-            "description": "Successful response"
+          "204": {
+            "description": "No Content"
           },
           "404": {
             "content": {

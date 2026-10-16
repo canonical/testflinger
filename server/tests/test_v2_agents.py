@@ -15,6 +15,7 @@
 #
 """Unit tests for the agent endpoints of the Testflinger v2 API."""
 
+import time
 from http import HTTPStatus
 
 from testflinger_common.enums import ServerRoles
@@ -28,8 +29,9 @@ from tests.utilities import get_access_token_header
 
 
 def test_agents_post_mode_change_is_timestamped(mongo_app, agent_auth_header):
-    """Posting a mode change stamps mode_changed_at (no attribution for agent
-    reports).
+    """Posting a mode change stamps mode.changed_at (no attribution for agent
+    reports). Mode is stored as nested document: {value, changed_at,
+    changed_by}.
     """
     app, mongo = mongo_app
     agent_name = "agent1"
@@ -42,9 +44,10 @@ def test_agents_post_mode_change_is_timestamped(mongo_app, agent_auth_header):
 
     assert HTTPStatus.OK == output.status_code
     record = mongo.agents.find_one({"name": agent_name})
-    assert record["mode"] == "offline"
-    assert "mode_changed_by" not in record
-    assert record["mode_changed_at"] is not None
+    assert record["mode"]["value"] == "offline"
+    assert record["mode"]["changed_at"] is not None
+    # Agent reports do not set changed_by (only admin commands do)
+    assert "changed_by" not in record["mode"]
 
 
 def test_agents_post_uses_upsert_agent_document(
@@ -123,7 +126,11 @@ def test_agents_post_substate_free_mode_clears_stored_state(
     """Moving to a mode without a sub-state drops the stored sub-state."""
     app, mongo = mongo_app
     mongo.agents.insert_one(
-        {"name": "agent1", "mode": "online", "state": "provision"}
+        {
+            "name": "agent1",
+            "mode": {"value": "online"},
+            "state": {"value": "provision"},
+        }
     )
 
     output = app.post(
@@ -134,7 +141,7 @@ def test_agents_post_substate_free_mode_clears_stored_state(
 
     assert output.status_code == HTTPStatus.OK
     record = mongo.agents.find_one({"name": "agent1"})
-    assert record["mode"] == "offline"
+    assert record["mode"]["value"] == "offline"
     assert "state" not in record
 
 
@@ -144,7 +151,10 @@ def test_agents_post_substate_free_mode_clears_stored_state(
 
 
 def test_agents_patch_commanded_mode_admin(mongo_app):
-    """An admin can command a mode change on an existing agent."""
+    """An admin can command a mode change on an existing agent.
+    Commanded mode is stored as nested: {value, changed_at, changed_by,
+    comment}.
+    """
     app, mongo = mongo_app
     mongo.agents.insert_one({"name": "agent1", "state": "waiting"})
     admin_header = get_access_token_header("admin-id", ServerRoles.ADMIN)
@@ -155,11 +165,11 @@ def test_agents_patch_commanded_mode_admin(mongo_app):
         headers=admin_header,
     )
 
-    assert output.status_code == HTTPStatus.OK
-    assert (
-        mongo.agents.find_one({"name": "agent1"})["commanded_mode"]
-        == "offline"
-    )
+    assert output.status_code == HTTPStatus.NO_CONTENT
+    record = mongo.agents.find_one({"name": "agent1"})
+    assert record["commanded_mode"]["value"] == "offline"
+    assert record["commanded_mode"]["changed_by"] == "admin-id"
+    assert record["commanded_mode"]["changed_at"] is not None
 
 
 def test_agents_patch_commanded_mode_rejects_manager_credentials(mongo_app):
@@ -209,14 +219,18 @@ def test_agents_patch_commanded_mode_missing_agent(mongo_app):
 
 
 def test_agents_patch_empty_comment_clears_existing_comment(mongo_app):
-    """An explicitly empty comment clears the stored comment."""
+    """An explicitly empty comment clears the stored comment.
+    Comment is stored within the nested commanded_mode document.
+    """
     app, mongo = mongo_app
     agent_name = "agent1"
     mongo.agents.insert_one(
         {
             "name": agent_name,
-            "commanded_mode": "maintenance",
-            "comment": "repair",
+            "commanded_mode": {
+                "value": "maintenance",
+                "comment": "repair",
+            },
         }
     )
     admin_header = get_access_token_header("admin-id", ServerRoles.ADMIN)
@@ -227,19 +241,28 @@ def test_agents_patch_empty_comment_clears_existing_comment(mongo_app):
         headers=admin_header,
     )
 
-    assert output.status_code == HTTPStatus.OK
-    assert mongo.agents.find_one({"name": agent_name})["comment"] == ""
+    assert output.status_code == HTTPStatus.NO_CONTENT
+    assert (
+        mongo.agents.find_one({"name": agent_name})["commanded_mode"][
+            "comment"
+        ]
+        == ""
+    )
 
 
 def test_agents_patch_omitted_comment_clears_existing_comment(mongo_app):
-    """A PATCH with no comment field clears any existing comment."""
+    """A PATCH with no comment field clears any existing comment.
+    Comment is stored within the nested commanded_mode document.
+    """
     app, mongo = mongo_app
     agent_name = "agent1"
     mongo.agents.insert_one(
         {
             "name": agent_name,
-            "commanded_mode": "maintenance",
-            "comment": "repair",
+            "commanded_mode": {
+                "value": "maintenance",
+                "comment": "repair",
+            },
         }
     )
     admin_header = get_access_token_header("admin-id", ServerRoles.ADMIN)
@@ -250,19 +273,30 @@ def test_agents_patch_omitted_comment_clears_existing_comment(mongo_app):
         headers=admin_header,
     )
 
-    assert output.status_code == HTTPStatus.OK
-    assert mongo.agents.find_one({"name": agent_name})["comment"] == ""
+    assert output.status_code == HTTPStatus.NO_CONTENT
+    assert (
+        mongo.agents.find_one({"name": agent_name})["commanded_mode"][
+            "comment"
+        ]
+        == ""
+    )
 
 
 def test_agents_patch_unchanged_commanded_mode_not_restamped(mongo_app):
-    """Re-patching the same commanded_mode does not update its timestamp."""
+    """Re-patching the same commanded_mode does not update its timestamp.
+    Metadata (changed_at, changed_by) is preserved in nested commanded_mode.
+    """
     app, mongo = mongo_app
     agent_name = "agent1"
+    original_timestamp = time.time()
     mongo.agents.insert_one(
         {
             "name": agent_name,
-            "commanded_mode": "offline",
-            "commanded_mode_changed_by": "someone",
+            "commanded_mode": {
+                "value": "offline",
+                "changed_by": "someone",
+                "changed_at": original_timestamp,
+            },
         }
     )
     admin_header = get_access_token_header("admin-id", ServerRoles.ADMIN)
@@ -273,10 +307,12 @@ def test_agents_patch_unchanged_commanded_mode_not_restamped(mongo_app):
         headers=admin_header,
     )
 
-    assert output.status_code == HTTPStatus.OK
+    assert output.status_code == HTTPStatus.NO_CONTENT
     record = mongo.agents.find_one({"name": agent_name})
-    assert record["commanded_mode"] == "offline"
-    assert record["commanded_mode_changed_by"] == "someone"
+    assert record["commanded_mode"]["value"] == "offline"
+    assert record["commanded_mode"]["changed_by"] == "someone"
+    # Timestamp should be preserved since mode didn't change
+    assert record["commanded_mode"]["changed_at"] == original_timestamp
 
 
 def test_agents_patch_commanded_mode_required(mongo_app):
@@ -304,14 +340,18 @@ def test_agents_get_one_exposes_the_canonical_shape(
     """v2 reports mode and sub-state as separate fields."""
     app, mongo = mongo_app
     mongo.agents.insert_one(
-        {"name": "agent1", "mode": "maintenance", "state": "waiting"}
+        {
+            "name": "agent1",
+            "mode": {"value": "maintenance"},
+            "state": {"value": "waiting"},
+        }
     )
 
     output = app.get("/v2/agents/agent1/data", headers=agent_auth_header)
 
     assert output.status_code == HTTPStatus.OK
-    assert output.json["mode"] == "maintenance"
-    assert output.json["state"] == "waiting"
+    assert output.json["mode"]["value"] == "maintenance"
+    assert output.json["state"]["value"] == "waiting"
 
 
 def test_agents_get_one_missing_agent(mongo_app, agent_auth_header):
@@ -335,7 +375,7 @@ def test_agents_get_all_gives_mode_to_records_written_before_modes(
     output = app.get("/v2/agents/data", headers=admin_header)
 
     assert output.status_code == HTTPStatus.OK
-    modes = {agent["name"]: agent["mode"] for agent in output.json}
+    modes = {agent["name"]: agent["mode"]["value"] for agent in output.json}
     assert modes == {"agent1": "online", "agent2": "offline"}
 
 
@@ -350,7 +390,7 @@ def test_agents_get_one_legacy_offline_has_no_state(
 
     assert output.status_code == HTTPStatus.OK
     data = output.get_json()
-    assert data.get("mode") == "offline"
+    assert data.get("mode")["value"] == "offline"
     assert "state" not in data or data.get("state") is None
 
 
@@ -367,5 +407,79 @@ def test_agents_get_one_legacy_maintenance_has_waiting_state(
 
     assert output.status_code == HTTPStatus.OK
     data = output.get_json()
-    assert data.get("mode") == "maintenance"
-    assert data.get("state") == "waiting"
+    assert data.get("mode")["value"] == "maintenance"
+    assert data.get("state")["value"] == "waiting"
+
+
+def test_agents_post_patch_post_sequence_preserves_commanded_mode(
+    mongo_app, agent_auth_header
+):
+    """POST-PATCH-POST sequence: admin commanded_mode is preserved.
+
+    Verifies that when an admin issues a PATCH to set commanded_mode,
+    a subsequent agent POST does not clobber the commanded_mode field.
+
+    Sequence:
+    1. Agent POSTs mode='online', state='waiting'
+    2. Admin PATCHes commanded_mode='offline'
+    3. Agent POSTs again with mode='online', state='provision'
+    4. Verify commanded_mode='offline' is still in DB and visible in response
+    """
+    app, mongo = mongo_app
+    agent_name = "agent1"
+    admin_header = get_access_token_header("admin-id", ServerRoles.ADMIN)
+
+    # Step 1: Agent POSTs initial heartbeat
+    response = app.post(
+        f"/v2/agents/{agent_name}/data",
+        json={"mode": "online", "state": "waiting"},
+        headers=agent_auth_header,
+    )
+    assert response.status_code == HTTPStatus.OK
+    record = mongo.agents.find_one({"name": agent_name})
+    assert record["mode"]["value"] == "online"
+    assert record["state"]["value"] == "waiting"
+    assert "commanded_mode" not in record
+
+    # Step 2: Admin PATCHes commanded_mode
+    response = app.patch(
+        f"/v2/agents/{agent_name}/commanded_mode",
+        json={"commanded_mode": "offline", "comment": "under maintenance"},
+        headers=admin_header,
+    )
+    assert response.status_code == HTTPStatus.NO_CONTENT
+    record = mongo.agents.find_one({"name": agent_name})
+    assert record["commanded_mode"]["value"] == "offline"
+    assert record["commanded_mode"]["comment"] == "under maintenance"
+    # Agent-reported mode should still be present
+    assert record["mode"]["value"] == "online"
+
+    # Step 3: Agent POSTs again with different state
+    response = app.post(
+        f"/v2/agents/{agent_name}/data",
+        json={"mode": "online", "state": "provision"},
+        headers=agent_auth_header,
+    )
+    assert response.status_code == HTTPStatus.OK
+
+    # Step 4: Verify commanded_mode is preserved and visible
+    record = mongo.agents.find_one({"name": agent_name})
+    assert record["commanded_mode"]["value"] == "offline", (
+        "Admin-commanded mode should be preserved after agent POST"
+    )
+    assert record["commanded_mode"]["comment"] == "under maintenance"
+    # Agent-reported state should be updated
+    assert record["state"]["value"] == "provision"
+    # Agent-reported mode should still be online (agent is reporting)
+    assert record["mode"]["value"] == "online"
+
+    # Verify v2 GET response shows both fields
+    response = app.get(
+        f"/v2/agents/{agent_name}/data",
+        headers=agent_auth_header,
+    )
+    assert response.status_code == HTTPStatus.OK
+    data = response.get_json()
+    assert data["commanded_mode"]["value"] == "offline"
+    assert data["mode"]["value"] == "online"
+    assert data["state"]["value"] == "provision"
