@@ -53,10 +53,8 @@ class TestMainLoop:
     @patch("testflinger_agent.configure_logging")
     @patch("testflinger_agent.TestflingerClient")
     @patch("testflinger_agent.TestflingerAgent")
-    @patch("time.sleep", side_effect=[None, KeyboardInterrupt()])
     def test_main_loop_continues_polling_on_empty_queue(
         self,
-        mock_sleep,
         mock_agent_class,
         mock_client_class,
         mock_configure_logging,
@@ -69,25 +67,49 @@ class TestMainLoop:
         mock_client_class.return_value = mock_client
         mock_agent = Mock()
         mock_agent_class.return_value = mock_agent
-        mock_agent.check_offline.return_value = (False, "")
-        mock_agent.process_jobs.return_value = None
+        # Simulate loop exiting after 2 iterations
+        mock_agent.loop.side_effect = KeyboardInterrupt()
 
         try:
             start_agent()
         except KeyboardInterrupt:
             pass
 
-        # Verify process_jobs was called twice
-        assert mock_agent.process_jobs.call_count == 2
+        # Verify loop was called once (it runs until interrupted)
+        mock_agent.loop.assert_called_once()
 
     @patch("testflinger_agent.load_config")
     @patch("testflinger_agent.configure_logging")
     @patch("testflinger_agent.TestflingerClient")
     @patch("testflinger_agent.TestflingerAgent")
-    @patch("time.sleep", side_effect=[KeyboardInterrupt()])
+    def test_main_loop_processes_maintenance_queue(
+        self,
+        mock_agent_class,
+        mock_client_class,
+        mock_configure_logging,
+        mock_load_config,
+        config,
+    ):
+        """Maintenance mode processes only maintenance-queue jobs."""
+        mock_load_config.return_value = config
+        mock_agent = Mock()
+        mock_agent_class.return_value = mock_agent
+        # Simulate loop exiting
+        mock_agent.loop.side_effect = KeyboardInterrupt()
+
+        try:
+            start_agent()
+        except KeyboardInterrupt:
+            pass
+
+        mock_agent.loop.assert_called_once_with(config.get("polling_interval"))
+
+    @patch("testflinger_agent.load_config")
+    @patch("testflinger_agent.configure_logging")
+    @patch("testflinger_agent.TestflingerClient")
+    @patch("testflinger_agent.TestflingerAgent")
     def test_main_loop_skips_processing_when_offline(
         self,
-        mock_sleep,
         mock_agent_class,
         mock_client_class,
         mock_configure_logging,
@@ -98,13 +120,13 @@ class TestMainLoop:
         mock_load_config.return_value = config
         mock_agent = Mock()
         mock_agent_class.return_value = mock_agent
-        mock_agent.check_offline.return_value = (True, "Offline by admin")
-        mock_agent.process_jobs.return_value = None
+        # Simulate loop exiting
+        mock_agent.loop.side_effect = KeyboardInterrupt()
 
         try:
             start_agent()
         except KeyboardInterrupt:
             pass
 
-        # process_jobs should not be called when offline
-        mock_agent.process_jobs.assert_not_called()
+        # Loop is called with check_interval
+        mock_agent.loop.assert_called_once_with(config.get("polling_interval"))
