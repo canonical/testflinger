@@ -31,6 +31,17 @@ roles-docs:
 check-roles-docs:
     @uvx tox run -e check-roles-docs
 
+[doc('Generate endpoint permissions matrix used by unit tests.')]
+[group('project')]
+permissions:
+    @uvx tox run -e permissions
+
+[doc('Check endpoint permissions matrix used by unit tests.')]
+[group('project')]
+[group('test')]
+check-permissions:
+    @uvx tox run -e check-permissions
+
 [doc('Add a dependency (uv add ...).')]
 [group('venv')]
 [positional-arguments]
@@ -76,7 +87,7 @@ test:
 
 [doc('Run all checks.')]
 [group('test')]
-check: lint format test check-schema check-roles-docs
+check: lint format test check-schema check-roles-docs check-permissions
     @echo 'Server checks done!'
 
 [doc('Remove tox environments (forces full reinstall on next run).')]

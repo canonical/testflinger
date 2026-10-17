@@ -26,8 +26,8 @@
             <tr>
               <td data-heading="Time">{{ event.timestamp.strftime("%Y-%m-%d %H:%M:%S") }}</td>
               <td data-heading="Event">
-                {% if event.status is defined and event.status is not none %}
-                  {% if event.status == 0 %}
+                {% if event.exit_code is defined and event.exit_code is not none %}
+                  {% if event.exit_code == 0 %}
                     <i class="p-icon--success" aria-label="Success"></i>
                   {% else %}
                     <i class="p-icon--error" aria-label="Error"></i>
