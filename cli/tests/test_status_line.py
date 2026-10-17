@@ -14,12 +14,99 @@
 
 """Unit tests for StatusLine."""
 
+import io
 import threading
 from unittest import mock
 
+import pytest
 from freezegun import freeze_time
+from rich.console import Console
+from rich.live import Live
+from rich.text import Text
 
+from testflinger_cli import TestflingerCli as CliClass
 from testflinger_cli.status_line import StatusLine
+
+
+class TestStatusLineRendering:
+    """Regression coverage for the live countdown on narrow terminals."""
+
+    @pytest.mark.parametrize("width", [20, 40, 80])
+    @pytest.mark.parametrize(
+        "message",
+        [
+            "Reservation expires at: [2026-10-16T12:34:56+10:00]",
+            "Wide characters: 設備を予約中 " * 8,
+        ],
+    )
+    def test_status_fits_terminal(self, width, message):
+        """Long status messages fit one row and preserve the timer prefix."""
+        output = io.StringIO()
+        StatusLine._is_tty = True
+        StatusLine.state = "reserve"
+        StatusLine.message = message
+        StatusLine._live = Live(
+            console=Console(file=output, width=width, force_terminal=True),
+            auto_refresh=False,
+            redirect_stdout=False,
+            redirect_stderr=False,
+        )
+        StatusLine._live.start()
+        try:
+            output.seek(0)
+            output.truncate()
+            StatusLine.draw()
+            rendered = Text.from_ansi(output.getvalue())
+            assert rendered.plain.startswith("[00:00] [reserve]")
+            assert rendered.cell_len <= width
+            assert "\n" not in rendered.plain
+        finally:
+            StatusLine.stop()
+
+    @mock.patch("testflinger_cli.status_line.time.sleep")
+    def test_reservation_timer_keeps_updating(self, mock_sleep):
+        """Reserve mode redraws the countdown on every timer tick."""
+        output = io.StringIO()
+        StatusLine._is_tty = True
+        StatusLine._running = True
+        StatusLine.state = "reserve"
+        StatusLine._countdown_mode = True
+        StatusLine._countdown_start_value = 3
+        StatusLine._start_time = 0
+        StatusLine._live = Live(
+            console=Console(file=output, width=40, force_terminal=True),
+            auto_refresh=False,
+            redirect_stdout=False,
+            redirect_stderr=False,
+        )
+        StatusLine._live.start()
+        ticks = 0
+
+        def stop_after_two_ticks(_):
+            nonlocal ticks
+            ticks += 1
+            if ticks == 2:
+                StatusLine._running = False
+
+        mock_sleep.side_effect = stop_after_two_ticks
+        try:
+            with mock.patch(
+                "testflinger_cli.status_line.time.time", side_effect=[0, 1]
+            ):
+                StatusLine._timer_loop()
+            assert "[00:03] [reserve]" in output.getvalue()
+            assert "[00:02] [reserve]" in output.getvalue()
+        finally:
+            StatusLine.stop()
+
+    @freeze_time("2026-10-16 12:34:56.123456")
+    @mock.patch.object(StatusLine, "set_message")
+    def test_reservation_expiry_omits_fractional_seconds(self, mock_message):
+        """The expiry timestamp omits fractional seconds."""
+        cli = object.__new__(CliClass)
+        cli._on_state_change("reserve", {"reserve_data": {"timeout": 30}})
+        assert "T" in mock_message.call_args.args[0]
+        assert ".123456" not in mock_message.call_args.args[0]
 
 
 class TestStatusLineInit:
