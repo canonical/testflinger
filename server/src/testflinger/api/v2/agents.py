@@ -149,10 +149,60 @@ def agents_post(agent_name, json_data):
     # extract log from data so we can push it instead of setting it
     log = json_data.pop("log", [])
 
-    # Check if agent is reporting a mode that matches a pending commanded_mode.
-    # If so, clear the commanded_mode to prevent re-execution on next restart.
-    # (e.g., agent initiated restart, posted mode="restart", now shouldn't
-    # re-execute the same command on next startup)
+    # Special handling when agent posts mode=RESTART:
+    # Save the current mode to commanded_mode to preserve the transition.
+    # Agent startup logic is:
+    #   commanded_mode = read from server
+    #   if commanded_mode:
+    #       adopt commanded_mode
+    #   else:
+    #       adopt mode
+    # By saving current mode to commanded_mode, the agent knows to transition
+    # back to the pre-restart mode after restart completes.
+    # Only do this if there's no existing commanded_mode (self-initiated
+    # restart). If there's an existing commanded_mode, it's an admin command
+    # and should be cleared when the agent reports the corresponding mode.
+    if "mode" in json_data:
+        reported_mode = (
+            json_data["mode"]["value"]
+            if isinstance(json_data["mode"], dict)
+            else json_data["mode"]
+        )
+        if reported_mode == AgentMode.RESTART.value:
+            existing_agent = database.mongo.db.agents.find_one(
+                {"name": agent_name}
+            )
+            existing_commanded = None
+            if existing_agent:
+                existing_commanded_raw = existing_agent.get("commanded_mode")
+                if isinstance(existing_commanded_raw, dict):
+                    existing_commanded = existing_commanded_raw.get("value")
+                else:
+                    existing_commanded = existing_commanded_raw
+
+            # Only save current mode to commanded_mode if there's no
+            # existing commanded_mode (self-initiated restart)
+            if (
+                not existing_commanded
+                and existing_agent
+                and "mode" in existing_agent
+            ):
+                existing_mode = existing_agent["mode"]
+                if isinstance(existing_mode, dict):
+                    existing_mode_value = existing_mode.get("value")
+                else:
+                    existing_mode_value = existing_mode
+                # Save the current mode to commanded_mode
+                json_data["commanded_mode"] = {
+                    "value": existing_mode_value,
+                    "changed_at": updated_at,
+                }
+
+    # Check if agent is reporting a mode that matches a pending
+    # commanded_mode. If so, clear the commanded_mode to prevent
+    # re-execution on next restart. (e.g., admin commanded restart,
+    # agent posted mode="restart", shouldn't re-execute same command
+    # on next startup)
     if json_data.get("mode"):
         existing_agent = database.mongo.db.agents.find_one(
             {"name": agent_name}
@@ -163,14 +213,14 @@ def agents_post(agent_name, json_data):
                 if isinstance(existing_agent.get("commanded_mode"), dict)
                 else existing_agent.get("commanded_mode")
             )
-            reported_mode = (
+            reported_mode_val = (
                 json_data["mode"]["value"]
                 if isinstance(json_data["mode"], dict)
                 else json_data["mode"]
             )
             # If agent reports a mode that matches the existing commanded_mode,
             # clear the commanded_mode so it won't be re-executed
-            if existing_commanded and reported_mode == existing_commanded:
+            if existing_commanded and reported_mode_val == existing_commanded:
                 unset.append("commanded_mode")
 
     database.upsert_agent_document(

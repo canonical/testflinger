@@ -552,3 +552,67 @@ def test_agents_post_matching_mode_clears_commanded_mode(
     assert response.status_code == HTTPStatus.OK
     data = response.get_json()
     assert "commanded_mode" not in data
+
+
+def test_agents_post_restart_saves_current_mode_to_commanded_mode(
+    mongo_app, agent_auth_header
+):
+    """When agent POSTs mode=RESTART, save current mode to commanded_mode.
+
+    Rationale: Agent startup logic is:
+      commanded_mode = read from server
+      if commanded_mode:
+          adopt commanded_mode
+      else:
+          adopt mode
+
+    When an agent self-restarts, we save the current mode to commanded_mode
+    so the agent knows to return to that mode after restart completes.
+
+    Sequence:
+    1. Agent POSTs heartbeat in ONLINE mode
+    2. Agent POSTs mode='restart' (self-initiated)
+    3. Verify current mode (ONLINE) is saved to commanded_mode
+    4. Agent will restart and adopt commanded_mode (ONLINE) on next poll
+    """
+    app, mongo = mongo_app
+    agent_name = "agent1"
+
+    # Step 1: Agent POSTs initial heartbeat in ONLINE mode
+    response = app.post(
+        f"/v2/agents/{agent_name}/data",
+        json={"mode": "online", "state": "test"},
+        headers=agent_auth_header,
+    )
+    assert response.status_code == HTTPStatus.OK
+    record = mongo.agents.find_one({"name": agent_name})
+    assert record["mode"]["value"] == "online"
+    assert record["state"]["value"] == "test"
+
+    # Step 2: Agent POSTs mode='restart' (self-initiated restart)
+    response = app.post(
+        f"/v2/agents/{agent_name}/data",
+        json={"mode": "restart"},
+        headers=agent_auth_header,
+    )
+    assert response.status_code == HTTPStatus.OK
+
+    # Step 3: Verify current mode is saved to commanded_mode
+    record = mongo.agents.find_one({"name": agent_name})
+    assert record["mode"]["value"] == "restart"
+    assert record["commanded_mode"]["value"] == "online", (
+        "Current mode should be saved to commanded_mode when agent "
+        "self-restarts, so it knows to return to that mode after restart"
+    )
+    # State should be cleared (restart mode has no sub-state)
+    assert "state" not in record
+
+    # Step 4: Verify GET response shows the commanded_mode
+    response = app.get(
+        f"/v2/agents/{agent_name}/data",
+        headers=agent_auth_header,
+    )
+    assert response.status_code == HTTPStatus.OK
+    data = response.get_json()
+    assert data["mode"]["value"] == "restart"
+    assert data["commanded_mode"]["value"] == "online"
