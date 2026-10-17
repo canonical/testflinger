@@ -43,12 +43,12 @@ jobs:
           persist-credentials: false
       - name: Build snap
         id: build
-        uses: snapcore/action-build@3bdaa03e1ba6bf59a65f84a751d943d549a54e79 # v1
+        uses: snapcore/action-build@3bdaa03e1ba6bf59a65f84a751d943d549a54e79 # v1.3.0
         with:
           path: cli
       - name: Upload snapcraft logs
         if: failure()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: runtime-build-log
           path: |
@@ -66,13 +66,13 @@ jobs:
           # By default SARIF format enforces output of all vulnerabilities regardless of configured severities.
           severity: 'UNKNOWN,LOW,MEDIUM,CRITICAL,HIGH'
       - name: Upload artifact
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: testflinger-cli.snap
           path: ${{ steps.build.outputs.snap }}
       - name: Publish snap
         if: ${{ github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch' && github.event.inputs.publish == 'true' }}
-        uses: snapcore/action-publish@214b86e5ca036ead1668c79afb81e550e6c54d40 # v1
+        uses: snapcore/action-publish@214b86e5ca036ead1668c79afb81e550e6c54d40 # v1.2.0
         env:
           SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAP_STORE_LOGIN }}
         with:

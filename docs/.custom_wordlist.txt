@@ -1,6 +1,7 @@
 addon
 autoinstall
 dragonboard
+DUTs
 fragment_number
 Lenovo
 log_data
