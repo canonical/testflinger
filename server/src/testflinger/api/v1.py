@@ -832,7 +832,7 @@ def images_post(json_data: dict):
 @v1.output(schemas.AgentOut(many=True))
 def agents_get_all():
     """Get all agent data."""
-    agents = database.get_agents()
+    agents = database.get_agents_v1()
     restricted_queues = database.get_restricted_queues()
     restricted_queues_owners = database.get_restricted_queues_owners()
 
@@ -864,7 +864,7 @@ def agents_get_one(agent_name):
     :return:
         JSON data with the specified agent information.
     """
-    agent_data = database.get_agent_info(agent_name)
+    agent_data = database.get_agent_info_v1(agent_name)
 
     if not agent_data:
         return {}, HTTPStatus.NOT_FOUND

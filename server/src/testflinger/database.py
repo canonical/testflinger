@@ -746,7 +746,7 @@ def _reconstruct_v1_from_v2(agent: dict) -> None:
 
 # TODO: when `views.py` is updated to use the v2 data format this function
 #  can be switched over to the v2 footprint.
-def get_agent_info(agent: str) -> dict | None:
+def get_agent_info_v1(agent: str) -> dict | None:
     """Return the information for a specified agent, with active job attached.
 
     Uses a single aggregation pipeline to join the agent with its current
@@ -777,7 +777,7 @@ def get_agent_info(agent: str) -> dict | None:
     return agent_data
 
 
-def get_agent_info_v2(agent: str) -> dict | None:
+def get_agent_info(agent: str) -> dict | None:
     """Return agent information in v2 nested format for v2 API clients.
 
     Uses a single aggregation pipeline to join the agent with its current
@@ -922,8 +922,6 @@ def get_restricted_queues_owners() -> dict[str, list[str]]:
 # TODO: when `views.py` is updated to use the v2 data format this function
 #  can be switched over to the v2 footprint.
 def get_agents(queue: str | None = None) -> list[dict]:
-<<<<<<< HEAD
-=======
     """Return a list of agents with active job info attached.
 
     This is a wrapper for the UI views which need v2 nested format
@@ -933,7 +931,6 @@ def get_agents(queue: str | None = None) -> list[dict]:
 
 
 def get_agents_v1(queue: str | None = None) -> list[dict]:
->>>>>>> e4bf9152 (rebase onto feat/server-agent-mode-api, no stacking)
     """Return a list of agents in v1 flat format for v1 API clients.
 
     Retrieves all agents and applies appropriate transformation based on
@@ -1236,7 +1233,7 @@ def set_queue_images(queue: str, image_data: dict) -> None:
 
 
 def _upgrade_db_agent_v1_to_v2(agent_name):
-    agent_data = get_agent_info_v2(agent_name)
+    agent_data = get_agent_info(agent_name)
     if agent_data and not _is_v2_format(agent_data):
         fields_to_unset = _promote_v1_to_v2(agent_data)
         update = {"$set": agent_data}

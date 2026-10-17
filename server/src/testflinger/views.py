@@ -74,13 +74,19 @@ def _state_duration(state_changed_at) -> str:
 def _enrich_agent(agent: dict) -> dict:
     """Add display-only fields to an agent dict for portal rendering.
 
-    Computes ``mode_duration`` (time since mode last changed) and
-    ``state_duration`` (time since sub-state last changed). The active
-    job and its ``job_state`` are attached by the database layer's
-    active-job aggregation and exposed as ``agent["job"]``.
+    Computes duration strings for display. The active job (if any) is
+    attached by the database layer as ``agent["job"]``.
+
+    :param agent: Agent dict in v2 nested format with:
+        mode: {value, changed_at, ...}
+        state: {value, changed_at, ...}
+        commanded_mode: {value, changed_at, ...}
+    :return: Agent dict with ``mode_duration`` and ``state_duration`` added
     """
-    agent["mode_duration"] = _state_duration(agent.get("mode_changed_at"))
-    agent["state_duration"] = _state_duration(agent.get("state_changed_at"))
+    mode_data = agent.get("mode", {})
+    state_data = agent.get("state", {})
+    agent["mode_duration"] = _state_duration(mode_data.get("changed_at"))
+    agent["state_duration"] = _state_duration(state_data.get("changed_at"))
     return agent
 
 

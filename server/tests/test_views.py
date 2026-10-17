@@ -635,7 +635,15 @@ def test_state_duration_naive_datetime():
 def test_agent_state_update_forbidden_without_oidc(testapp):
     """agent_state_update always returns 403 when OIDC is not configured."""
     mongo_client = mongomock.MongoClient()
-    mongo_client.db.agents.insert_one({"name": "agent1", "mode": "online"})
+    mongo_client.db.agents.insert_one(
+        {
+            "name": "agent1",
+            "mode": {
+                "value": "online",
+                "changed_at": datetime.now(timezone.utc),
+            },
+        }
+    )
     with (
         patch("testflinger.database.mongo", mongo_client),
     ):
@@ -740,7 +748,10 @@ def test_agent_state_update_success_sets_mode(oidc_app):
     mongo_client.db.agents.insert_one(
         {
             "name": "agent1",
-            "mode": "online",
+            "mode": {
+                "value": "online",
+                "changed_at": datetime.now(timezone.utc),
+            },
             "updated_at": datetime.now(timezone.utc),
         }
     )
@@ -762,9 +773,9 @@ def test_agent_state_update_success_sets_mode(oidc_app):
         HTTPStatus.MOVED_PERMANENTLY,
     )
     record = mongo_client.db.agents.find_one({"name": "agent1"})
-    assert record["commanded_mode"] == "offline"
-    assert record["comment"] == "scheduled downtime"
-    assert record["commanded_mode_changed_by"] == admin_email
+    assert record["commanded_mode"]["value"] == "offline"
+    assert record["commanded_mode"]["comment"] == "scheduled downtime"
+    assert record["commanded_mode"]["changed_by"] == admin_email
 
 
 def test_agent_state_update_empty_comment_clears_comment(oidc_app):
@@ -775,8 +786,16 @@ def test_agent_state_update_empty_comment_clears_comment(oidc_app):
     mongo_client.db.agents.insert_one(
         {
             "name": "agent1",
-            "mode": "maintenance",
-            "comment": "Replacing hardware",
+            "mode": {
+                "value": "maintenance",
+                "changed_at": datetime.now(timezone.utc),
+            },
+            "commanded_mode": {
+                "value": "maintenance",
+                "comment": "Replacing hardware",
+                "changed_at": datetime.now(timezone.utc),
+                "changed_by": admin_email,
+            },
         }
     )
 
@@ -787,7 +806,7 @@ def test_agent_state_update_empty_comment_clears_comment(oidc_app):
 
     assert response.status_code == HTTPStatus.FOUND
     record = mongo_client.db.agents.find_one({"name": "agent1"})
-    assert record["comment"] == ""
+    assert record["commanded_mode"]["comment"] == ""
 
 
 def _make_oidc_admin_client(oidc_app, mongo_client, admin_email):
@@ -825,7 +844,10 @@ def test_agent_state_update_all_modes(
     mongo_client.db.agents.insert_one(
         {
             "name": "agent1",
-            "mode": "online",
+            "mode": {
+                "value": "online",
+                "changed_at": datetime.now(timezone.utc),
+            },
             "updated_at": datetime.now(timezone.utc),
         }
     )
@@ -846,7 +868,7 @@ def test_agent_state_update_all_modes(
     ), f"Expected redirect for mode={new_mode!r}, got {response.status_code}"
 
     record = mongo_client.db.agents.find_one({"name": "agent1"})
-    assert record["commanded_mode"] == expected_mode
+    assert record["commanded_mode"]["value"] == expected_mode
 
 
 def test_agent_state_update_maintenance_allows_empty_comment(oidc_app):
@@ -873,8 +895,14 @@ def test_agents_list_admin_renders_state_modal(oidc_app):
     mongo_client.db.agents.insert_one(
         {
             "name": "agent1",
-            "mode": "online",
-            "state": "waiting",
+            "mode": {
+                "value": "online",
+                "changed_at": datetime.now(timezone.utc),
+            },
+            "state": {
+                "value": "waiting",
+                "changed_at": datetime.now(timezone.utc),
+            },
             "updated_at": datetime.now(timezone.utc),
         }
     )
@@ -907,8 +935,14 @@ def test_queue_detail_admin_renders_state_modal(oidc_app):
     mongo_client.db.agents.insert_one(
         {
             "name": "agent1",
-            "mode": "online",
-            "state": "waiting",
+            "mode": {
+                "value": "online",
+                "changed_at": datetime.now(timezone.utc),
+            },
+            "state": {
+                "value": "waiting",
+                "changed_at": datetime.now(timezone.utc),
+            },
             "queues": ["q1"],
             "updated_at": datetime.now(timezone.utc),
         }
@@ -939,11 +973,15 @@ def test_agents_list_non_admin_has_no_state_modal(oidc_app):
     mongo_client.db.agents.insert_one(
         {
             "name": "agent1",
-            "mode": "online",
-            "state": "waiting",
-            "comment": "Awaiting scheduled work",
-            "mode_changed_at": datetime(2026, 1, 1, tzinfo=timezone.utc),
-            "state_changed_at": datetime(2026, 1, 2, tzinfo=timezone.utc),
+            "mode": {
+                "value": "online",
+                "changed_at": datetime(2026, 1, 1, tzinfo=timezone.utc),
+                "comment": "Awaiting scheduled work",
+            },
+            "state": {
+                "value": "waiting",
+                "changed_at": datetime(2026, 1, 2, tzinfo=timezone.utc),
+            },
             "updated_at": datetime.now(timezone.utc),
         }
     )
@@ -979,17 +1017,23 @@ def test_agents_list_uses_state_time_for_stateful_modes(oidc_app):
         [
             {
                 "name": "reserved-agent",
-                "mode": "online",
-                "state": "reserve",
-                "comment": "Reserved for certification",
-                "mode_changed_at": mode_changed_at,
-                "state_changed_at": state_changed_at,
+                "mode": {
+                    "value": "online",
+                    "changed_at": mode_changed_at,
+                },
+                "state": {
+                    "value": "reserve",
+                    "changed_at": state_changed_at,
+                    "comment": "Reserved for certification",
+                },
                 "updated_at": datetime.now(timezone.utc),
             },
             {
                 "name": "offline-agent",
-                "mode": "offline",
-                "mode_changed_at": mode_changed_at,
+                "mode": {
+                    "value": "offline",
+                    "changed_at": mode_changed_at,
+                },
                 "updated_at": datetime.now(timezone.utc),
             },
         ]
@@ -1025,11 +1069,15 @@ def test_queue_detail_keeps_chip_tooltip(oidc_app):
     mongo_client.db.agents.insert_one(
         {
             "name": "agent1",
-            "mode": "online",
-            "state": "waiting",
-            "comment": "Ready for jobs",
-            "mode_changed_at": timestamp,
-            "state_changed_at": timestamp,
+            "mode": {
+                "value": "online",
+                "changed_at": timestamp,
+                "comment": "Ready for jobs",
+            },
+            "state": {
+                "value": "waiting",
+                "changed_at": timestamp,
+            },
             "queues": ["q1"],
             "updated_at": timestamp,
         }
@@ -1058,10 +1106,14 @@ def test_agent_detail_keeps_status_timestamp_in_chip_tooltip(oidc_app):
     mongo_client.db.agents.insert_one(
         {
             "name": "agent1",
-            "mode": "online",
-            "state": "reserve",
-            "mode_changed_at": datetime(2026, 1, 1, tzinfo=timezone.utc),
-            "state_changed_at": datetime(2026, 1, 2, tzinfo=timezone.utc),
+            "mode": {
+                "value": "online",
+                "changed_at": datetime(2026, 1, 1, tzinfo=timezone.utc),
+            },
+            "state": {
+                "value": "reserve",
+                "changed_at": datetime(2026, 1, 2, tzinfo=timezone.utc),
+            },
             "updated_at": datetime(2026, 1, 3, tzinfo=timezone.utc),
         }
     )
@@ -1092,7 +1144,10 @@ def test_agent_state_update_redirects_to_safe_next(oidc_app):
     mongo_client.db.agents.insert_one(
         {
             "name": "agent1",
-            "mode": "online",
+            "mode": {
+                "value": "online",
+                "changed_at": datetime.now(timezone.utc),
+            },
             "updated_at": datetime.now(timezone.utc),
         }
     )
@@ -1124,7 +1179,10 @@ def test_agent_state_update_ignores_unsafe_next(oidc_app, bad_next):
     mongo_client.db.agents.insert_one(
         {
             "name": "agent1",
-            "mode": "online",
+            "mode": {
+                "value": "online",
+                "changed_at": datetime.now(timezone.utc),
+            },
             "updated_at": datetime.now(timezone.utc),
         }
     )
