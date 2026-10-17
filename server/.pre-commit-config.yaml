@@ -46,3 +46,12 @@ repos:
         pass_filenames: false
         additional_dependencies:
           - just
+      - id: permissions
+        name: Check endpoint permissions matrix
+        entry: just check-permissions
+        language: rust
+        exclude: ^charm/
+        types: [python]
+        pass_filenames: false
+        additional_dependencies:
+          - just
