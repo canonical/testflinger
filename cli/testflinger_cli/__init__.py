@@ -482,6 +482,17 @@ class TestflingerCli:
             ),
         )
         parser.add_argument(
+            "--format",
+            choices=["table", "json"],
+            default="table",
+            help="Output format to display agents",
+        )
+        parser.add_argument(
+            "--no-headers",
+            action="store_true",
+            help="Do not print table headers",
+        )
+        parser.add_argument(
             "--filter-mode",
             dest="filter_mode",
             type=helpers.parse_comma_list(choices=_mode_choices),
@@ -777,8 +788,11 @@ class TestflingerCli:
             # single-column flag: machine names only
             self._print_agent_names(filtered_agents)
         else:
-            # table with details, supporting --fields
-            self._print_agent_table(filtered_agents)
+            # table with details, supporting --fields and --format
+            if self.args.format == "json":
+                self._print_agents_json(filtered_agents)
+            else:
+                self._print_agent_table(filtered_agents)
 
     def _filter_agents(self, agents: list[dict]) -> list[dict]:
         """Filter agents based on command line arguments.
@@ -971,44 +985,48 @@ class TestflingerCli:
                 val = ", ".join(str(v) for v in val)
             return str(val)
 
-        # Header names for all known fields
-        header_map = {
-            "name": "Name",
-            "mode": "Mode",
-            "state": "State",
-            "commanded_mode": "Commanded Mode",
-            "location": "Location",
-            "provision_type": "Provision Type",
-            "comment": "Comment",
-            "job_id": "Job ID",
-            "submitted_by": "Submitted By",
-            "queues": "Queues",
-        }
-        headers = [header_map[f] for f in self.args.fields]
-
-        # Calculate column widths
-        col_widths = [
-            max(
-                len(header),
-                max((len(get_field(a, f)) for a in agents), default=0),
-            )
-            for f, header in zip(self.args.fields, headers, strict=False)
+        # Build rows using requested fields
+        rows = [
+            [get_field(agent, f) for f in self.args.fields] for agent in agents
         ]
 
-        # Print header
-        print(
-            "  ".join(
-                f"{STYLE_BOLD}{h.upper():<{w}}{STYLE_RESET_ALL}"
-                for h, w in zip(headers, col_widths, strict=True)
-            )
+        # Call helper to display the table
+        helpers.print_table(
+            item="agents",
+            headers=self.args.fields,
+            rows=rows,
+            hide_headers=self.args.no_headers,
         )
-        # Print rows
+
+    def _print_agents_json(self, agents: list[dict]) -> None:
+        """Print agents in JSON format with selected fields.
+
+        :param agents: List of agent dictionaries to display as JSON
+        """
+        if not agents:
+            print(json.dumps([], sort_keys=True, indent=4))
+            return
+
+        # Extract only the requested fields for each agent
+        output = []
         for agent in agents:
-            row = [
-                f"{get_field(agent, f):<{w}}"
-                for f, w in zip(self.args.fields, col_widths, strict=True)
-            ]
-            print("  ".join(row))
+            agent_dict = {}
+            for field in self.args.fields:
+                if field in ("job_id", "submitted_by"):
+                    agent_dict[field] = (agent.get("job") or {}).get(
+                        field, None
+                    )
+                elif field == "commanded_mode":
+                    cmd = agent.get("commanded_mode")
+                    if cmd and cmd != agent.get("mode"):
+                        agent_dict[field] = cmd
+                    else:
+                        agent_dict[field] = None
+                else:
+                    agent_dict[field] = agent.get(field)
+            output.append(agent_dict)
+
+        print(json.dumps(output, sort_keys=True, indent=4))
 
     def _print_agent_names(self, agents: list[dict]) -> None:
         """Print agent names only (one per line).

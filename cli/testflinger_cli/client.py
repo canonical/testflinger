@@ -322,6 +322,7 @@ class Client:
         ``commanded_mode``); falls back to v1 when the server does not
         yet support v2.
 
+        # TODO: Remove v1 fallback once all servers are updated to v2
         :return: List of dicts containing agent data.
         """
         try:

@@ -289,5 +289,6 @@ def print_table(
 
     for row in rows:
         table.add_row(*row)
-    console = Console()
+    # Use a large width to prevent text wrapping/truncation
+    console = Console(width=10000)
     console.print(table)

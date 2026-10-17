@@ -2049,6 +2049,100 @@ def test_agent_list_calls_print_table(
     mock_print_table.assert_called_once_with(fake_agents)
 
 
+def test_agent_list_json_format(capsys, requests_mock):
+    """Validate list-agents --format=json outputs valid JSON."""
+    fake_agents = [
+        {
+            "name": "agent1",
+            "mode": "online",
+            "state": "waiting",
+            "commanded_mode": "online",
+            "location": "dc1",
+            "provision_type": "ubuntu",
+            "comment": "Test agent",
+        },
+        {
+            "name": "agent2",
+            "mode": "offline",
+            "state": None,
+            "commanded_mode": None,
+            "location": "dc2",
+            "provision_type": "custom",
+            "comment": "Maintenance",
+        },
+    ]
+    requests_mock.get(f"{URL}/v2/agents/data", json=fake_agents)
+    sys.argv = ["", "list-agents", "--format=json"]
+    tfcli = testflinger_cli.TestflingerCli()
+    tfcli.list_agents()
+    output = capsys.readouterr()
+
+    # Verify it's valid JSON
+    data = json.loads(output.out)
+
+    # Verify the structure matches
+    assert len(data) == 2
+    assert data[0]["name"] == "agent1"
+    assert data[0]["mode"] == "online"
+    assert data[1]["name"] == "agent2"
+    assert data[1]["mode"] == "offline"
+
+
+def test_agent_list_json_with_custom_fields(capsys, requests_mock):
+    """Validate list-agents --format=json with custom fields."""
+    fake_agents = [
+        {
+            "name": "agent1",
+            "mode": "online",
+            "job": {"job_id": "job123", "submitted_by": "user1"},
+        },
+    ]
+    requests_mock.get(f"{URL}/v2/agents/data", json=fake_agents)
+    sys.argv = [
+        "",
+        "list-agents",
+        "--format=json",
+        "--fields=name,mode,job_id,submitted_by",
+    ]
+    tfcli = testflinger_cli.TestflingerCli()
+    tfcli.list_agents()
+    output = capsys.readouterr()
+
+    # Verify it's valid JSON
+    data = json.loads(output.out)
+
+    # Verify fields are extracted correctly
+    assert len(data) == 1
+    assert data[0]["name"] == "agent1"
+    assert data[0]["mode"] == "online"
+    assert data[0]["job_id"] == "job123"
+    assert data[0]["submitted_by"] == "user1"
+
+
+def test_agent_list_no_headers(capsys, requests_mock):
+    """Validate list-agents --no-headers removes table headers."""
+    fake_agents = [
+        {
+            "name": "agent1",
+            "mode": "online",
+            "state": "waiting",
+        },
+    ]
+    requests_mock.get(f"{URL}/v2/agents/data", json=fake_agents)
+    sys.argv = ["", "list-agents", "--no-headers"]
+    tfcli = testflinger_cli.TestflingerCli()
+    tfcli.list_agents()
+    output = capsys.readouterr()
+
+    # Verify headers are not in output
+    assert "NAME" not in output.out
+    assert "MODE" not in output.out
+    assert "STATE" not in output.out
+    # But the data should still be present
+    assert "agent1" in output.out
+    assert "online" in output.out
+
+
 def test_queue_status(capsys, requests_mock, auth_fixture):
     """Validate that the status for the queue is retrieved."""
     auth_fixture("user")
