@@ -149,6 +149,30 @@ def agents_post(agent_name, json_data):
     # extract log from data so we can push it instead of setting it
     log = json_data.pop("log", [])
 
+    # Check if agent is reporting a mode that matches a pending commanded_mode.
+    # If so, clear the commanded_mode to prevent re-execution on next restart.
+    # (e.g., agent initiated restart, posted mode="restart", now shouldn't
+    # re-execute the same command on next startup)
+    if json_data.get("mode"):
+        existing_agent = database.mongo.db.agents.find_one(
+            {"name": agent_name}
+        )
+        if existing_agent:
+            existing_commanded = (
+                existing_agent.get("commanded_mode", {}).get("value")
+                if isinstance(existing_agent.get("commanded_mode"), dict)
+                else existing_agent.get("commanded_mode")
+            )
+            reported_mode = (
+                json_data["mode"]["value"]
+                if isinstance(json_data["mode"], dict)
+                else json_data["mode"]
+            )
+            # If agent reports a mode that matches the existing commanded_mode,
+            # clear the commanded_mode so it won't be re-executed
+            if existing_commanded and reported_mode == existing_commanded:
+                unset.append("commanded_mode")
+
     database.upsert_agent_document(
         agent_name,
         json_data,
