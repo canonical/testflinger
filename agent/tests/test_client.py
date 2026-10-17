@@ -44,7 +44,7 @@ class TestClient:
     def test_check_jobs_empty(self, client, requests_mock):
         requests_mock.get(rmock.ANY, status_code=HTTPStatus.OK)
         requests_mock.post(rmock.ANY, status_code=HTTPStatus.OK)
-        job_data = client.check_jobs()
+        job_data = client.check_jobs({})
         assert job_data is None
 
     def test_check_jobs_with_job(self, client, requests_mock):
@@ -54,7 +54,7 @@ class TestClient:
         }
         requests_mock.get(rmock.ANY, json=fake_job_data)
         requests_mock.post(rmock.ANY, status_code=HTTPStatus.OK)
-        job_data = client.check_jobs()
+        job_data = client.check_jobs({})
         assert job_data == fake_job_data
 
     def test_check_jobs_with_restricted_queues(self, client, requests_mock):
@@ -76,7 +76,7 @@ class TestClient:
             json=fake_job_data,
         )
         requests_mock.post(rmock.ANY, status_code=HTTPStatus.OK)
-        job_data = client.check_jobs()
+        job_data = client.check_jobs({"test_queue": ["test-client-id"]})
         params = requests_mock.last_request.qs.get("queue")
         assert params == ["test_queue"]
         assert job_data == fake_job_data
@@ -97,7 +97,7 @@ class TestClient:
             json=fake_job_data,
         )
         requests_mock.post(rmock.ANY, status_code=HTTPStatus.OK)
-        job_data = client.check_jobs()
+        job_data = client.check_jobs({})
         params = requests_mock.last_request.qs.get("queue")
         assert params == ["queue1"]
         assert job_data == fake_job_data
@@ -382,7 +382,7 @@ class TestClient:
 
         # Session should automatically handle cookies after first response
         # The session persists cookies across requests
-        job_data = client.check_jobs()
+        job_data = client.check_jobs({})
         assert job_data == fake_job_data
 
         # Verify the session made the request (session handles cookies)
@@ -401,7 +401,7 @@ class TestClient:
             json={"message": "Agent not identified"},
         )
 
-        result = client.check_jobs()
+        result = client.check_jobs({})
         assert result is None
 
     def test_check_jobs_request_exception(self, client):
@@ -416,7 +416,7 @@ class TestClient:
                 with patch(
                     "testflinger_agent.client.time.sleep"
                 ) as mock_sleep:
-                    result = client.check_jobs()
+                    result = client.check_jobs({})
 
         # Verify logger.error was called with the exception
         mock_logger.error.assert_called_with(network_error)
@@ -432,7 +432,7 @@ class TestClient:
         requests_mock.post(rmock.ANY, status_code=HTTPStatus.OK)
 
         # Should return None and not raise an exception
-        result = client.check_jobs()
+        result = client.check_jobs({})
         assert result is None
 
     def test_get_job_fails_token_invalid(
@@ -454,7 +454,7 @@ class TestClient:
         )
         requests_mock.get(rmock.ANY, status_code=HTTPStatus.OK)
 
-        result = client.check_jobs()
+        result = client.check_jobs({})
         assert result is None
 
     def test_get_job_success_on_valid_token(
@@ -492,7 +492,7 @@ class TestClient:
             json=fake_job_data,
         )
 
-        result = client.check_jobs()
+        result = client.check_jobs({})
         assert result == fake_job_data
 
         # Verify Authorization header was set
@@ -531,7 +531,7 @@ class TestClient:
             json={"message": "Specified action requires role: agent"},
         )
 
-        result = client.check_jobs()
+        result = client.check_jobs({})
         assert result is None
 
     def test_malformed_token_file(self, client, requests_mock, tmp_path):
@@ -544,7 +544,7 @@ class TestClient:
         requests_mock.post(rmock.ANY, status_code=HTTPStatus.OK)
 
         # Should return None and not raise an exception
-        result = client.check_jobs()
+        result = client.check_jobs({})
         assert result is None
 
     def test_access_token_returns_none_on_bad_request(
@@ -596,7 +596,7 @@ class TestClient:
         requests_mock.get(rmock.ANY, status_code=HTTPStatus.OK)
         requests_mock.post(rmock.ANY, status_code=HTTPStatus.OK)
 
-        result = client.check_jobs()
+        result = client.check_jobs({})
         assert result is None
         assert "Failed to refresh access token" in caplog.text
 
@@ -620,7 +620,7 @@ class TestClient:
             },
         )
 
-        result = client.check_jobs()
+        result = client.check_jobs({})
         assert result is None
 
     def test_access_token_is_cached(self, client, requests_mock, tmp_path):
@@ -748,7 +748,7 @@ class TestClient:
             ],
         )
 
-        result = client.check_jobs()
+        result = client.check_jobs({})
         assert result == fake_job_data
 
         job_requests = [
@@ -794,7 +794,7 @@ class TestClient:
             status_code=HTTPStatus.UNAUTHORIZED,
         )
 
-        result = client.check_jobs()
+        result = client.check_jobs({})
         assert result is None
 
         job_requests = [
@@ -839,7 +839,7 @@ class TestClient:
             status_code=HTTPStatus.UNAUTHORIZED,
         )
 
-        result = client.check_jobs()
+        result = client.check_jobs({})
         assert result is None
 
         job_requests = [
