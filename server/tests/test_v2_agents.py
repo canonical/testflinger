@@ -483,3 +483,72 @@ def test_agents_post_patch_post_sequence_preserves_commanded_mode(
     assert data["commanded_mode"]["value"] == "offline"
     assert data["mode"]["value"] == "online"
     assert data["state"]["value"] == "provision"
+
+
+def test_agents_post_matching_mode_clears_commanded_mode(
+    mongo_app, agent_auth_header
+):
+    """When agent reports mode matching commanded_mode, clear commanded_mode.
+
+    Scenario: Agent initiated a restart, posted mode="restart" and exited.
+    Server has commanded_mode="restart" (never cleared). Agent restarts and
+    on next poll reads commanded_mode="restart" again, causing an infinite
+    restart loop.
+
+    This test verifies that when agent POSTs a mode matching the existing
+    commanded_mode, the server clears the commanded_mode to prevent
+    re-execution.
+
+    Sequence:
+    1. Agent POSTs initial heartbeat to create record
+    2. Admin PATCHes commanded_mode='restart'
+    3. Agent POSTs mode='restart' (agent acts on the command)
+    4. Verify commanded_mode is cleared from the database
+    5. Next agent restart won't see the stale commanded_mode
+    """
+    app, mongo = mongo_app
+    agent_name = "agent1"
+    admin_header = get_access_token_header("admin-id", ServerRoles.ADMIN)
+
+    # Step 1: Agent POSTs initial heartbeat to create the record
+    response = app.post(
+        f"/v2/agents/{agent_name}/data",
+        json={"mode": "online", "state": "waiting"},
+        headers=agent_auth_header,
+    )
+    assert response.status_code == HTTPStatus.OK
+
+    # Step 2: Admin commands restart
+    response = app.patch(
+        f"/v2/agents/{agent_name}/commanded_mode",
+        json={"commanded_mode": "restart", "comment": "update required"},
+        headers=admin_header,
+    )
+    assert response.status_code == HTTPStatus.NO_CONTENT
+    record = mongo.agents.find_one({"name": agent_name})
+    assert record["commanded_mode"]["value"] == "restart"
+
+    # Step 3: Agent reports it's restarting (acted on the command)
+    response = app.post(
+        f"/v2/agents/{agent_name}/data",
+        json={"mode": "restart"},
+        headers=agent_auth_header,
+    )
+    assert response.status_code == HTTPStatus.OK
+
+    # Step 4: Verify commanded_mode is cleared
+    record = mongo.agents.find_one({"name": agent_name})
+    assert record["mode"]["value"] == "restart"
+    assert "commanded_mode" not in record, (
+        "commanded_mode should be cleared when agent POSTs matching mode "
+        "to prevent re-execution after restart"
+    )
+
+    # Step 5: Verify GET response does not include stale commanded_mode
+    response = app.get(
+        f"/v2/agents/{agent_name}/data",
+        headers=agent_auth_header,
+    )
+    assert response.status_code == HTTPStatus.OK
+    data = response.get_json()
+    assert "commanded_mode" not in data
