@@ -510,10 +510,15 @@ class JobSearchRequest(Schema):
     )
 
 
-class JobSearchResponse(Schema):
-    """Job search response schema."""
+class JobSearchResult(Schema):
+    """Job search result schema.
 
-    jobs = fields.List(fields.Nested(Job), required=True)
+    Lightweight job information returned by search.
+    """
+
+    job_id = fields.String(required=True)
+    created_at = UTCDateTime(required=False)
+    job_state = fields.String(required=False)
 
 
 class ResultStatus(Schema):

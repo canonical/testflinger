@@ -97,5 +97,15 @@
   },
   "/v1/statistics/jobs/totals": {
     "GET": ["ADMIN","MANAGER","CONTRIBUTOR"]
+  },
+  "/v2/agents/<agent_name>/commanded_mode": {
+    "PATCH": ["ADMIN"]
+  },
+  "/v2/agents/<agent_name>/data": {
+    "GET": ["ADMIN","MANAGER","CONTRIBUTOR","ORCHESTRATOR","AGENT"],
+    "POST": ["AGENT"]
+  },
+  "/v2/agents/data": {
+    "GET": ["ADMIN","MANAGER","CONTRIBUTOR"]
   }
 }
