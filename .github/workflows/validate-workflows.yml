@@ -29,6 +29,6 @@ jobs:
       - name: Install uv and set up Python
         uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
       - name: Run zizmor
-        run: uvx zizmor --pedantic .
+        run: uvx zizmor --config .github/zizmor.yml --pedantic .
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

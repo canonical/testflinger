@@ -28,7 +28,7 @@ pre-commit:
 [doc('Perform static analysis on GitHub workflows.')]
 [group('lint')]
 zizmor:
-    @uvx zizmor --gh-token=$(gh auth token) .
+    @uvx zizmor --config .github/zizmor.yml --gh-token=$(gh auth token) .
 
 [doc('Format all projects.')]
 [group('lint')]
