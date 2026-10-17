@@ -341,7 +341,7 @@ def test_job_detail_shows_activity_events(testapp):
                     ),
                     "message": "Phase setup completed with exit code 0",
                     "detail": "",
-                    "status": 0,
+                    "exit_code": 0,
                 },
                 {
                     "event_name": "job_phase_started",
@@ -358,7 +358,7 @@ def test_job_detail_shows_activity_events(testapp):
                     ),
                     "message": "Phase provision completed with exit code 1",
                     "detail": "",
-                    "status": 1,
+                    "exit_code": 1,
                 },
             ],
         }

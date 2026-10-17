@@ -346,6 +346,7 @@ class TestClient:
             "state": "waiting",
             "queues": ["test_queue"],
             "location": "here",
+            "links": [{"url": "https://testurl.com", "label": "Test Label"}],
         }
         requests_mock.post(
             "http://127.0.0.1:8000/v1/agents/data/test_agent",

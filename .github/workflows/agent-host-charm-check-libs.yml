@@ -30,6 +30,8 @@ jobs:
         uses: canonical/charming-actions/check-libraries@1753e0803f70445132e92acd45c905aba6473225 # 2.7.0
         with:
           charm-path: agent/charms/testflinger-agent-host-charm
+          # Fork PR tokens are read-only; still check libraries without updating labels.
+          use-labels: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
           credentials: "${{ secrets.CHARMHUB_TOKEN }}"
           github-token: "${{ secrets.GITHUB_TOKEN }}"
           charmcraft-channel: latest/stable

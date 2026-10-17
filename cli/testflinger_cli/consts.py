@@ -16,3 +16,12 @@ TESTFLINGER_ERROR_THRESHOLD = 3
 
 DEFAULT_RESERVE_TIMEOUT = 3600
 DEFAULT_SECRET_EXPIRATION = 60 * 60 * 24 * 365  # year in seconds
+
+EVENTS_CHOICES = [
+    "event_name",
+    "timestamp",
+    "message",
+    "detail",
+    "exit_code",
+    "phase",
+]
