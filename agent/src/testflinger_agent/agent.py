@@ -238,10 +238,12 @@ class TestflingerAgent:
         commanded_mode = agent_data.get("commanded_mode")
         if commanded_mode:
             try:
-                self.commanded_mode = AgentMode(commanded_mode)
-                self.comment = agent_data.get("comment", "")
+                # Extract value from v2 nested dict format
+                mode_value = commanded_mode.get("value")
+                self.commanded_mode = AgentMode(mode_value)
+                self.comment = commanded_mode.get("comment", "")
                 return
-            except ValueError:
+            except (AttributeError, ValueError, TypeError):
                 logger.error("Unknown mode value '%s'.", commanded_mode)
                 # Fall through to priority 2
 
