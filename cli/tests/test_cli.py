@@ -1500,6 +1500,67 @@ def test_agent_status_json(capsys, requests_mock):
     assert std.out.strip() == json.dumps(expected_out, sort_keys=True)
 
 
+@pytest.mark.parametrize(
+    ("filter_args", "expected_names"),
+    [
+        ([], ["agent1", "agent2"]),
+        (["--filter-status", "offline"], ["agent2"]),
+        (["--filter-name", "missing"], []),
+    ],
+)
+def test_agent_list_json(capsys, requests_mock, filter_args, expected_names):
+    """JSON output preserves agent data and applies the requested filters."""
+    agents = [
+        {
+            "name": "agent1",
+            "state": "waiting",
+            "queues": ["queue1", "queue2"],
+            "job": {"job_id": "job123", "submitted_by": "user"},
+        },
+        {
+            "name": "agent2",
+            "state": "offline",
+            "queues": [],
+            "comment": "Maintenance\nCheck hardware",
+        },
+    ]
+    requests_mock.get(f"{URL}/v1/agents/data", json=agents)
+    sys.argv = ["", "list-agents", "--json", *filter_args]
+    tfcli = testflinger_cli.TestflingerCli()
+
+    tfcli.run()
+
+    output = capsys.readouterr()
+    assert json.loads(output.out) == [
+        agent for agent in agents if agent["name"] in expected_names
+    ]
+    assert output.err == ""
+
+
+def test_agent_list_json_empty(capsys, requests_mock):
+    """An empty server response is printed as an empty JSON array."""
+    requests_mock.get(f"{URL}/v1/agents/data", json=[])
+    sys.argv = ["", "list-agents", "--json"]
+
+    testflinger_cli.TestflingerCli().run()
+
+    assert json.loads(capsys.readouterr().out) == []
+
+
+@pytest.mark.parametrize(
+    "other_args", [["-1"], ["--summary"], ["--fields", "name,status"]]
+)
+def test_agent_list_json_exclusive(other_args, capsys):
+    """JSON cannot be combined with another output format."""
+    sys.argv = ["", "list-agents", "--json", *other_args]
+
+    with pytest.raises(SystemExit) as exc:
+        testflinger_cli.TestflingerCli()
+
+    assert exc.value.code == 2
+    assert "not allowed with argument" in capsys.readouterr().err
+
+
 def test_agent_list_names_only(capsys, requests_mock):
     """Validate list-agents -1 returns agent names only."""
     fake_agents = [
