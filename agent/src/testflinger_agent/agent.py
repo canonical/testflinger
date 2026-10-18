@@ -289,7 +289,7 @@ class TestflingerAgent:
             else:
                 self.go_online()
 
-        if next_mode in (AgentMode.Online, AgentMode.MAINTENANCE):
+        if next_mode in (AgentMode.ONLINE, AgentMode.MAINTENANCE):
             return True
         else:
             return False
