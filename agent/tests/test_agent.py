@@ -464,7 +464,12 @@ class TestClient:
         requests_mock.get(
             f"http://127.0.0.1:8000/v2/agents/{self.config['agent_id']}/data",
             json={
-                "commanded_mode": "online",
+                "commanded_mode": {
+                    "value": "online",
+                    "changed_at": "2026-10-18T00:00:00",
+                    "changed_by": "testflinger@example.com",
+                    "comment": "",
+                },
                 "state": "waiting",
                 "restricted_to": {},
             },
@@ -525,7 +530,12 @@ class TestClient:
             m.get(
                 f"http://127.0.0.1:8000/v2/agents/{self.config.get('agent_id')}/data",
                 json={
-                    "commanded_mode": "online",
+                    "commanded_mode": {
+                        "value": "online",
+                        "changed_at": "2026-10-18T00:00:00",
+                        "changed_by": "testflinger@example.com",
+                        "comment": "",
+                    },
                     "state": "waiting",
                     "restricted_to": {},
                 },
@@ -1246,7 +1256,14 @@ class TestStartupState:
         """
         requests_mock.get(
             self.AGENT_DATA_URL,
-            json={"commanded_mode": "offline", "comment": "set by admin"},
+            json={
+                "commanded_mode": {
+                    "value": "offline",
+                    "changed_at": "2026-10-18T00:00:00",
+                    "changed_by": "testflinger@example.com",
+                    "comment": "set by admin",
+                },
+            },
         )
         requests_mock.post(rmock.ANY, status_code=HTTPStatus.OK)
         self._make_agent(requests_mock, base_config)
@@ -1280,7 +1297,14 @@ class TestStartupState:
         """
         requests_mock.get(
             self.AGENT_DATA_URL,
-            json={"commanded_mode": "restart", "comment": "admin restart"},
+            json={
+                "commanded_mode": {
+                    "value": "restart",
+                    "changed_at": "2026-10-18T00:00:00",
+                    "changed_by": "testflinger@example.com",
+                    "comment": "admin restart",
+                },
+            },
         )
         requests_mock.post(rmock.ANY, status_code=HTTPStatus.OK)
 
@@ -1319,8 +1343,12 @@ class TestStartupState:
             self.AGENT_DATA_URL,
             json={
                 "mode": "restart",
-                "commanded_mode": "online",
-                "comment": "admin changed their mind",
+                "commanded_mode": {
+                    "value": "online",
+                    "changed_at": "2026-10-18T00:00:00",
+                    "changed_by": "testflinger@example.com",
+                    "comment": "admin changed their mind",
+                },
             },
         )
         requests_mock.post(rmock.ANY, status_code=HTTPStatus.OK)
@@ -1366,7 +1394,12 @@ class TestStartupState:
             self.AGENT_DATA_URL,
             json={
                 "mode": "restart",
-                "commanded_mode": target_mode,
+                "commanded_mode": {
+                    "value": target_mode,
+                    "changed_at": "2026-10-18T00:00:00",
+                    "changed_by": "testflinger@example.com",
+                    "comment": "",
+                },
                 "comment": f"restart to {target_mode}",
             },
         )
@@ -1447,7 +1480,12 @@ class TestStartupState:
             self.AGENT_DATA_URL,
             json={
                 "mode": prev_mode,
-                "commanded_mode": next_mode,
+                "commanded_mode": {
+                    "value": next_mode,
+                    "changed_at": "2026-10-18T00:00:00",
+                    "changed_by": "testflinger@example.com",
+                    "comment": "",
+                },
                 "comment": f"reactive restart, then to {next_mode}",
             },
         )
