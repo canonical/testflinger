@@ -28,6 +28,12 @@
           "job_id": {
             "type": "string"
           },
+          "links": {
+            "items": {
+              "$ref": "#/components/schemas/AgentLink"
+            },
+            "type": "array"
+          },
           "location": {
             "type": "string"
           },
@@ -150,6 +156,23 @@
         ],
         "type": "object"
       },
+      "AgentLink": {
+        "additionalProperties": false,
+        "properties": {
+          "label": {
+            "type": "string"
+          },
+          "url": {
+            "format": "url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "label",
+          "url"
+        ],
+        "type": "object"
+      },
       "AgentOut": {
         "additionalProperties": false,
         "properties": {
@@ -169,6 +192,12 @@
           },
           "job_id": {
             "type": "string"
+          },
+          "links": {
+            "items": {
+              "$ref": "#/components/schemas/AgentLink"
+            },
+            "type": "array"
           },
           "location": {
             "type": "string"
@@ -292,6 +321,7 @@
               "admin",
               "manager",
               "contributor",
+              "orchestrator",
               "agent"
             ],
             "type": "string"
@@ -398,12 +428,16 @@
           "event_name": {
             "type": "string"
           },
+          "exit_code": {
+            "nullable": true,
+            "type": "integer"
+          },
           "message": {
             "type": "string"
           },
-          "status": {
+          "phase": {
             "nullable": true,
-            "type": "integer"
+            "type": "string"
           },
           "timestamp": {
             "format": "date-time",
@@ -653,6 +687,72 @@
         },
         "required": [
           "jobs"
+        ],
+        "type": "object"
+      },
+      "JobStatisticsDaily": {
+        "additionalProperties": false,
+        "properties": {
+          "count": {
+            "type": "integer"
+          },
+          "date": {
+            "type": "string"
+          },
+          "key": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "count",
+          "date",
+          "key"
+        ],
+        "type": "object"
+      },
+      "JobStatisticsDailyOut": {
+        "additionalProperties": false,
+        "properties": {
+          "daily": {
+            "items": {
+              "$ref": "#/components/schemas/JobStatisticsDaily"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "daily"
+        ],
+        "type": "object"
+      },
+      "JobStatisticsTotal": {
+        "additionalProperties": false,
+        "properties": {
+          "count": {
+            "type": "integer"
+          },
+          "key": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "count",
+          "key"
+        ],
+        "type": "object"
+      },
+      "JobStatisticsTotalsOut": {
+        "additionalProperties": false,
+        "properties": {
+          "totals": {
+            "items": {
+              "$ref": "#/components/schemas/JobStatisticsTotal"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "totals"
         ],
         "type": "object"
       },
@@ -1765,6 +1865,7 @@
           "admin",
           "manager",
           "contributor",
+          "orchestrator",
           "agent"
         ]
       }
@@ -1845,7 +1946,8 @@
         "x-permission-roles": [
           "admin",
           "manager",
-          "contributor"
+          "contributor",
+          "orchestrator"
         ]
       }
     },
@@ -2045,7 +2147,8 @@
         "x-permission-roles": [
           "admin",
           "manager",
-          "contributor"
+          "contributor",
+          "orchestrator"
         ]
       }
     },
@@ -2685,6 +2788,7 @@
           "admin",
           "manager",
           "contributor",
+          "orchestrator",
           "agent"
         ]
       },
@@ -3000,6 +3104,7 @@
           "admin",
           "manager",
           "contributor",
+          "orchestrator",
           "agent"
         ]
       }
@@ -3122,6 +3227,206 @@
           "contributor",
           "manager",
           "admin"
+        ]
+      }
+    },
+    "/v1/statistics/jobs/daily": {
+      "get": {
+        "description": "This supports additional filtering by date range, queues or submitter.\n\n:param query_data: Dictionary containing query parameters for filtering\n:return: Daily counts based on specified filter.",
+        "parameters": [
+          {
+            "description": "Group statistics by 'queue' or 'submitted_by'.",
+            "in": "query",
+            "name": "group_by",
+            "required": false,
+            "schema": {
+              "default": "submitted_by",
+              "enum": [
+                "queue",
+                "submitted_by"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "description": "Filter statistics by specific queues.",
+            "explode": true,
+            "in": "query",
+            "name": "queues",
+            "required": false,
+            "schema": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "style": "form"
+          },
+          {
+            "description": "Filter statistics by specific submitters.",
+            "explode": true,
+            "in": "query",
+            "name": "submitters",
+            "required": false,
+            "schema": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "style": "form"
+          },
+          {
+            "description": "Filter statistics for jobs created at or after this datetime (ISO 8601). All times are treated as UTC: a 'Z' suffix or numeric offset is honored and converted to UTC, and a value with no offset is assumed to already be UTC.",
+            "in": "query",
+            "name": "start_at",
+            "required": false,
+            "schema": {
+              "format": "date-time",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Filter statistics for jobs created before this datetime (ISO 8601). All times are treated as UTC: a 'Z' suffix or numeric offset is honored and converted to UTC, and a value with no offset is assumed to already be UTC.",
+            "in": "query",
+            "name": "end_at",
+            "required": false,
+            "schema": {
+              "format": "date-time",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobStatisticsDailyOut"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "summary": "Get per-day job submission counts grouped by queue or submitter.",
+        "tags": [
+          "V1"
+        ],
+        "x-permission-roles": [
+          "admin",
+          "manager",
+          "contributor"
+        ]
+      }
+    },
+    "/v1/statistics/jobs/totals": {
+      "get": {
+        "description": "This supports additional filtering by date range, queues or submitter.\n\n:param query_data: Dictionary containing query parameters for filtering\n:return: Total counts based on specified filter.",
+        "parameters": [
+          {
+            "description": "Group statistics by 'queue' or 'submitted_by'.",
+            "in": "query",
+            "name": "group_by",
+            "required": false,
+            "schema": {
+              "default": "submitted_by",
+              "enum": [
+                "queue",
+                "submitted_by"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "description": "Filter statistics by specific queues.",
+            "explode": true,
+            "in": "query",
+            "name": "queues",
+            "required": false,
+            "schema": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "style": "form"
+          },
+          {
+            "description": "Filter statistics by specific submitters.",
+            "explode": true,
+            "in": "query",
+            "name": "submitters",
+            "required": false,
+            "schema": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "style": "form"
+          },
+          {
+            "description": "Filter statistics for jobs created at or after this datetime (ISO 8601). All times are treated as UTC: a 'Z' suffix or numeric offset is honored and converted to UTC, and a value with no offset is assumed to already be UTC.",
+            "in": "query",
+            "name": "start_at",
+            "required": false,
+            "schema": {
+              "format": "date-time",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Filter statistics for jobs created before this datetime (ISO 8601). All times are treated as UTC: a 'Z' suffix or numeric offset is honored and converted to UTC, and a value with no offset is assumed to already be UTC.",
+            "in": "query",
+            "name": "end_at",
+            "required": false,
+            "schema": {
+              "format": "date-time",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobStatisticsTotalsOut"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "summary": "Get total job submission counts grouped by queue or submitter.",
+        "tags": [
+          "V1"
+        ],
+        "x-permission-roles": [
+          "admin",
+          "manager",
+          "contributor"
         ]
       }
     },
@@ -3255,6 +3560,7 @@
           "admin",
           "manager",
           "contributor",
+          "orchestrator",
           "agent"
         ]
       },

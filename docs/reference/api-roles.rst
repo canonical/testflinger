@@ -4,11 +4,15 @@ API endpoint roles
 ==================
 
 The table below lists every Testflinger server endpoint together with the roles
-that are permitted to call it.  The four roles are:
+that are permitted to call it.  The five roles are:
 
 ``AGENT``
     Credentials issued to a Testflinger agent host.  Used for machine-to-machine
     communication between the agent and the server.
+
+``ORCHESTRATOR``
+    A tightly-scoped role for automated clients that submit, monitor, and cancel
+    jobs on behalf of human users, without broader management privileges.
 
 ``CONTRIBUTOR``
     The default role assigned to human users.  Grants access to job submission,
