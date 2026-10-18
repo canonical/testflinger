@@ -64,14 +64,23 @@ clean:
 
 [doc('Start a device connector agent (fake_connector runs on the host; other connectors run in `dev`).')]
 [group('deploy')]
-start connector='fake_connector' server_url='http://localhost:5000':
+start connector='fake_connector' agent_name='' server_url='http://localhost:5000':
     #!/usr/bin/env bash
     set -euxo pipefail
     runtime_dir="devel/.testflinger"
-    config="$runtime_dir/{{connector}}-agent.conf"
+    
+    # Use provided agent_name, or derive it from connector if not provided
+    name="{{ agent_name }}"
+    if [ -z "$name" ]; then
+        name="{{connector}}"
+    fi
+    
+    config="$runtime_dir/${name}-agent.conf"
     token="$runtime_dir/refresh-token"
     install -D -m 600 "devel/{{connector}}-agent.conf" "$config"
-    sed -i "s|server_address: http://localhost:5000|server_address: {{server_url}}|" "$config"
-    # uv run python devel/refresh-token-getter.py "{{server_url}}"
+    
+    # Update agent configuration with the provided name and connector
+    python3 devel/update_config.py "{{connector}}" "$name" "{{server_url}}" "$config"
+    
     uv run python devel/refresh-token-getter.py "{{server_url}}" "$token"
     uv run --group test testflinger-agent -c "$config" --token-file "$token"
