@@ -13,7 +13,6 @@ docs/.sphinx/.doctrees/
 .tox
 .vscode
 .idea
-.venv
 
 .workshop.lock
 
