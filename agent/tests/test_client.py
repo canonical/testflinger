@@ -64,7 +64,7 @@ class TestClient:
             }
         }
         requests_mock.get(
-            "http://127.0.0.1:8000/v1/agents/data/test_agent",
+            "http://127.0.0.1:8000/v2/agents/test_agent/data",
             json=restricted_data,
         )
         fake_job_data = {
@@ -85,7 +85,7 @@ class TestClient:
         client.config["job_queues"] = ["queue1"]
         unrestricted_data = {"restricted_to": {}}
         requests_mock.get(
-            "http://127.0.0.1:8000/v1/agents/data/test_agent",
+            "http://127.0.0.1:8000/v2/agents/test_agent/data",
             json=unrestricted_data,
         )
         fake_job_data = {
@@ -330,7 +330,7 @@ class TestClient:
             "restricted_to": {"queue1": ["client1"]},
         }
         requests_mock.get(
-            "http://127.0.0.1:8000/v1/agents/data/test_agent",
+            "http://127.0.0.1:8000/v2/agents/test_agent/data",
             json=agent_data,
         )
 
@@ -349,7 +349,7 @@ class TestClient:
             "links": [{"url": "https://testurl.com", "label": "Test Label"}],
         }
         requests_mock.post(
-            "http://127.0.0.1:8000/v1/agents/data/test_agent",
+            "http://127.0.0.1:8000/v2/agents/test_agent/data",
             status_code=HTTPStatus.OK,
             headers={
                 "Set-Cookie": (
@@ -368,7 +368,7 @@ class TestClient:
             "exclude_agents": [],
         }
         requests_mock.get(
-            "http://127.0.0.1:8000/v1/agents/data/test_agent",
+            "http://127.0.0.1:8000/v2/agents/test_agent/data",
             json={},  # "restricted_to": {}},
         )
         requests_mock.get(
@@ -393,7 +393,7 @@ class TestClient:
     def test_check_jobs_unauthorized_returns_none(self, client, requests_mock):
         """Test that check_jobs returns None on a 401 response."""
         requests_mock.get(
-            "http://127.0.0.1:8000/v1/agents/data/test_agent",
+            "http://127.0.0.1:8000/v2/agents/test_agent/data",
             json={"restricted_to": {}},
         )
         requests_mock.get(
@@ -475,12 +475,12 @@ class TestClient:
         )
         # Mock post agent data endpoint for retrieving session cookie
         requests_mock.post(
-            f"{client.server}/v1/agents/data/test_agent",
+            f"{client.server}/v2/agents/test_agent/data",
             json={"job_id": ""},
         )
         # Mock agent data endpoint
         requests_mock.get(
-            f"{client.server}/v1/agents/data/test_agent",
+            f"{client.server}/v2/agents/test_agent/data",
             json={"restricted_to": {}},
         )
         # Mock job endpoint with job data
@@ -517,12 +517,12 @@ class TestClient:
         )
         # Mock post agent data endpoint for retrieving session cookie
         requests_mock.post(
-            f"{client.server}/v1/agents/data/test_agent",
+            f"{client.server}/v2/agents/test_agent/data",
             json={"job_id": ""},
         )
         # Mock agent data endpoint
         requests_mock.get(
-            f"{client.server}/v1/agents/data/test_agent",
+            f"{client.server}/v2/agents/test_agent/data",
             json={"restricted_to": {}},
         )
         # Mock job endpoint to return forbidden due to incorrect role
@@ -609,7 +609,7 @@ class TestClient:
         # Mock agent data endpoint
         requests_mock.post(rmock.ANY, status_code=HTTPStatus.OK)
         requests_mock.get(
-            f"{client.server}/v1/agents/data/test_agent",
+            f"{client.server}/v2/agents/test_agent/data",
             json={"restricted_to": {}},
         )
         # Mock job endpoint to return as no access token provided in header
@@ -732,7 +732,7 @@ class TestClient:
             ],
         )
         requests_mock.get(
-            f"{client.server}/v1/agents/data/test_agent",
+            f"{client.server}/v2/agents/test_agent/data",
             json={"restricted_to": {}},
         )
         fake_job_data = {
@@ -786,7 +786,7 @@ class TestClient:
             json={"access_token": "fake-access-token"},
         )
         requests_mock.get(
-            f"{client.server}/v1/agents/data/test_agent",
+            f"{client.server}/v2/agents/test_agent/data",
             json={"restricted_to": {}},
         )
         # Always returns 401 — retry should not loop
@@ -832,7 +832,7 @@ class TestClient:
             ],
         )
         requests_mock.get(
-            f"{client.server}/v1/agents/data/test_agent",
+            f"{client.server}/v2/agents/test_agent/data",
             json={"restricted_to": {}},
         )
         requests_mock.get(
