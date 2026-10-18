@@ -127,7 +127,7 @@ admin:
 [doc('Populate the server with sample data.')]
 [group('deploy')]
 [positional-arguments]
-populate *args:
+populate *args: gen_sample_users
     @docker compose exec testflinger python3 devel/create_sample_users.py
     @uv run devel/create_sample_data.py "$@"
 

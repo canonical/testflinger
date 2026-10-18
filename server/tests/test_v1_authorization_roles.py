@@ -206,6 +206,7 @@ def do_setup(
     need_job = False
     need_client = False
     is_agent = role and (ServerRoles(role) == ServerRoles.AGENT)
+
     if "/restricted-queue" in endpoint:
         need_client = True
         need_agent = True
@@ -235,7 +236,7 @@ def do_setup(
         response = app.post(
             f"/v1/agents/data/{agent_name}",
             json=agent_data,
-            headers=get_access_token_header(agent_name, ServerRoles.AGENT),
+            headers=headers if is_agent else setup_headers,
         )
         assert response.status_code == HTTPStatus.OK, (
             f"{response.status} {response.data}"
