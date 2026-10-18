@@ -71,11 +71,13 @@ class Client:
         server: str,
         auth_manager: TestflingerCliAuth,
         error_threshold: int = 3,
+        timeout: float = DEFAULT_TIMEOUT,
     ):
         self.server = server
         self.error_count = 0
         self.error_threshold = error_threshold
         self.auth_manager = auth_manager
+        self.timeout = timeout
 
         self.session = requests.Session()
 
@@ -156,7 +158,7 @@ class Client:
             error_code=error_code,
         )
 
-    def get(self, uri_frag: str, timeout: int = DEFAULT_TIMEOUT):
+    def get(self, uri_frag: str, timeout: float | None = None):
         """Submit a GET request to the server.
 
         :param uri_frag: endpoint for the GET request
@@ -164,6 +166,7 @@ class Client:
         :return: string containing the response from the server
         """
         uri = urllib.parse.urljoin(self.server, uri_frag)
+        timeout = self.timeout if timeout is None else timeout
         try:
             req = self.session.get(uri, timeout=timeout)
             self.error_count = 0
@@ -193,7 +196,7 @@ class Client:
         self,
         uri_frag: str,
         data: dict,
-        timeout: int = DEFAULT_TIMEOUT,
+        timeout: float | None = None,
     ):
         """Submit a POST request to the server.
 
@@ -203,6 +206,7 @@ class Client:
         :return: string containing the response from the server
         """
         uri = urllib.parse.urljoin(self.server, uri_frag)
+        timeout = self.timeout if timeout is None else timeout
         try:
             req = self.session.post(uri, json=data, timeout=timeout)
         except requests.exceptions.Timeout as exc:
@@ -222,7 +226,7 @@ class Client:
         self,
         uri_frag: str,
         data: dict,
-        timeout: int = DEFAULT_TIMEOUT,
+        timeout: float | None = None,
     ):
         """Submit a PUT request to the server.
 
@@ -232,6 +236,7 @@ class Client:
         :return: string containing the response from the server
         """
         uri = urllib.parse.urljoin(self.server, uri_frag)
+        timeout = self.timeout if timeout is None else timeout
         try:
             req = self.session.put(uri, json=data, timeout=timeout)
         except requests.exceptions.Timeout as exc:
@@ -247,13 +252,14 @@ class Client:
             self._handle_response_error(req)
         return req.text
 
-    def delete(self, uri_frag: str, timeout: int = DEFAULT_TIMEOUT):
+    def delete(self, uri_frag: str, timeout: float | None = None):
         """Submit a DELETE request to the server
         :param uri_frag: endpoint for the DELETE request
         :param timeout: timeout for the request to complete
         :return: string containing the response from the server.
         """
         uri = urllib.parse.urljoin(self.server, uri_frag)
+        timeout = self.timeout if timeout is None else timeout
         try:
             req = self.session.delete(uri, timeout=timeout)
         except requests.exceptions.Timeout as exc:
@@ -269,7 +275,9 @@ class Client:
             self._handle_response_error(req)
         return req.text
 
-    def put_file(self, uri_frag: str, path: Path, timeout: float):
+    def put_file(
+        self, uri_frag: str, path: Path, timeout: float | None = None
+    ):
         """Stream a file to the server using a POST request.
 
         :param uri_frag:
@@ -280,6 +288,7 @@ class Client:
             String containing the response from the server
         """
         uri = urllib.parse.urljoin(self.server, uri_frag)
+        timeout = self.timeout if timeout is None else timeout
         with open(path, "rb") as file:
             try:
                 files = {"file": (path.name, file, "application/x-gzip")}
@@ -404,7 +413,7 @@ class Client:
         """
         endpoint = "/v1/result/{}/artifact".format(job_id)
         uri = urllib.parse.urljoin(self.server, endpoint)
-        req = self.session.get(uri, timeout=DEFAULT_TIMEOUT, stream=True)
+        req = self.session.get(uri, timeout=self.timeout, stream=True)
         if req.status_code != HTTPStatus.OK:
             raise HTTPError(req.status_code)
         with path.open("wb") as artifact:

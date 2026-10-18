@@ -46,6 +46,32 @@ from testflinger_cli.errors import (
 from .conftest import URL
 
 
+@pytest.mark.parametrize(
+    ("timeout_args", "expected_timeout"),
+    [([], 15), (["--server-timeout", "42"], 42)],
+)
+def test_server_timeout_option(timeout_args, expected_timeout):
+    """The global timeout option reaches the API client."""
+    sys.argv = ["", *timeout_args, "status", "job-id"]
+
+    with patch("testflinger_cli.client.Client") as client_class:
+        testflinger_cli.TestflingerCli()
+
+    assert client_class.call_args.kwargs["timeout"] == expected_timeout
+
+
+def test_server_timeout_option_rejects_nonpositive_value(capsys):
+    """The server timeout must be a positive number of seconds."""
+    sys.argv = ["", "--server-timeout", "0", "status", "job-id"]
+
+    with pytest.raises(SystemExit):
+        testflinger_cli.TestflingerCli()
+
+    assert (
+        "--server-timeout must be greater than zero" in capsys.readouterr().err
+    )
+
+
 def test_status(capsys, requests_mock):
     """Status should report job_state data."""
     jobid = str(uuid.uuid1())
