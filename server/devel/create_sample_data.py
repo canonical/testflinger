@@ -28,7 +28,13 @@ from datetime import datetime, timezone
 from typing import Iterator, Optional, Tuple
 
 import requests
-from sample_users import SAMPLE_CLIENTS
+from sample_users import (
+    SAMPLE_CLIENTS,
+    TESTFLINGER_AGENT_ID,
+    TESTFLINGER_AGENT_SECRET,
+    TESTFLINGER_ADMIN_ID,
+    TESTFLINGER_ADMIN_SECRET,
+)
 
 logging.basicConfig(level=logging.INFO)
 
@@ -235,7 +241,7 @@ class TestflingerClient:
         """
         for agent_name, agent_data in agents:
             self.session.post(
-                f"{self.server_url}/v1/agents/data/{agent_name}",
+                f"{self.server_url}/v2/agents/{agent_name}/data",
                 json=agent_data,
             )
 
@@ -267,7 +273,7 @@ class TestflingerClient:
             ("setup", "provision", "test", "allocate", "reserve")
         )
         self.session.post(
-            f"{self.server_url}/v1/agents/data/{agent_name}",
+            f"{self.server_url}/v2/agents/{agent_name}/data",
             json={"job_id": job_id, "state": active_state},
         )
 
@@ -316,11 +322,18 @@ def main():
     """Main function"""
     args = get_args()
 
-    # Primary client used for queue/agent setup (needs admin role)
+    # Primary client used for queue setup (needs admin role)
     admin_client = TestflingerClient(
         server_url=args.server,
         client_id=os.environ.get("TESTFLINGER_CLIENT_ID", "testflinger-admin"),
         client_key=os.environ.get("TESTFLINGER_SECRET_KEY", "testflinger"),
+    )
+
+    # Agent client for posting agent data (v2: only agents can post their own data)
+    agent_client = TestflingerClient(
+        server_url=args.server,
+        client_id=TESTFLINGER_AGENT_ID,
+        client_key=TESTFLINGER_AGENT_SECRET,
     )
 
     queues = QueueDataGenerator(num_queues=args.queues)
@@ -336,7 +349,7 @@ def main():
         num_agents=args.agents, queue_list=valid_queue_names
     )
     agent_list = list(agents)
-    admin_client.post_agent_data(iter(agent_list))
+    agent_client.post_agent_data(iter(agent_list))
     logging.info("Created %s agents", args.agents)
 
     # Only post jobs to queues that at least one agent actually serves —
