@@ -101,7 +101,8 @@ main {
    p-chip--positive (green), p-chip--caution (amber), p-chip--negative (red).
    Vanilla defaults: lead 1rem, value 0.875rem. We shrink both to 9pt. */
 .agent-state-chip { margin-bottom: 0; }
-button.agent-state-chip { cursor: pointer; display: inline-flex; align-items: center; }
+button.agent-state-chip { cursor: pointer; display: inline-flex;
+    align-items: center; border: none; }
 .agent-state-chip .p-chip__lead,
 .agent-state-chip .p-chip__value { font-size: 9pt; }
 
