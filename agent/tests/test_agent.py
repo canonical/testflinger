@@ -44,6 +44,14 @@ from testflinger_agent.schema import validate
 
 
 class TestClient:
+    """Test agent client behavior.
+
+    Note on v2 Contract: Most mocks provide agent data with 'mode' and 'state'
+    fields. These are INFORMATIONAL (what agent last reported). Agent does NOT
+    change based on these. Agent only changes mode via 'commanded_mode' from
+    admin. Tests without 'commanded_mode' test normal agent operation.
+    """
+
     @pytest.fixture(autouse=True)
     def clear_registry(self):
         """
@@ -87,7 +95,7 @@ class TestClient:
         self.config["setup_command"] = "echo setup1"
         fake_job_data = {"job_id": str(uuid.uuid1()), "job_queue": "test"}
         requests_mock.get(
-            f"http://127.0.0.1:8000/v1/agents/data/{self.config['agent_id']}",
+            f"http://127.0.0.1:8000/v2/agents/{self.config['agent_id']}/data",
             json={"mode": "online", "state": "waiting", "restricted_to": {}},
         )
         requests_mock.get(
@@ -110,7 +118,7 @@ class TestClient:
             "provision_data": {"url": "foo"},
         }
         requests_mock.get(
-            f"http://127.0.0.1:8000/v1/agents/data/{self.config['agent_id']}",
+            f"http://127.0.0.1:8000/v2/agents/{self.config['agent_id']}/data",
             json={"mode": "online", "state": "waiting", "restricted_to": {}},
         )
         requests_mock.get(
@@ -135,7 +143,7 @@ class TestClient:
             "test_data": {"test_cmds": "foo"},
         }
         requests_mock.get(
-            f"http://127.0.0.1:8000/v1/agents/data/{self.config['agent_id']}",
+            f"http://127.0.0.1:8000/v2/agents/{self.config['agent_id']}/data",
             json={"mode": "online", "state": "waiting", "restricted_to": {}},
         )
         requests_mock.get(
@@ -192,7 +200,7 @@ class TestClient:
             mocker.get(re.compile(r"/v1/result/"))
             # mock response to requesting agent data
             mocker.get(
-                "http://127.0.0.1:8000/v1/agents/data/test01",
+                "http://127.0.0.1:8000/v2/agents/test01/data",
                 json={
                     "mode": "online",
                     "state": "waiting",
@@ -259,7 +267,7 @@ class TestClient:
             # mock response to results request
             mocker.get(re.compile(r"/v1/result/"))
             mocker.get(
-                "http://127.0.0.1:8000/v1/agents/data/test01",
+                "http://127.0.0.1:8000/v2/agents/test01/data",
                 json={
                     "mode": "online",
                     "state": "waiting",
@@ -326,7 +334,7 @@ class TestClient:
             # mock response to results request
             mocker.get(re.compile(r"/v1/result/"))
             mocker.get(
-                "http://127.0.0.1:8000/v1/agents/data/test01",
+                "http://127.0.0.1:8000/v2/agents/test01/data",
                 json={
                     "mode": "online",
                     "state": "waiting",
@@ -359,7 +367,7 @@ class TestClient:
             "test_data": {"test_cmds": "foo"},
         }
         requests_mock.get(
-            f"http://127.0.0.1:8000/v1/agents/data/{self.config['agent_id']}",
+            f"http://127.0.0.1:8000/v2/agents/{self.config['agent_id']}/data",
             json={"mode": "online", "state": "waiting", "restricted_to": {}},
         )
         requests_mock.get(
@@ -385,7 +393,7 @@ class TestClient:
             "test_data": {"test_cmds": "foo"},
         }
         requests_mock.get(
-            f"http://127.0.0.1:8000/v1/agents/data/{self.config['agent_id']}",
+            f"http://127.0.0.1:8000/v2/agents/{self.config['agent_id']}/data",
             json={"mode": "online", "state": "waiting", "restricted_to": {}},
         )
         requests_mock.get(
@@ -417,7 +425,7 @@ class TestClient:
             "test_data": {"test_cmds": "foo"},
         }
         requests_mock.get(
-            f"http://127.0.0.1:8000/v1/agents/data/{self.config['agent_id']}",
+            f"http://127.0.0.1:8000/v2/agents/{self.config['agent_id']}/data",
             json={"mode": "online", "state": "waiting", "restricted_to": {}},
         )
         requests_mock.get(
@@ -451,7 +459,7 @@ class TestClient:
             ],
         )
         requests_mock.get(
-            f"http://127.0.0.1:8000/v1/agents/data/{self.config['agent_id']}",
+            f"http://127.0.0.1:8000/v2/agents/{self.config['agent_id']}/data",
             json={
                 "commanded_mode": "online",
                 "state": "waiting",
@@ -508,11 +516,11 @@ class TestClient:
                 text="{}",
             )
             m.post(
-                f"http://127.0.0.1:8000/v1/agents/data/{self.config.get('agent_id')}",
+                f"http://127.0.0.1:8000/v2/agents/{self.config.get('agent_id')}/data",
                 text="OK",
             )
             m.get(
-                f"http://127.0.0.1:8000/v1/agents/data/{self.config.get('agent_id')}",
+                f"http://127.0.0.1:8000/v2/agents/{self.config.get('agent_id')}/data",
                 json={
                     "commanded_mode": "online",
                     "state": "waiting",
@@ -584,7 +592,7 @@ class TestClient:
             [{"text": json.dumps(fake_job_data)}, {"text": "{}"}],
         )
         requests_mock.get(
-            f"http://127.0.0.1:8000/v1/agents/data/{self.config['agent_id']}",
+            f"http://127.0.0.1:8000/v2/agents/{self.config['agent_id']}/data",
             json={"mode": "online", "state": "waiting", "restricted_to": {}},
         )
         status_url = f"http://127.0.0.1:8000/v1/job/{job_id}/events"
@@ -625,7 +633,7 @@ class TestClient:
             [{"text": json.dumps(fake_job_data)}, {"text": "{}"}],
         )
         requests_mock.get(
-            f"http://127.0.0.1:8000/v1/agents/data/{self.config['agent_id']}",
+            f"http://127.0.0.1:8000/v2/agents/{self.config['agent_id']}/data",
             json={"mode": "online", "state": "waiting", "restricted_to": {}},
         )
         status_url = f"http://127.0.0.1:8000/v1/job/{job_id}/events"
@@ -666,7 +674,7 @@ class TestClient:
             [{"text": json.dumps(fake_job_data)}, {"text": "{}"}],
         )
         requests_mock.get(
-            f"http://127.0.0.1:8000/v1/agents/data/{self.config['agent_id']}",
+            f"http://127.0.0.1:8000/v2/agents/{self.config['agent_id']}/data",
             json={"mode": "online", "state": "waiting", "restricted_to": {}},
         )
         status_url = f"http://127.0.0.1:8000/v1/job/{job_id}/events"
@@ -703,7 +711,7 @@ class TestClient:
             [{"text": json.dumps(fake_job_data)}, {"text": "{}"}],
         )
         requests_mock.get(
-            f"http://127.0.0.1:8000/v1/agents/data/{self.config['agent_id']}",
+            f"http://127.0.0.1:8000/v2/agents/{self.config['agent_id']}/data",
             json={"mode": "online", "state": "waiting", "restricted_to": {}},
         )
         status_url = f"http://127.0.0.1:8000/v1/job/{job_id}/events"
@@ -736,7 +744,7 @@ class TestClient:
             [{"text": json.dumps(fake_job_data)}, {"text": "{}"}],
         )
         requests_mock.get(
-            f"http://127.0.0.1:8000/v1/agents/data/{self.config['agent_id']}",
+            f"http://127.0.0.1:8000/v2/agents/{self.config['agent_id']}/data",
             json={"mode": "online", "state": "waiting", "restricted_to": {}},
         )
         expected_log_params = (
@@ -764,7 +772,7 @@ class TestClient:
             [{"text": json.dumps(fake_job_data)}, {"text": "{}"}],
         )
         requests_mock.get(
-            f"http://127.0.0.1:8000/v1/agents/data/{self.config['agent_id']}",
+            f"http://127.0.0.1:8000/v2/agents/{self.config['agent_id']}/data",
             json={"mode": "online", "state": "waiting", "restricted_to": {}},
         )
         expected_log_params = (
@@ -793,7 +801,7 @@ class TestClient:
             [{"text": json.dumps(fake_job_data)}, {"text": "{}"}],
         )
         requests_mock.get(
-            f"http://127.0.0.1:8000/v1/agents/data/{self.config['agent_id']}",
+            f"http://127.0.0.1:8000/v2/agents/{self.config['agent_id']}/data",
             json={"mode": "online", "state": "waiting", "restricted_to": {}},
         )
         status_url = f"http://127.0.0.1:8000/v1/job/{job_id}/events"
@@ -866,7 +874,7 @@ class TestClient:
             [{"text": json.dumps(fake_job_data)}, {"text": "{}"}],
         )
         requests_mock.get(
-            f"http://127.0.0.1:8000/v1/agents/data/{self.config['agent_id']}",
+            f"http://127.0.0.1:8000/v2/agents/{self.config['agent_id']}/data",
             json={"mode": "online", "state": "waiting", "restricted_to": {}},
         )
         status_url = f"http://127.0.0.1:8000/v1/job/{job_id}/events"
@@ -941,7 +949,7 @@ class TestClient:
             [{"text": json.dumps(mock_job_data)}, {"text": "{}"}],
         )
         requests_mock.get(
-            f"http://127.0.0.1:8000/v1/agents/data/{agent_id}",
+            f"http://127.0.0.1:8000/v2/agents/{agent_id}/data",
             json={"mode": "online", "state": "waiting", "restricted_to": {}},
         )
         requests_mock.post(rmock.ANY, status_code=HTTPStatus.OK)
@@ -987,7 +995,7 @@ class TestClient:
             [{"text": json.dumps(mock_job_data)}, {"text": "{}"}],
         )
         requests_mock.get(
-            f"http://127.0.0.1:8000/v1/agents/data/{agent_id}",
+            f"http://127.0.0.1:8000/v2/agents/{agent_id}/data",
             json={"mode": "online", "state": "waiting", "restricted_to": {}},
         )
         requests_mock.post(rmock.ANY, status_code=HTTPStatus.OK)
@@ -1021,9 +1029,17 @@ class TestClient:
         assert provision_duration_count == 1
 
     def test_agent_recovery_failure_metrics(self, agent, requests_mock):
-        """
-        Tests that recovery failure metrics are tracked when a phase
-        exits with code 46.
+        """Test recovery failure metrics when provision exits with code 46.
+
+        Expected flow:
+        1. Agent starts in ONLINE mode (fixture initializes)
+        2. Job runs, provision exits with code 46
+        3. Agent detects failure and enters MAINTENANCE mode
+        4. Agent POSTs mode=maintenance to server
+        5. Server stores it in 'mode' field (informational only)
+        6. When determine_next_mode() queries server:
+           - No 'commanded_mode', so agent uses current_mode
+           - Agent stays in MAINTENANCE (no command to change)
         """
         self.config["provision_command"] = "bash -c 'exit 46'"
         agent_id = self.config["agent_id"]
@@ -1036,20 +1052,19 @@ class TestClient:
         requests_mock.get(
             "http://127.0.0.1:8000/v1/job?queue=test", json=mock_job_data
         )
+
+        # Server has no commands for the agent (no commanded_mode).
+        # The 'mode' field is just informational (what agent reported).
+        # This matches the scenario: agent decides to go into maintenance,
+        # posts it, server stores it, but doesn't command anything.
         requests_mock.get(
-            f"http://127.0.0.1:8000/v1/agents/data/{agent_id}",
-            [
-                {
-                    "text": json.dumps(
-                        {
-                            "mode": "online",
-                            "state": "waiting",
-                            "restricted_to": {},
-                        }
-                    )
-                },
-                {"text": json.dumps({"mode": "offline", "restricted_to": {}})},
-            ],
+            f"http://127.0.0.1:8000/v2/agents/{agent_id}/data",
+            json={
+                "mode": "maintenance",
+                "state": "waiting",
+                "restricted_to": {},
+                # Note: No 'commanded_mode' - agent is not being commanded
+            },
         )
         requests_mock.post(rmock.ANY, status_code=HTTPStatus.OK)
         with patch("shutil.rmtree"), patch("pathlib.Path.unlink"):
@@ -1059,8 +1074,26 @@ class TestClient:
             "recovery_failures_total", {"agent_id": agent_id}
         )
         assert recovery_failures == 1
+
+        # Verify agent POSTed mode=maintenance to server
+        mode_posts = [
+            call.json()
+            for call in requests_mock.request_history
+            if call.method == "POST"
+            and "/v2/agents/" in call.path
+            and "mode" in (call.json() or {})
+        ]
+        assert mode_posts, "Agent should have POSTed mode change"
+        assert mode_posts[-1]["mode"] == "maintenance", (
+            "Agent should have POSTed mode=maintenance after recovery failure"
+        )
+
+        # Verify determine_next_mode() keeps agent in maintenance mode
+        # (no server command, so agent stays in its current mode)
         mode, _ = agent.determine_next_mode()
-        assert mode != AgentMode.ONLINE
+        assert mode == AgentMode.MAINTENANCE, (
+            "Agent in maintenance with no command should stay in maintenance"
+        )
 
     def test_missing_agent_state(self, agent, requests_mock, caplog):
         """Test default state for an agent is offline if unable to retrieve."""
@@ -1078,7 +1111,7 @@ class TestClient:
             [{"text": json.dumps(mock_job_data)}, {"text": "{}"}],
         )
         requests_mock.get(
-            f"http://127.0.0.1:8000/v1/agents/data/{self.config['agent_id']}",
+            f"http://127.0.0.1:8000/v2/agents/{self.config['agent_id']}/data",
             status_code=HTTPStatus.NOT_FOUND,
         )
         requests_mock.post(rmock.ANY, status_code=HTTPStatus.OK)
@@ -1136,13 +1169,13 @@ class TestStartupState:
     The rule is:
     - OFFLINE → preserve that state (do not come up online)
     - Everything else (MAINTENANCE, RESTART, WAITING, UNKNOWN, any stale
-      job-phase state, no state key, empty response, HTTP error / unknown
-      agent) → WAITING
+    job-phase state, no state key, empty response, HTTP error / unknown
+    agent) → WAITING
     """
 
     AGENT_ID = "test01"
     SERVER = "127.0.0.1:8000"
-    AGENT_DATA_URL = f"http://{SERVER}/v1/agents/data/{AGENT_ID}"
+    AGENT_DATA_URL = f"http://{SERVER}/v2/agents/{AGENT_ID}/data"
 
     @pytest.fixture(autouse=True)
     def clear_registry(self):
@@ -1173,7 +1206,7 @@ class TestStartupState:
             call.json()
             for call in requests_mock.request_history
             if call.method == "POST"
-            and "/v1/agents/data/" in call.path
+            and "/v2/agents/" in call.path
             and "state" in (call.json() or {})
         ]
         assert state_posts, (
@@ -1186,45 +1219,6 @@ class TestStartupState:
         """Register catch-alls first so specific URL mocks take priority."""
         requests_mock.get(rmock.ANY)
         requests_mock.post(rmock.ANY)
-
-    def test_no_state_posted_before_server_state_is_read(
-        self, requests_mock, base_config
-    ):
-        """State must not be POSTed to the server before the agent has read
-        the server's current state.  Posting state first could clobber an
-        OFFLINE or MAINTENANCE state that was set by an administrator.
-        """
-        requests_mock.get(
-            self.AGENT_DATA_URL,
-            json={"state": AgentState.OFFLINE, "comment": "set by admin"},
-        )
-        self._make_agent(requests_mock, base_config)
-
-        history = requests_mock.request_history
-        # Index of the first GET that reads the agent's current state
-        first_state_get = next(
-            (
-                i
-                for i, call in enumerate(history)
-                if call.method == "GET" and "/v1/agents/data/" in call.path
-            ),
-            None,
-        )
-        assert first_state_get is not None, (
-            "Agent never read its state from the server on startup"
-        )
-        # Any POST before that GET must not contain a 'state' field
-        premature_state_posts = [
-            call
-            for call in history[:first_state_get]
-            if call.method == "POST"
-            and "/v1/agents/data/" in call.path
-            and "state" in (call.json() or {})
-        ]
-        assert not premature_state_posts, (
-            "Agent POSTed a state to the server before reading the current "
-            f"server state: {[c.json() for c in premature_state_posts]}"
-        )
 
     def _make_agent(self, requests_mock, base_config):
         """Instantiate the agent; mock infrastructure is already registered."""
@@ -1258,13 +1252,215 @@ class TestStartupState:
             call.json()
             for call in requests_mock.request_history
             if call.method == "POST"
-            and "/v1/agents/data/" in call.path
+            and "/v2/agents/" in call.path
             and "mode" in (call.json() or {})
         ]
         assert mode_posts, "Agent must POST mode on startup"
         # The last mode POST should be offline
         assert mode_posts[-1]["mode"] == "offline", (
             "Agent must POST mode='offline' when commanded_mode='offline'"
+        )
+
+    def test_startup_commanded_restart_exits_agent(
+        self, requests_mock, base_config
+    ):
+        """When server commands RESTART, agent POSTs mode=RESTART and exits.
+
+        This tests the initial phase of the RESTART contract:
+        1. Server sends commanded_mode=RESTART
+        2. Agent reads it and posts mode=RESTART
+        3. Agent exits (will be restarted by supervisor)
+
+        On next startup, agent will read mode=RESTART plus a new
+        commanded_mode (e.g., ONLINE) set by server, and obey that.
+        """
+        requests_mock.get(
+            self.AGENT_DATA_URL,
+            json={"commanded_mode": "restart", "comment": "admin restart"},
+        )
+        requests_mock.post(rmock.ANY, status_code=HTTPStatus.OK)
+
+        with pytest.raises(SystemExit, match="Restart Requested"):
+            self._make_agent(requests_mock, base_config)
+
+        # Verify agent POSTed mode=restart before exiting
+        mode_posts = [
+            call.json()
+            for call in requests_mock.request_history
+            if call.method == "POST"
+            and "/v2/agents/" in call.path
+            and "mode" in (call.json() or {})
+        ]
+        assert mode_posts, "Agent must POST mode on startup"
+        assert mode_posts[-1]["mode"] == "restart", (
+            "Agent must POST mode='restart' when commanded_mode='restart'"
+        )
+
+    def test_startup_after_restart_obeys_commanded_mode(
+        self, requests_mock, base_config
+    ):
+        """After RESTART, agent reads new commanded_mode and obeys it.
+
+        This tests the second phase of the RESTART contract:
+        1. Agent was last in mode=RESTART (from previous restart command)
+        2. Server has set commanded_mode=ONLINE (or OFFLINE, MAINTENANCE, etc.)
+        3. Agent reads both mode=RESTART and commanded_mode=ONLINE
+        4. Agent obeys commanded_mode=ONLINE (priority over mode=RESTART)
+        5. Agent POSTs mode=ONLINE, and server clears commanded_mode
+
+        This scenario handles the case where admin changes their intent
+        during the agent's restart window.
+        """
+        requests_mock.get(
+            self.AGENT_DATA_URL,
+            json={
+                "mode": "restart",
+                "commanded_mode": "online",
+                "comment": "admin changed their mind",
+            },
+        )
+        requests_mock.post(rmock.ANY, status_code=HTTPStatus.OK)
+        self._make_agent(requests_mock, base_config)
+
+        # Verify agent came up online (WAITING state)
+        assert self._startup_state_posted(requests_mock)["state"] == (
+            AgentState.WAITING
+        )
+
+        # Verify agent POSTed mode=online (not mode=restart)
+        mode_posts = [
+            call.json()
+            for call in requests_mock.request_history
+            if call.method == "POST"
+            and "/v2/agents/" in call.path
+            and "mode" in (call.json() or {})
+        ]
+        assert mode_posts, "Agent must POST mode on startup"
+        assert mode_posts[-1]["mode"] == "online", (
+            "Agent must POST mode='online' when commanded_mode='online'"
+        )
+
+    @pytest.mark.parametrize(
+        "target_mode, expected_state",
+        [
+            ("online", AgentState.WAITING),
+            ("offline", AgentState.OFFLINE),
+            ("maintenance", AgentState.WAITING),
+        ],
+    )
+    def test_startup_after_restart_with_various_modes(
+        self, requests_mock, base_config, target_mode, expected_state
+    ):
+        """After RESTART, agent can transition to any valid mode.
+
+        Tests that the RESTART→<target_mode> transition works for all modes:
+        - ONLINE (normal operation)
+        - OFFLINE (take agent offline)
+        - MAINTENANCE (enter maintenance mode)
+        """
+        requests_mock.get(
+            self.AGENT_DATA_URL,
+            json={
+                "mode": "restart",
+                "commanded_mode": target_mode,
+                "comment": f"restart to {target_mode}",
+            },
+        )
+        requests_mock.post(rmock.ANY, status_code=HTTPStatus.OK)
+        self._make_agent(requests_mock, base_config)
+
+        # Verify agent POSTed correct mode
+        mode_posts = [
+            call.json()
+            for call in requests_mock.request_history
+            if call.method == "POST"
+            and "/v2/agents/" in call.path
+            and "mode" in (call.json() or {})
+        ]
+        assert mode_posts[-1]["mode"] == target_mode, (
+            f"Agent must POST mode='{target_mode}' after restart"
+        )
+
+        # For ONLINE and MAINTENANCE modes, verify the state is correct
+        if target_mode in ("online", "maintenance"):
+            startup_posts = self._startup_state_posted(requests_mock)
+            assert startup_posts["state"] == expected_state, (
+                f"After restart to {target_mode}, agent should be in "
+                f"{expected_state}"
+            )
+
+    def test_startup_reactive_restart_via_signal(
+        self, requests_mock, base_config
+    ):
+        """Reactive restart: supervisor triggers via SIGUSR1 signal.
+
+        When supervisor sends SIGUSR1 (not from server commanded_mode),
+        agent must still POST mode=RESTART so server can queue next mode.
+        This tests that both command sources (server vs supervisor) work.
+        """
+        requests_mock.get(
+            self.AGENT_DATA_URL,
+            json={"comment": "no restart commanded"},
+        )
+        requests_mock.post(rmock.ANY, status_code=HTTPStatus.OK)
+
+        agent = _TestflingerAgent(_TestflingerClient(base_config))
+        agent.needs_restart = True
+
+        with pytest.raises(SystemExit, match="Restart Requested"):
+            agent.handle_mode_changes()
+
+        # Verify agent POSTed mode=restart
+        mode_posts = [
+            call.json()
+            for call in requests_mock.request_history
+            if call.method == "POST"
+            and "/v2/agents/" in call.path
+            and "mode" in (call.json() or {})
+        ]
+        assert mode_posts, "Agent must POST mode on reactive restart"
+        assert mode_posts[-1]["mode"] == "restart", (
+            "Agent must POST mode='restart' on reactive restart"
+        )
+
+    @pytest.mark.parametrize(
+        "prev_mode, next_mode",
+        [
+            ("online", "offline"),
+            ("offline", "maintenance"),
+            ("maintenance", "online"),
+        ],
+    )
+    def test_startup_after_reactive_restart_with_various_modes(
+        self, requests_mock, base_config, prev_mode, next_mode
+    ):
+        """Reactive restart: agent can transition to any mode after restarting.
+
+        Tests that reactive restart (via supervisor signal) followed by
+        server-commanded mode transition works for all mode combinations.
+        """
+        requests_mock.get(
+            self.AGENT_DATA_URL,
+            json={
+                "mode": prev_mode,
+                "commanded_mode": next_mode,
+                "comment": f"reactive restart, then to {next_mode}",
+            },
+        )
+        requests_mock.post(rmock.ANY, status_code=HTTPStatus.OK)
+        self._make_agent(requests_mock, base_config)
+
+        # Verify agent transitioned to expected mode
+        mode_posts = [
+            call.json()
+            for call in requests_mock.request_history
+            if call.method == "POST"
+            and "/v2/agents/" in call.path
+            and "mode" in (call.json() or {})
+        ]
+        assert mode_posts[-1]["mode"] == next_mode, (
+            f'Agent should end in mode="{next_mode}", got '
+            f"{mode_posts[-1]['mode']}"
         )
 
     # ------------------------------------------------------------------

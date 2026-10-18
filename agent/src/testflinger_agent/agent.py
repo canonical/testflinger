@@ -130,10 +130,19 @@ class TestflingerAgent:
 
         - If we were in MAINTENANCE, ONLINE or OFFLINE before the restart, be
           sure to come back up in that same state.
-        - If we were last known to be in RESTART then we need to come up
-          as ONLINE instead.
+        - If server commands RESTART at startup, honor it immediately.
+          Note: Because the server will preserve the last known mode as the
+          next commanded_mode when it receives the agent's mode of RESTART,
+          the commanded_mode won't be RESTART unless it has been commanded
+          by the server and not acknowledged by the agent. Therefore, we must
+          oblige and restart again now.
         """
         self.update_agent_data()
+
+        if self.commanded_mode == AgentMode.RESTART:
+            logger.info("Server commanding agent restart on startup.")
+            self.restart_agent(self.comment)
+            return
 
         if self.commanded_mode == AgentMode.MAINTENANCE:
             logger.info("Agent resuming maintenance mode on startup.")
@@ -206,25 +215,40 @@ class TestflingerAgent:
         self.client.post_agent_data({"state": state})
 
     def update_agent_data(self):
-        """Get the agent data from the server and update the agent's data."""
+        """Get the agent data from the server and update the agent's data.
+
+        Resolve the agent's mode according to priority:
+        1. commanded_mode from server (admin command)
+        2. current_mode (what agent is currently in)
+        3. ONLINE (safe default if nothing is known)
+
+        Note: We do NOT use 'mode' field for decisions. The 'mode' field is
+        purely informational (agent's last reported state). The agent only
+        changes mode when server issues explicit 'commanded_mode'.
+        """
         agent_data = self.client.get_agent_data(self.agent_id)
         self.updated_at = agent_data.get("updated_at")
         self.restricted_to = agent_data.get("restricted_to", {})
-        # Fall back to current mode
-        self.commanded_mode = self.current_mode
 
-        # Process the agent data from the server to acquire the proper
-        # commanded mode from the server and replace our fallback value
+        # Priority 1: commanded_mode from server (admin command)
         commanded_mode = agent_data.get("commanded_mode")
-        if commanded_mode is None:
-            logger.info("No commanded mode change for agent.")
+        if commanded_mode:
+            try:
+                self.commanded_mode = AgentMode(commanded_mode)
+                self.comment = agent_data.get("comment", "")
+                return
+            except ValueError:
+                logger.error("Unknown mode value '%s'.", commanded_mode)
+                # Fall through to priority 2
+
+        # Priority 2: current_mode (what agent is currently in)
+        if self.current_mode is not None:
+            self.commanded_mode = self.current_mode
             return
-        try:
-            self.commanded_mode = AgentMode(commanded_mode)
-            # Update the comment if we were able to set the mode
-            self.comment = agent_data.get("comment", "")
-        except ValueError:
-            logger.error("Unknown mode value '%s'.", commanded_mode)
+
+        # Priority 3: safe default
+        logger.info("No mode information available; defaulting to ONLINE.")
+        self.commanded_mode = AgentMode.ONLINE
 
     def determine_next_mode(self) -> tuple[AgentMode, str]:
         """Check with the server what operating mode we should be in.
@@ -269,6 +293,8 @@ class TestflingerAgent:
     def restart_agent(self, comment: str = "") -> None:
         """Request restart mode, then exit so the supervisor restarts us."""
         logger.info("Restarting agent")
+        # Must let the server know we're restarting so that it can determine
+        # our next startup mode.
         self.set_agent_mode(AgentMode.RESTART, comment)
         sys.exit("Restart Requested")
 
