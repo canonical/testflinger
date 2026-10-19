@@ -701,13 +701,27 @@ def test_v1_agent_sees_commanded_offline(mongo_app, agent_auth_header):
     )
 
 
-def test_v1_agent_sees_commanded_restart(mongo_app, agent_auth_header):
-    """V1 agent detects transition to restart via commanded_mode."""
+def test_v1_agent_restart_loop_prevention(mongo_app, agent_auth_header):
+    """V1 agent commanded restart: full cycle without restart loop.
+
+    This test verifies that when an admin commands a restart via the v2 API
+    and a v1 agent acknowledges it, the commanded_mode is cleared so the
+    agent doesn't get stuck in a restart loop.
+
+    Phases:
+    1. Agent starts and reports waiting
+    2. Admin commands restart via v2 API (sets commanded_mode="restart")
+    3. V1 agent polls and detects restart (sees it via GET)
+    4. V1 agent acknowledges restart (POSTs state="restart")
+    5. Server clears commanded_mode when agent acknowledges
+    6. Agent posts waiting to come back online
+    7. Verify no restart loop: subsequent GETs return waiting
+    """
     app, mongo = mongo_app
-    agent_name = "agent-v1-restart"
+    agent_name = "agent-v1-restart-test"
     admin_header = get_access_token_header("admin-id", ServerRoles.ADMIN)
 
-    # V1 agent POSTs initial state: online/waiting
+    # === Phase 1: Agent starts and reports waiting ===
     response = app.post(
         f"/v1/agents/data/{agent_name}",
         json={"state": "waiting"},
@@ -715,16 +729,15 @@ def test_v1_agent_sees_commanded_restart(mongo_app, agent_auth_header):
     )
     assert response.status_code == HTTPStatus.OK
 
-    # V1 agent GETs and sees state="waiting"
-    response = app.get(
-        f"/v1/agents/data/{agent_name}",
-        headers=agent_auth_header,
-    )
-    assert response.status_code == HTTPStatus.OK
-    data = response.get_json()
-    assert data.get("state") == "waiting"
+    # Verify database: mode=online, state=waiting (v2 format)
+    record = mongo.agents.find_one({"name": agent_name})
+    assert isinstance(record["mode"], dict)
+    assert _get_mode_value(record["mode"]) == "online"
+    assert isinstance(record["state"], dict)
+    assert record["state"]["value"] == "waiting"
+    assert "commanded_mode" not in record
 
-    # Admin commands restart
+    # === Phase 2: Admin commands restart ===
     response = app.patch(
         f"/v2/agents/{agent_name}/commanded_mode",
         json={"commanded_mode": "restart"},
@@ -732,13 +745,72 @@ def test_v1_agent_sees_commanded_restart(mongo_app, agent_auth_header):
     )
     assert response.status_code == HTTPStatus.NO_CONTENT
 
-    # V1 agent GETs and should see state="restart" (the commanded mode)
+    # Verify database: commanded_mode is now set
+    record = mongo.agents.find_one({"name": agent_name})
+    assert "commanded_mode" in record
+    assert isinstance(record["commanded_mode"], dict)
+    assert record["commanded_mode"]["value"] == "restart"
+    # Underlying mode/state still unchanged
+    assert _get_mode_value(record["mode"]) == "online"
+    assert record["state"]["value"] == "waiting"
+
+    # === Phase 3: V1 agent polls and detects restart ===
     response = app.get(
         f"/v1/agents/data/{agent_name}",
         headers=agent_auth_header,
     )
     assert response.status_code == HTTPStatus.OK
     data = response.get_json()
-    assert data.get("state") == "restart", (
-        "V1 agent must see commanded_mode to detect mode change"
+    # V1 should see the command via reconstruction
+    # (commanded_mode takes priority in _reconstruct_v1_from_v2)
+    assert data.get("state") == "restart"
+
+    # === Phase 4: V1 agent acknowledges restart ===
+    # Agent POSTs state="restart" to acknowledge the command
+    response = app.post(
+        f"/v1/agents/data/{agent_name}",
+        json={"state": "restart"},
+        headers=agent_auth_header,
+    )
+    assert response.status_code == HTTPStatus.OK
+
+    # === Phase 5: Verify commanded_mode is cleared after acknowledgment ===
+    # THE FIX: When agent POSTs state matching commanded_mode, server clears it
+    record = mongo.agents.find_one({"name": agent_name})
+    assert "commanded_mode" not in record, (
+        "commanded_mode should be cleared when agent acknowledges it"
+    )
+    # Database has mode="restart" from promotion of agent's POST
+    assert isinstance(record["mode"], dict)
+    assert _get_mode_value(record["mode"]) == "restart"
+
+    # === Phase 6: Agent posts waiting from startup ===
+    # After supervisor restarts agent, agent calls _set_startup_state()
+    # and posts waiting to come back online
+    response = app.post(
+        f"/v1/agents/data/{agent_name}",
+        json={"state": "waiting"},
+        headers=agent_auth_header,
+    )
+    assert response.status_code == HTTPStatus.OK
+
+    # Verify database: back to mode=online, state=waiting
+    record = mongo.agents.find_one({"name": agent_name})
+    assert isinstance(record["mode"], dict)
+    assert _get_mode_value(record["mode"]) == "online"
+    assert isinstance(record["state"], dict)
+    assert record["state"]["value"] == "waiting"
+    # commanded_mode should still be gone
+    assert "commanded_mode" not in record
+
+    # === Phase 7: Verify no restart loop ===
+    # After full cycle, v1 GET should return waiting, not restart
+    response = app.get(
+        f"/v1/agents/data/{agent_name}",
+        headers=agent_auth_header,
+    )
+    assert response.status_code == HTTPStatus.OK
+    data = response.get_json()
+    assert data.get("state") == "waiting", (
+        "No restart loop: agent should see waiting state"
     )
