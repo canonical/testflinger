@@ -174,15 +174,15 @@ def test_v1_v2_v1_transition(mongo_app, agent_auth_header):
     )
     assert response.status_code == HTTPStatus.NO_CONTENT
 
-    # V1 client reads and should see no state (offline has no sub-state)
+    # V1 client reads and should see state="offline" (the commanded mode)
     response = app.get(
         f"/v1/agents/data/{agent_name}",
         headers=agent_auth_header,
     )
     assert response.status_code == HTTPStatus.OK
     data = response.get_json()
-    # Offline mode should not have state in v1 output
-    assert "state" not in data or data.get("state") is None
+    # Commanded offline mode should appear as state="offline"
+    assert data.get("state") == "offline"
 
     # Scenario 2: Admin commands mode to "maintenance"
     response = app.patch(
@@ -603,3 +603,142 @@ def test_upsert_agent_document_works_with_v1_and_v2_data(mongo_app):
     # V2 clients should see nested format
     assert isinstance(v2_agents["v1-test-agent"]["mode"], dict)
     assert isinstance(v2_agents["v2-test-agent"]["mode"], dict)
+
+
+# ===========================================================================
+# Scenario 7: V1 agent detects commanded_mode changes
+# ===========================================================================
+
+
+def test_v1_agent_sees_commanded_maintenance(mongo_app, agent_auth_header):
+    """V1 agent detects transition to maintenance via commanded_mode.
+
+    When an agent is online/waiting and admin commands maintenance,
+    v1 agent should see state="maintenance" to detect the change.
+    """
+    app, mongo = mongo_app
+    agent_name = "agent-v1-maint"
+    admin_header = get_access_token_header("admin-id", ServerRoles.ADMIN)
+
+    # V1 agent POSTs initial state: online/waiting
+    response = app.post(
+        f"/v1/agents/data/{agent_name}",
+        json={"state": "waiting"},
+        headers=agent_auth_header,
+    )
+    assert response.status_code == HTTPStatus.OK
+
+    # V1 agent GETs and sees state="waiting"
+    response = app.get(
+        f"/v1/agents/data/{agent_name}",
+        headers=agent_auth_header,
+    )
+    assert response.status_code == HTTPStatus.OK
+    data = response.get_json()
+    assert data.get("state") == "waiting"
+
+    # Admin commands maintenance
+    response = app.patch(
+        f"/v2/agents/{agent_name}/commanded_mode",
+        json={"commanded_mode": "maintenance"},
+        headers=admin_header,
+    )
+    assert response.status_code == HTTPStatus.NO_CONTENT
+
+    # V1 agent GETs and should see state="maintenance" (the commanded mode)
+    # This state change from "waiting" to "maintenance" triggers agent action
+    response = app.get(
+        f"/v1/agents/data/{agent_name}",
+        headers=agent_auth_header,
+    )
+    assert response.status_code == HTTPStatus.OK
+    data = response.get_json()
+    assert data.get("state") == "maintenance", (
+        "V1 agent must see commanded_mode to detect mode change"
+    )
+
+
+def test_v1_agent_sees_commanded_offline(mongo_app, agent_auth_header):
+    """V1 agent detects transition to offline via commanded_mode."""
+    app, mongo = mongo_app
+    agent_name = "agent-v1-offline"
+    admin_header = get_access_token_header("admin-id", ServerRoles.ADMIN)
+
+    # V1 agent POSTs initial state: online/waiting
+    response = app.post(
+        f"/v1/agents/data/{agent_name}",
+        json={"state": "waiting"},
+        headers=agent_auth_header,
+    )
+    assert response.status_code == HTTPStatus.OK
+
+    # V1 agent GETs and sees state="waiting"
+    response = app.get(
+        f"/v1/agents/data/{agent_name}",
+        headers=agent_auth_header,
+    )
+    assert response.status_code == HTTPStatus.OK
+    data = response.get_json()
+    assert data.get("state") == "waiting"
+
+    # Admin commands offline
+    response = app.patch(
+        f"/v2/agents/{agent_name}/commanded_mode",
+        json={"commanded_mode": "offline"},
+        headers=admin_header,
+    )
+    assert response.status_code == HTTPStatus.NO_CONTENT
+
+    # V1 agent GETs and should see state="offline" (the commanded mode)
+    response = app.get(
+        f"/v1/agents/data/{agent_name}",
+        headers=agent_auth_header,
+    )
+    assert response.status_code == HTTPStatus.OK
+    data = response.get_json()
+    assert data.get("state") == "offline", (
+        "V1 agent must see commanded_mode to detect mode change"
+    )
+
+
+def test_v1_agent_sees_commanded_restart(mongo_app, agent_auth_header):
+    """V1 agent detects transition to restart via commanded_mode."""
+    app, mongo = mongo_app
+    agent_name = "agent-v1-restart"
+    admin_header = get_access_token_header("admin-id", ServerRoles.ADMIN)
+
+    # V1 agent POSTs initial state: online/waiting
+    response = app.post(
+        f"/v1/agents/data/{agent_name}",
+        json={"state": "waiting"},
+        headers=agent_auth_header,
+    )
+    assert response.status_code == HTTPStatus.OK
+
+    # V1 agent GETs and sees state="waiting"
+    response = app.get(
+        f"/v1/agents/data/{agent_name}",
+        headers=agent_auth_header,
+    )
+    assert response.status_code == HTTPStatus.OK
+    data = response.get_json()
+    assert data.get("state") == "waiting"
+
+    # Admin commands restart
+    response = app.patch(
+        f"/v2/agents/{agent_name}/commanded_mode",
+        json={"commanded_mode": "restart"},
+        headers=admin_header,
+    )
+    assert response.status_code == HTTPStatus.NO_CONTENT
+
+    # V1 agent GETs and should see state="restart" (the commanded mode)
+    response = app.get(
+        f"/v1/agents/data/{agent_name}",
+        headers=agent_auth_header,
+    )
+    assert response.status_code == HTTPStatus.OK
+    data = response.get_json()
+    assert data.get("state") == "restart", (
+        "V1 agent must see commanded_mode to detect mode change"
+    )

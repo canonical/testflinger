@@ -132,7 +132,7 @@ def test_v1_offline_write_and_read(mongo_app, agent_auth_header):
 
     When a v1 agent reports state='offline' (a mode, not a sub-state):
     1. Write: stores as mode='offline', no state
-    2. Read: v1 client gets no state (offline has no sub-state)
+    2. Read: v1 client gets state='offline' (the mode)
     Also tests that legacy pre-existing records (raw v1 format) are
     promoted on read.
     """
@@ -149,14 +149,14 @@ def test_v1_offline_write_and_read(mongo_app, agent_auth_header):
     assert record["mode"]["value"] == "offline"
     assert "state" not in record
 
-    # Test 2: V1 read returns no state for offline
+    # Test 2: V1 read returns offline state
     output = app.get(
         "/v1/agents/data/agent1",
         headers=agent_auth_header,
     )
     assert output.status_code == HTTPStatus.OK
     data = output.get_json()
-    assert "state" not in data or data.get("state") is None
+    assert data.get("state") == "offline"
 
     # Test 3: Legacy pre-existing offline record is promoted on v1 read
     mongo.agents.insert_one({"name": "legacy-agent", "state": "offline"})
@@ -166,7 +166,7 @@ def test_v1_offline_write_and_read(mongo_app, agent_auth_header):
     )
     assert output.status_code == HTTPStatus.OK
     data = output.get_json()
-    assert "state" not in data or data.get("state") is None
+    assert data.get("state") == "offline"
 
 
 def test_v1_restart_write_stores_mode_and_clears_state(
@@ -219,9 +219,9 @@ def test_v1_offline_overwrites_stale_state_in_db(mongo_app, agent_auth_header):
 def test_v1_maintenance_write_and_read(mongo_app, agent_auth_header):
     """V1 agent maintenance report: write to DB and read back.
 
-    When a v1 agent reports state='maintenance' (a mode with sub-state):
+    When a v1 agent reports state='maintenance' (a non-online mode):
     1. Write: stores as mode='maintenance', state='waiting' (idle sub-state)
-    2. Read: v1 client gets state='waiting' for maintenance mode
+    2. Read: v1 client gets state='maintenance' (the mode, not the sub-state)
     Also tests that legacy pre-existing records are promoted on read.
     """
     app, mongo = mongo_app
@@ -237,14 +237,14 @@ def test_v1_maintenance_write_and_read(mongo_app, agent_auth_header):
     assert record["mode"]["value"] == "maintenance"
     assert record["state"]["value"] == "waiting"
 
-    # Test 2: V1 read returns waiting state for maintenance
+    # Test 2: V1 read returns maintenance mode (not sub-state)
     output = app.get(
         "/v1/agents/data/agent1",
         headers=agent_auth_header,
     )
     assert output.status_code == HTTPStatus.OK
     data = output.get_json()
-    assert data.get("state") == "waiting"
+    assert data.get("state") == "maintenance"
 
     # Test 3: Legacy pre-existing maintenance record promoted on v1 read
     mongo.agents.insert_one({"name": "legacy-maint", "state": "maintenance"})
@@ -254,7 +254,7 @@ def test_v1_maintenance_write_and_read(mongo_app, agent_auth_header):
     )
     assert output.status_code == HTTPStatus.OK
     data = output.get_json()
-    assert data.get("state") == "waiting"
+    assert data.get("state") == "maintenance"
 
 
 # ---------------------------------------------------------------------------

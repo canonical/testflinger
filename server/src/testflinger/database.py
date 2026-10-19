@@ -698,50 +698,39 @@ def _reconstruct_v1_from_v2(agent: dict) -> None:
     if _is_v2_format(agent):
         # Extract mode value from nested structure
         mode_value = None
+        mode_comment = None
         if "mode" in agent and isinstance(agent["mode"], dict):
             mode_value = agent["mode"].get("value")
+            mode_comment = agent["mode"].get("comment")
+        agent.pop("mode", None)
 
         # Check for commanded_mode (admin override)
         commanded_mode_value = None
+        commanded_mode_comment = None
         if "commanded_mode" in agent and isinstance(
             agent["commanded_mode"], dict
         ):
             commanded_mode_value = agent["commanded_mode"].get("value")
-
-        # Use commanded_mode if it exists (admin override), else agent mode
-        effective_mode = commanded_mode_value or mode_value
+            commanded_mode_comment = agent["commanded_mode"].get("comment")
+        agent.pop("commanded_mode", None)
 
         # Extract state value from nested structure if present
+        # 1. If commanded_mode exists, use it (admin override)
+        # 2. Else if mode is not online, send state = mode
+        # 3. Else (ONLINE), send state = state (sub-state)
         state_value = None
         if "state" in agent and isinstance(agent["state"], dict):
             state_value = agent["state"].get("value")
-            agent.pop("state")  # Remove the nested structure
 
-        # For v1 clients: omit state if mode is offline or restart
-        if effective_mode in (AgentMode.OFFLINE, AgentMode.RESTART):
-            # These modes have no sub-state
-            if "state" in agent:
-                agent.pop("state", None)
-        elif state_value is not None:
-            # Restore state as flat value for v1 clients
+        if commanded_mode_value:
+            agent["state"] = commanded_mode_value
+        elif mode_value != AgentMode.ONLINE.value:
+            agent["state"] = mode_value
+        else:
             agent["state"] = state_value
 
         # Extract comment from commanded_mode or mode (both optional)
-        comment = None
-        if "commanded_mode" in agent and isinstance(
-            agent["commanded_mode"], dict
-        ):
-            comment = agent["commanded_mode"].get("comment")
-            agent.pop("commanded_mode")
-
-        if not comment and "mode" in agent and isinstance(agent["mode"], dict):
-            comment = agent["mode"].get("comment")
-
-        # Remove the mode structure (required for v2 format)
-        agent.pop("mode", None)
-
-        if comment:
-            agent["comment"] = comment
+        agent["comment"] = commanded_mode_comment or mode_comment or ""
 
 
 # TODO: when `views.py` is updated to use the v2 data format this function
