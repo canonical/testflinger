@@ -101,8 +101,7 @@ main {
    p-chip--positive (green), p-chip--caution (amber), p-chip--negative (red).
    Vanilla defaults: lead 1rem, value 0.875rem. We shrink both to 9pt. */
 .agent-state-chip { margin-bottom: 0; }
-button.agent-state-chip { cursor: pointer; display: inline-flex;
-    align-items: center; border: none; }
+button.agent-state-chip { cursor: pointer; display: inline-flex; align-items: center; border: none; }
 .agent-state-chip .p-chip__lead,
 .agent-state-chip .p-chip__value { font-size: 9pt; }
 
@@ -128,6 +127,7 @@ button.agent-state-chip { cursor: pointer; display: inline-flex;
     align-items: center;
     gap: 0.2rem;
 }
+.agent-mode-arrow { font-size: 0.75rem; margin-right: 0.25rem; display: inline-block; }
 /* Vendored additional icon: change-version (circular arrows / version transition).
    Not included in the Vanilla CDN bundle. */
 .p-icon--change-version {
@@ -204,4 +204,47 @@ body.is-dark .p-icon--edit,
 [class*="p-code-snippet__block"] {
     max-height: 600px;
     scroll-behavior: auto;
+}
+
+/* Agents table column widths */
+#agentsTable th:nth-child(1),
+#agentsTable td:nth-child(1) {
+    width: 5%;
+    min-width: 60px;
+}
+#agentsTable th:nth-child(2),
+#agentsTable td:nth-child(2) {
+    width: 15%;
+    min-width: 120px;
+}
+#agentsTable th:nth-child(3),
+#agentsTable td:nth-child(3) {
+    width: 10%;
+    min-width: 100px;
+}
+#agentsTable th:nth-child(4),
+#agentsTable td:nth-child(4) {
+    width: 20%;
+    min-width: 150px;
+}
+#agentsTable th:nth-child(5),
+#agentsTable td:nth-child(5) {
+    width: 15%;
+    min-width: 140px;
+}
+#agentsTable th:nth-child(6),
+#agentsTable td:nth-child(6) {
+    width: 25%;
+    min-width: 250px;
+}
+#agentsTable th:nth-child(7),
+#agentsTable td:nth-child(7) {
+    width: 10%;
+    min-width: 100px;
+}
+
+/* Prevent overflow in Mode:State column */
+#agentsTable td:nth-child(4) {
+    overflow: visible;
+    white-space: normal;
 }
