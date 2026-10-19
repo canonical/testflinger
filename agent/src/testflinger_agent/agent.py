@@ -319,7 +319,7 @@ class TestflingerAgent:
 
     def go_offline(self, comment: str = "") -> None:
         """Go offline: advertise no queues and set OFFLINE mode."""
-        logger.info("Going offline – monitoring maintenance queue")
+        logger.info("Going offline.")
         self.set_agent_mode(AgentMode.OFFLINE, comment, queues=[])
 
     def go_online(self) -> None:
