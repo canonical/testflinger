@@ -136,7 +136,7 @@
       {#-- Render commanded mode if pending --#}
       {% if has_pending %}
         <span class="agent-mode-pending-row">
-          <i class="p-icon--arrow-right agent-mode-arrow" aria-hidden="true"></i>
+          <i class="p-icon--arrow-right" aria-hidden="true"></i>
           {{- _mode_chip(commanded_mode_data, none,
                     tooltip_id ~ "-commanded", none, icon='revisions',
                     is_inline=true) -}}

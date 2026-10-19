@@ -127,17 +127,17 @@ button.agent-state-chip { cursor: pointer; display: inline-flex; align-items: ce
     align-items: center;
     gap: 0.2rem;
 }
-.agent-mode-arrow { font-size: 0.75rem; margin-right: 0.25rem; display: inline-block; }
-/* Vendored additional icon: change-version (circular arrows / version transition).
+
+/* Vendored additional icon: arrow-right (→).
    Not included in the Vanilla CDN bundle. */
-.p-icon--change-version {
-    background-image: url("data:image/svg+xml,%3Csvg width='16' height='16' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M5.948 9.012v1.5l-2.458.001A5.163 5.163 0 0012.76 10h1.596a6.665 6.665 0 01-11.839 1.785v2.158h-1.5v-4.93h4.93zM8 1.338a6.655 6.655 0 015.516 2.925V2.11h1.5v4.93h-4.93v-1.5h2.453A5.163 5.163 0 003.24 6H1.643A6.665 6.665 0 018 1.338z' fill='%23000' fill-rule='evenodd'/%3E%3C/svg%3E");
+.p-icon--arrow-right {
+    background-image: url("data:image/svg+xml,%3Csvg width='16' height='16' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M11.707 8.293L8 4.586V7H1V9h7v2.414l3.707-3.707 1.414 1.414L15.414 8l-2.293-2.293-1.414 1.586z' fill='%23000' fill-rule='evenodd'/%3E%3C/svg%3E");
 }
 
-[class*="--dark"] .p-icon--change-version,
-body.is-dark .p-icon--change-version,
-.p-icon--change-version.is-light {
-    background-image: url("data:image/svg+xml,%3Csvg width='16' height='16' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M5.948 9.012v1.5l-2.458.001A5.163 5.163 0 0012.76 10h1.596a6.665 6.665 0 01-11.839 1.785v2.158h-1.5v-4.93h4.93zM8 1.338a6.655 6.655 0 015.516 2.925V2.11h1.5v4.93h-4.93v-1.5h2.453A5.163 5.163 0 003.24 6H1.643A6.665 6.665 0 018 1.338z' fill='hsl(0%2C0%25%2C100%25)' fill-rule='evenodd'/%3E%3C/svg%3E");
+[class*="--dark"] .p-icon--arrow-right,
+body.is-dark .p-icon--arrow-right,
+.p-icon--arrow-right.is-light {
+    background-image: url("data:image/svg+xml,%3Csvg width='16' height='16' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M11.707 8.293L8 4.586V7H1V9h7v2.414l3.707-3.707 1.414 1.414L15.414 8l-2.293-2.293-1.414 1.586z' fill='hsl(0%2C0%25%2C100%25)' fill-rule='evenodd'/%3E%3C/svg%3E");
 }
 
 /* Vendored additional icon: revisions (clock/history — used for pending commanded mode).
