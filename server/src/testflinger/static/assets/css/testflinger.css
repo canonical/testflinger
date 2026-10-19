@@ -131,13 +131,21 @@ button.agent-state-chip { cursor: pointer; display: inline-flex; align-items: ce
 /* Vendored additional icon: arrow-right (→).
    Not included in the Vanilla CDN bundle. */
 .p-icon--arrow-right {
-    background-image: url("data:image/svg+xml,%3Csvg width='16' height='16' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M11.707 8.293L8 4.586V7H1V9h7v2.414l3.707-3.707 1.414 1.414L15.414 8l-2.293-2.293-1.414 1.586z' fill='%23000' fill-rule='evenodd'/%3E%3C/svg%3E");
+    background-image: url("data:image/svg+xml,%3Csvg width='16' height='16' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M3 7h8.586L9.293 5.707l1.414-1.414L14.414 8l-3.707 3.707-1.414-1.414L11.586 9H3V7z' fill='%23000'/%3E%3C/svg%3E");
+    background-size: contain;
+    background-position: center;
+    background-repeat: no-repeat;
+    display: inline-block;
+    height: 1rem;
+    width: 1rem;
+    margin: 0;
+    padding: 0;
 }
 
 [class*="--dark"] .p-icon--arrow-right,
 body.is-dark .p-icon--arrow-right,
 .p-icon--arrow-right.is-light {
-    background-image: url("data:image/svg+xml,%3Csvg width='16' height='16' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M11.707 8.293L8 4.586V7H1V9h7v2.414l3.707-3.707 1.414 1.414L15.414 8l-2.293-2.293-1.414 1.586z' fill='hsl(0%2C0%25%2C100%25)' fill-rule='evenodd'/%3E%3C/svg%3E");
+    background-image: url("data:image/svg+xml,%3Csvg width='16' height='16' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M3 7h8.586L9.293 5.707l1.414-1.414L14.414 8l-3.707 3.707-1.414-1.414L11.586 9H3V7z' fill='hsl(0%2C0%25%2C100%25)'/%3E%3C/svg%3E");
 }
 
 /* Vendored additional icon: revisions (clock/history — used for pending commanded mode).
