@@ -15,14 +15,16 @@
 Sample user data for use in local testing and development.
 """
 
+# Known account IDs for special clients
+TESTFLINGER_ADMIN_ID = "testflinger-admin"
+TESTFLINGER_AGENT_ID = "testflinger-agent"
+
 # This is the single handwritten source for local accounts. Entries with a
 # dex_user_id are rendered into dex-config.yaml. Entries with dev_auto_signin
 # are also rendered into testflinger.dev_signin_identities.
-TESTFLINGER_AGENT_ID = "testflinger-agent"
-TESTFLINGER_AGENT_SECRET = "testflinger"  # noqa: S105
-SAMPLE_CLIENTS = [
-    {
-        "client_id": "testflinger-admin",
+SAMPLE_CLIENTS = {
+    TESTFLINGER_ADMIN_ID: {
+        "client_id": TESTFLINGER_ADMIN_ID,
         "email": "testflinger@example.com",
         "name": "testflinger-admin",
         "dex_user_id": "1001",
@@ -33,7 +35,7 @@ SAMPLE_CLIENTS = [
         "max_reservation_time": {},
         "secret_key": "testflinger",  # noqa: S105
     },
-    {
+    "alice-sample-client": {
         "client_id": "alice-sample-client",
         "email": "alice@example.com",
         "name": "alice",
@@ -42,17 +44,17 @@ SAMPLE_CLIENTS = [
         "role": "admin",
         "allowed_queues": [],
         "max_reservation_time": {},
-        "secret_key": "testflinger",
+        "secret_key": "testflinger",  # noqa: S105
     },
-    {
+    "ci-bot-kernel": {
         "client_id": "ci-bot-kernel",
         "email": "alice@example.com",
         "role": "contributor",
         "allowed_queues": [],
         "max_reservation_time": {},
-        "secret_key": "testflinger",
+        "secret_key": "testflinger",  # noqa: S105
     },
-    {
+    "ci-bot-snapd": {
         "client_id": "ci-bot-snapd",
         "email": "bob@example.com",
         "name": "bob",
@@ -61,9 +63,9 @@ SAMPLE_CLIENTS = [
         "role": "manager",
         "allowed_queues": [],
         "max_reservation_time": {},
-        "secret_key": "testflinger",
+        "secret_key": "testflinger",  # noqa: S105
     },
-    {
+    "qa-runner-x86": {
         "client_id": "qa-runner-x86",
         "email": "carol@example.com",
         "name": "carol",
@@ -72,23 +74,14 @@ SAMPLE_CLIENTS = [
         "role": "contributor",
         "allowed_queues": [],
         "max_reservation_time": {},
-        "secret_key": "testflinger",
+        "secret_key": "testflinger",  # noqa: S105
     },
-    {
+    "infra-agent-arm": {
         "client_id": "infra-agent-arm",
         "email": "dave@example.com",
         "role": "contributor",
         "allowed_queues": [],
         "max_reservation_time": {},
-        "secret_key": "testflinger",
+        "secret_key": "testflinger",  # noqa: S105
     },
-]
-
-# Existing callers use these defaults to create sample data.
-TESTFLINGER_ADMIN = next(
-    client
-    for client in SAMPLE_CLIENTS
-    if client["client_id"] == "testflinger-admin"
-)
-TESTFLINGER_ADMIN_ID = TESTFLINGER_ADMIN["client_id"]
-TESTFLINGER_ADMIN_SECRET = TESTFLINGER_ADMIN["secret_key"]
+}
