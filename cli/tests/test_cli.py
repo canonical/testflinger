@@ -2143,6 +2143,106 @@ def test_agent_list_no_headers(capsys, requests_mock):
     assert "online" in output.out
 
 
+def test_agent_list_table_complex_fields(capsys, requests_mock):
+    """Validate list-agents table handles complex fields without JSON."""
+    fake_agents = [
+        {
+            "name": "agent1",
+            "mode": "online",
+            "state": "waiting",
+            "queues": ["queue1", "queue2"],
+            "links": [
+                {"label": "Dashboard", "url": "https://dash.example.com"},
+                {"label": "Logs", "url": "https://logs.example.com"},
+            ],
+        },
+    ]
+    requests_mock.get(f"{URL}/v2/agents/data", json=fake_agents)
+    sys.argv = ["", "list-agents", "--fields=name,mode,queues"]
+    tfcli = testflinger_cli.TestflingerCli()
+    tfcli.list_agents()
+    output = capsys.readouterr()
+
+    # Remove ANSI codes for easier testing
+    import re
+
+    clean_out = re.sub(r"\x1b\[[0-9;]*m", "", output.out)
+
+    # Verify normal fields are present
+    assert "agent1" in clean_out
+    assert "online" in clean_out
+    assert "queue1" in clean_out
+    assert "queue2" in clean_out
+
+    # Verify queues are formatted nicely (comma-separated), not as JSON
+    assert "queue1, queue2" in clean_out
+    # Make sure it doesn't have JSON-like list syntax
+    assert "['queue1'" not in clean_out
+    assert '["queue1"' not in clean_out
+
+
+def test_agent_list_table_nested_dict_fields(capsys, requests_mock):
+    """Validate list-agents handles nested dict format for mode/state.
+
+    The v2 API returns mode, commanded_mode, and state as nested dicts
+    with {value, changed_at, changed_by, ...} structure.
+    """
+    from datetime import datetime, timezone
+
+    now = datetime.now(timezone.utc).isoformat()
+    fake_agents = [
+        {
+            "name": "agent1",
+            "mode": {"value": "online", "changed_at": now},
+            "state": {"value": "waiting", "changed_at": now},
+            "commanded_mode": None,
+        },
+        {
+            "name": "agent2",
+            "mode": {"value": "offline", "changed_at": now},
+            "state": None,
+            "commanded_mode": None,
+        },
+        {
+            "name": "agent3",
+            "mode": {"value": "online", "changed_at": now},
+            "state": {"value": "provision", "changed_at": now},
+            "commanded_mode": {
+                "value": "maintenance",
+                "changed_at": now,
+                "comment": "Under maintenance",
+            },
+        },
+    ]
+    requests_mock.get(f"{URL}/v2/agents/data", json=fake_agents)
+    sys.argv = ["", "list-agents"]
+    tfcli = testflinger_cli.TestflingerCli()
+    tfcli.list_agents()
+    output = capsys.readouterr()
+
+    # Remove ANSI codes for easier testing
+    import re
+
+    clean_out = re.sub(r"\x1b\[[0-9;]*m", "", output.out)
+
+    # Verify values are extracted correctly
+    assert "agent1" in clean_out
+    assert "online" in clean_out
+    assert "waiting" in clean_out
+
+    assert "agent2" in clean_out
+    assert "offline" in clean_out
+
+    assert "agent3" in clean_out
+    assert "provision" in clean_out
+    assert "maintenance" in clean_out
+
+    # Verify no raw dict-like syntax appears
+    assert "{2 keys}" not in clean_out
+    assert "{'value'" not in clean_out
+    assert '{"value"' not in clean_out
+
+
 def test_queue_status(capsys, requests_mock, auth_fixture):
     """Validate that the status for the queue is retrieved."""
     auth_fixture("user")

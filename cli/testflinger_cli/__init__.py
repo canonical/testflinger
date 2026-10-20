@@ -975,13 +975,33 @@ class TestflingerCli:
             if key == "commanded_mode":
                 # Only show commanded_mode when it differs from mode
                 cmd = agent.get("commanded_mode")
-                if cmd and cmd != agent.get("mode"):
-                    return cmd
+                if cmd is None:
+                    return "-"
+                # Handle nested dict format {value, changed_at, ...}
+                cmd_val = cmd.get("value") if isinstance(cmd, dict) else cmd
+                mode = agent.get("mode")
+                mode_val = (
+                    mode.get("value") if isinstance(mode, dict) else mode
+                )
+                if cmd_val and cmd_val != mode_val:
+                    return cmd_val
                 return "-"
             val = agent.get(key)
             if val is None:
                 return "-"
+            # Handle nested dict format (e.g., mode/state with value key)
+            if isinstance(val, dict):
+                if "value" in val:
+                    # Extract value from nested structure
+                    return str(val.get("value", "-"))
+                # For other dicts (like lists of complex objects),
+                # show a simplified representation
+                return f"[{len(val)} items]"
             if isinstance(val, list):
+                # Handle lists of dicts (e.g., links) vs simple lists
+                if val and isinstance(val[0], dict):
+                    # For lists of dicts, show a count or simplified format
+                    return f"[{len(val)} items]"
                 val = ", ".join(str(v) for v in val)
             return str(val)
 
