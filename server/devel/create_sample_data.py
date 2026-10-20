@@ -451,7 +451,7 @@ def main():
             continue
 
         agent_name = random.choice(free)
-        admin_client.assign_job_to_agent(
+        agent_client.assign_job_to_agent(
             agent_name, job_id, AGENT_STATE_FOR_JOB_STATE[job_state]
         )
         agent_running_job[agent_name] = job_id
