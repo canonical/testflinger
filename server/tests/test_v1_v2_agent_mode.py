@@ -432,3 +432,36 @@ def test_agent_transitions_v1_to_v2_gracefully(mongo_app, agent_auth_header):
     v1_read_data = response.get_json()
     assert v1_read_data["state"] == "ready"
     assert v1_read_data["queues"] == ["queue1", "queue2"]
+
+
+def test_v2_agent_post_with_links(mongo_app, agent_auth_header):
+    """V2 agent can POST links field along with other agent data."""
+    app, mongo = mongo_app
+    agent_name = "agent-links"
+
+    # V2 agent posts comprehensive data including links
+    links_data = [
+        {"url": "https://canonical.com/maas", "label": "MAAS"},
+        {"url": "https://certification.canonical.com", "label": "C3"},
+    ]
+    response = app.post(
+        f"/v2/agents/{agent_name}/data",
+        json={
+            "mode": "online",
+            "state": "waiting",
+            "provision_type": "fake_connector",
+            "location": "lab-a",
+            "queues": ["queue1"],
+            "links": links_data,
+        },
+        headers=agent_auth_header,
+    )
+
+    assert response.status_code == HTTPStatus.OK
+
+    # Verify links are stored in database
+    record = mongo.agents.find_one({"name": agent_name})
+    assert record["links"] == links_data
+    assert record["provision_type"] == "fake_connector"
+    assert record["location"] == "lab-a"
+    assert record["queues"] == ["queue1"]

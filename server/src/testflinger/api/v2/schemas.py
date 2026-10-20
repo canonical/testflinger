@@ -19,7 +19,7 @@ from apiflask import Schema, fields
 from apiflask.validators import OneOf
 from testflinger_common.enums import AgentMode, AgentState
 
-from testflinger.api.schemas import AgentJob
+from testflinger.api.schemas import AgentJob, AgentLink
 
 # Valid agent modes (v2 API constraint; v1 has no validation)
 ValidAgentModes = [mode.value for mode in AgentMode]
@@ -59,6 +59,7 @@ class AgentInV2(Schema):
     state = fields.String(
         required=False, validate=OneOf(ValidAgentInputStates)
     )
+    links = fields.List(fields.Nested(AgentLink), required=False)
 
 
 class CommandedModeIn(Schema):
@@ -119,3 +120,4 @@ class AgentOutV2(Schema):
     provision_type = fields.String(required=False)
     restricted_to = fields.Dict(required=False)
     job = fields.Nested(AgentJob, required=False, allow_none=True)
+    links = fields.List(fields.Nested(AgentLink), required=False)
