@@ -19,7 +19,6 @@ allow you to use the production server.
 """
 
 import logging
-import os
 import random
 import sys
 from argparse import ArgumentParser, Namespace
@@ -28,7 +27,7 @@ from datetime import datetime, timezone
 from typing import Iterator, Optional, Tuple
 
 import requests
-from sample_users import SAMPLE_CLIENTS, AGENT_CREDENTIALS
+from sample_users import SAMPLE_CLIENTS, TESTFLINGER_ADMIN_ID, TESTFLINGER_AGENT_ID
 
 logging.basicConfig(level=logging.INFO)
 
@@ -349,15 +348,19 @@ def main():
     args = get_args()
 
     # Primary client used for queue/agent setup (needs admin role)
+    admin_creds = SAMPLE_CLIENTS[TESTFLINGER_ADMIN_ID]
     admin_client = TestflingerClient(
         server_url=args.server,
-        client_id=os.environ.get("TESTFLINGER_CLIENT_ID", "testflinger-admin"),
-        client_key=os.environ.get("TESTFLINGER_SECRET_KEY", "testflinger"),
+        client_id=admin_creds["client_id"],
+        client_key=admin_creds["secret_key"],
     )
+    # Agent client for posting agent data (v2 requires agents to post
+    # their own data)
+    agent_creds = SAMPLE_CLIENTS[TESTFLINGER_AGENT_ID]
     agent_client = TestflingerClient(
         server_url=args.server,
-        client_id=AGENT_CREDENTIALS["client_id"],
-        client_key=AGENT_CREDENTIALS["secret_key"],
+        client_id=agent_creds["client_id"],
+        client_key=agent_creds["secret_key"],
     )
 
     queues = QueueDataGenerator(num_queues=args.queues)
