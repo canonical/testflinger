@@ -23,8 +23,12 @@ container.
     docker compose exec testflinger python3 devel/create_sample_users.py
 
 The inserted credential matches the defaults used by create_sample_data.py:
-    TESTFLINGER_CLIENT_ID : dev-admin
-    TESTFLINGER_SECRET_KEY: dev-secret-for-testing
+    TESTFLINGER_CLIENT_ID : testflinger-admin
+    TESTFLINGER_SECRET_KEY: testflinger
+
+Agent credentials are created for v2 sample data population:
+    TESTFLINGER_AGENT_ID : testflinger-agent
+    TESTFLINGER_AGENT_SECRET: testflinger
 
 Sample clients are also inserted with varied client_id/email combinations.
 Some emails are intentionally reused across different client IDs to reflect
@@ -37,12 +41,14 @@ import bcrypt
 from pymongo import MongoClient
 
 from testflinger.database import get_mongo_uri
-from sample_users import SAMPLE_CLIENTS
+from sample_users import (
+    SAMPLE_CLIENTS,
+    TESTFLINGER_AGENT_ID,
+    TESTFLINGER_AGENT_SECRET,
+)
 
-# testflinger-admin is both the OIDC identity (via Dex) and a credential-based
-# admin client used by create_sample_data.py.
-TESTFLINGER_ADMIN_ID = "testflinger-admin"
-TESTFLINGER_ADMIN_SECRET = "testflinger"
+# testflinger-admin is the admin credential used by create_sample_data.py.
+# testflinger-agent is the agent credential used for v2 agent data posting.
 
 
 def _make_secret_hash(secret: str) -> str:
@@ -54,18 +60,33 @@ def main():
     mongo_db = os.environ.get("MONGODB_DATABASE", "testflinger_db")
     db = MongoClient(host=mongo_uri)[mongo_db]
 
-    if not db.client_permissions.find_one({"client_id": TESTFLINGER_ADMIN_ID}):
+    if not db.client_permissions.find_one({"client_id": "testflinger-admin"}):
         db.client_permissions.insert_one(
             {
-                "client_id": TESTFLINGER_ADMIN_ID,
-                "client_secret_hash": _make_secret_hash(TESTFLINGER_ADMIN_SECRET),
+                "client_id": "testflinger-admin",
+                "client_secret_hash": _make_secret_hash("testflinger"),
                 "role": "admin",
                 "max_priority": {"*": 100},
                 "allowed_queues": [],
                 "max_reservation_time": {},
             }
         )
-        print(f"Created admin credential '{TESTFLINGER_ADMIN_ID}'")
+        print("Created admin credential 'testflinger-admin'")
+
+    if not db.client_permissions.find_one({"client_id": TESTFLINGER_AGENT_ID}):
+        db.client_permissions.insert_one(
+            {
+                "client_id": TESTFLINGER_AGENT_ID,
+                "client_secret_hash": _make_secret_hash(
+                    TESTFLINGER_AGENT_SECRET
+                ),
+                "role": "agent",
+                "max_priority": {"*": 0},
+                "allowed_queues": [],
+                "max_reservation_time": {},
+            }
+        )
+        print(f"Created agent credential '{TESTFLINGER_AGENT_ID}'")
 
     for client in SAMPLE_CLIENTS:
         client_id = client["client_id"]

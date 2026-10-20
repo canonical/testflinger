@@ -22,9 +22,11 @@ Sample user data for use in local testing and development.
 
 # Agent credentials for v2 sample data generation (agents must post their
 # own data to the v2 API)
+TESTFLINGER_AGENT_ID = "testflinger-agent"
+TESTFLINGER_AGENT_SECRET = "testflinger"
 AGENT_CREDENTIALS = {
-    "client_id": "testflinger-agent",
-    "secret_key": "testflinger",
+    "client_id": TESTFLINGER_AGENT_ID,
+    "secret_key": TESTFLINGER_AGENT_SECRET,
 }
 
 # Sample credential-based clients with client_id and email fields.
