@@ -25,7 +25,11 @@ REQUIRED_ROLES = {"admin", "manager", "contributor"}
 
 def _development_users() -> list[dict]:
     """Return users configured for the development auto-sign-in menu."""
-    users = [user for user in SAMPLE_CLIENTS if user.get("dev_auto_signin")]
+    users = [
+        user
+        for user in SAMPLE_CLIENTS.values()
+        if user.get("dev_auto_signin")
+    ]
     roles = {user["role"] for user in users}
     missing_roles = REQUIRED_ROLES - roles
     if missing_roles:
@@ -36,7 +40,11 @@ def _development_users() -> list[dict]:
 
 def _write_dex_config(users: list[dict]) -> None:
     """Write Dex configuration for all sample clients with an OIDC identity."""
-    dex_users = [user for user in SAMPLE_CLIENTS if "dex_user_id" in user]
+    dex_users = [
+        user
+        for user in SAMPLE_CLIENTS.values()
+        if "dex_user_id" in user
+    ]
     lines = [
         "issuer: http://dex:5556",
         "storage:",
