@@ -373,7 +373,7 @@ def main():
         num_agents=args.agents, queue_list=valid_queue_names
     )
     agent_list = list(agents)
-    admin_client.post_agent_data(iter(agent_list))
+    agent_client.post_agent_data(iter(agent_list))
     logging.info("Created %s agents", args.agents)
 
     # Only post jobs to queues that at least one agent actually serves —
