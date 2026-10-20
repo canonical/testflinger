@@ -58,5 +58,5 @@ check: zizmor agent::check agent::charm::check cli::check common::check device-c
 
 [doc('Run all fixes.')]
 [group('test')]
-fix: agent::format agent::charm::format cli::format common::format device-connectors::format server::format server::charm::format server::schema server::roles-docs server::permissions
+fix: agent::fix agent::charm::fix cli::fix common::fix device-connectors::fix server::fix
     @echo 'All done!'
