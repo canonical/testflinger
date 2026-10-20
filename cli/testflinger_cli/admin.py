@@ -85,7 +85,7 @@ class TestflingerAdminCLI:
         parser.add_argument(
             "--mode",
             required=True,
-            choices=["online", "offline", "maintenance"],
+            choices=["online", "offline", "maintenance", "restart"],
             help="Mode to set for the agent(s)",
         )
         parser.add_argument(

@@ -247,6 +247,36 @@ class Client:
             self._handle_response_error(req)
         return req.text
 
+    def patch(
+        self,
+        uri_frag: str,
+        data: dict,
+        timeout: int = DEFAULT_TIMEOUT,
+    ):
+        """Submit a PATCH request to the server.
+
+        :param uri_frag: endpoint for the PATCH request
+        :param data: JSON data to send in the request body
+        :param timeout: timeout for the request to complete
+        :return: string containing the response from the server
+        """
+        uri = urllib.parse.urljoin(self.server, uri_frag)
+        try:
+            req = self.session.patch(uri, json=data, timeout=timeout)
+        except requests.exceptions.Timeout as exc:
+            raise NetworkError(
+                "Timeout while trying to communicate with the server."
+            ) from exc
+        except requests.exceptions.ConnectionError as exc:
+            raise NetworkError(
+                "Unable to communicate with specified server."
+            ) from exc
+        # If request was not successful, raise HTTPError with parsed response
+        # PATCH endpoints may return 204 No Content instead of 200 OK
+        if req.status_code not in (HTTPStatus.OK, HTTPStatus.NO_CONTENT):
+            self._handle_response_error(req)
+        return req.text
+
     def delete(self, uri_frag: str, timeout: int = DEFAULT_TIMEOUT):
         """Submit a DELETE request to the server
         :param uri_frag: endpoint for the DELETE request
@@ -533,9 +563,9 @@ class Client:
         :param comment: Optional reason for the mode change. An empty value
             clears the agent's existing comment.
         """
-        endpoint = f"/v2/agents/{agent}/data"
+        endpoint = f"/v2/agents/{agent}/commanded_mode"
         data = {"commanded_mode": mode, "comment": comment}
-        self.post(endpoint, data)
+        self.patch(endpoint, data)
 
     def set_client_permissions(self, json_data: dict):
         """Set existing client_id permissions.
