@@ -409,3 +409,54 @@ def test_auth_poll_successful_registration(
         )
         assert client_entry is not None
         assert client_entry["sub"] == "test-sub-1234"
+
+
+@patch("testflinger.oidc.helpers.oidc_userinfo")
+@patch("testflinger.oidc.helpers.requests.post")
+def test_auth_poll_returns_valid_json_on_success(
+    mock_post, mock_userinfo, oidc_app, user
+):
+    """Test /auth-poll returns valid JSON (not raw dict) on success."""
+    app, mongo = oidc_app
+    mock_token_response = MagicMock()
+    mock_token_response.status_code = HTTPStatus.OK
+    mock_token_response.json.return_value = {
+        "access_token": "fake-access-token"
+    }
+    mock_post.return_value = mock_token_response
+    mock_userinfo.return_value = {
+        "sub": "test-sub-5678",
+        "email": user.emails[0],
+        "name": user.user_name,
+    }
+    with app.app_context():
+        mongo.device_codes.insert_one(
+            {
+                "request_id": "test-request-id-json",
+                "device_code": "test-device-code",
+            }
+        )
+        response = app.test_client().post(
+            "/oidc/auth-poll/test-request-id-json"
+        )
+        # Must be able to parse response as JSON without errors
+        assert response.status_code == HTTPStatus.OK
+        assert response.content_type == "application/json"
+        data = response.get_json()
+        # This should not raise JSONDecodeError
+        assert data is not None
+
+
+@patch("testflinger.database.get_oidc_device_code")
+def test_auth_poll_handles_database_error(mock_get_device_code, oidc_app):
+    """Test /auth-poll handles database errors gracefully."""
+    app, _ = oidc_app
+    # Simulate database connection error
+    mock_get_device_code.side_effect = Exception("Database connection failed")
+    with app.app_context():
+        response = app.test_client().post("/oidc/auth-poll/test-request-id")
+        assert response.status_code == HTTPStatus.INTERNAL_SERVER_ERROR
+        # Response must still be valid JSON with error message
+        data = response.get_json()
+        assert data is not None
+        assert "message" in data or "error" in data

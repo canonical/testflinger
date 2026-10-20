@@ -41,9 +41,9 @@ def test_agents_post_state_is_folded_into_a_mode(mongo_app, agent_auth_header):
 
     assert 200 == output.status_code
     record = mongo.agents.find_one({"name": agent_name})
-    assert record["comment"] == "note only"
-    # Database stores in nested v2 format
+    # Database stores in nested v2 format, including comment in mode
     assert record["mode"]["value"] == "online"
+    assert record["mode"]["comment"] == "note only"
     assert record["state"]["value"] == "provision"
 
 

@@ -599,9 +599,9 @@ def _promote_v1_to_v2(agent: dict) -> list[str]:
     """Normalize legacy v1-shaped agent records to v2 canonical format.
 
     V1 Client (v1 format) --[_promote]--> (v2 format) ----+
-                                                          |
+                                                           |
     V1 Database (v1 format) --[_promote]--> (v2 format) --+
-                                                          |
+                                                           |
     All data written to database in V2 format <-----------+
 
     Converts from flat structure (state only) to v2 nested format (mode/state).
@@ -623,45 +623,46 @@ def _promote_v1_to_v2(agent: dict) -> list[str]:
 
     # We are only dealing with V1 data structures at this point:
     state_value = agent.get("state")
+    comment = agent.pop("comment", None)
 
-    # If we have a v1 mode-as-state value, return the appropriate inferred
-    # mode value:
+    # Determine mode value and whether to create a state sub-structure
+    mode_value = None
+    state_nested = None
+
     if state_value in (AgentMode.OFFLINE, AgentMode.RESTART):
-        agent["mode"] = {
-            "value": state_value,
-            "changed_at": now,
-        }
+        mode_value = state_value
         agent.pop("state", None)
         fields_to_unset.append("state")
     elif state_value == AgentMode.MAINTENANCE:
-        agent["mode"] = {
-            "value": AgentMode.MAINTENANCE,
-            "changed_at": now,
-        }
-        agent["state"] = {
-            "value": AgentState.WAITING,
-            "changed_at": now,
-        }
+        mode_value = AgentMode.MAINTENANCE
+        state_nested = AgentState.WAITING
     elif state_value == AgentState.UNKNOWN:
-        agent["mode"] = {
-            "value": AgentMode.ONLINE,
-            "changed_at": now,
-        }
-        agent["state"] = {
-            "value": AgentState.WAITING,
-            "changed_at": now,
-        }
+        mode_value = AgentMode.ONLINE
+        state_nested = AgentState.WAITING
     elif state_value:
         # A v1 agent reporting a sub-state implicitly means online.
-        agent["mode"] = {
-            "value": AgentMode.ONLINE,
-            "changed_at": now,
-        }
+        mode_value = AgentMode.ONLINE
+        state_nested = state_value
+    else:
+        # No state_value, restore comment to top level if present
+        if comment:
+            agent["comment"] = comment
+        return fields_to_unset
+
+    # Create mode dict with comment if present
+    agent["mode"] = {
+        "value": mode_value,
+        "changed_at": now,
+    }
+    if comment:
+        agent["mode"]["comment"] = comment
+
+    # Create state dict if needed
+    if state_nested:
         agent["state"] = {
-            "value": state_value,
+            "value": state_nested,
             "changed_at": now,
         }
-    # else: no state_value, no changes
 
     return fields_to_unset
 
