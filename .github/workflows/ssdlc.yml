@@ -1,0 +1,39 @@
+name: SSDLC
+
+on:
+  schedule:
+    - cron: '0 3 1 * *'
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ssdlc:
+      name: SSDLC check for ${{ matrix.component }}
+      runs-on: ubuntu-latest
+      permissions:
+        contents: read # for actions/checkout to fetch code
+        security-events: write # to upload SARIF results
+
+      strategy:
+          fail-fast: false
+          matrix:
+            component: [agent, common, device-connectors, cli, server]
+
+      steps:
+        - name: Checkout
+          uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+          with:
+            persist-credentials: false
+
+        - name: Scan
+          uses: canonical/reposcan@760e06d3db4a95bba2697fd586aa815975682428 # v0.2.1
+          with:
+            path: ${{ matrix.component }}
+            sbom: true
+            code-scanning: true
+            fail-on: none # report-only: never fail on findings
