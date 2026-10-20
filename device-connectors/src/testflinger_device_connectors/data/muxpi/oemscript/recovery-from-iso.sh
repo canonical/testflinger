@@ -413,9 +413,12 @@ cleanup_dut() {
     # Preserve recent logs while freeing space from previous jobs.
     echo "Pruning old journal logs on DUT..."
     $SSH "$user_on_target"@"$target_ip" -- sudo journalctl --rotate --vacuum-size=100M
-    # Truncate because the running Xorg process owns this file's open inode.
-    $SSH "$user_on_target"@"$target_ip" "truncate -s 0 ~/.local/share/xorg/Xorg.0.log"
-    $SSH "$user_on_target"@"$target_ip" "rm -f ~/.local/share/xorg/Xorg.0.log.old"
+    # An X11 session keeps its server log open, but that file only exists
+    # after a graphical login of that type: Wayland sessions never create
+    # it, and the directory itself may be absent. As this script runs with
+    # `set -e`, a missing log must not abort the whole recovery.
+    $SSH "$user_on_target"@"$target_ip" \
+        "rm -f ~/.local/share/xorg/Xorg.0.log* || true"
 }
 
 wget_iso_on_dut() {
