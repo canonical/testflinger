@@ -19,7 +19,27 @@ def main():
     content = re.sub(r'agent_id:.*', f'agent_id: {name}', content)
     content = re.sub(r'server_address:.*', f'server_address: {server_url}', content)
     content = re.sub(r'/tmp/testflinger/[^/]+/', f'/tmp/testflinger/{name}/', content)
-    content = re.sub(r'^  - .*$', f'  - {name}', content, flags=re.MULTILINE)
+    
+    # Only replace job_queues entries, not links
+    lines = content.split('\n')
+    in_job_queues = False
+    new_lines = []
+    for line in lines:
+        if line.startswith('job_queues:'):
+            in_job_queues = True
+            new_lines.append(line)
+        elif in_job_queues and line.startswith('  - '):
+            # This is in job_queues section
+            new_lines.append(f'  - {name}')
+            in_job_queues = False
+        elif line.startswith('  - ') or line.startswith('links:'):
+            # Stop processing job_queues if we hit another section
+            in_job_queues = False
+            new_lines.append(line)
+        else:
+            new_lines.append(line)
+    
+    content = '\n'.join(new_lines)
     content = re.sub(r'provision_type:.*', f'provision_type: {connector}', content)
     
     with open(config_file, 'w') as f:
@@ -27,3 +47,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+
