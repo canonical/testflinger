@@ -2243,6 +2243,78 @@ def test_agent_list_table_nested_dict_fields(capsys, requests_mock):
     assert '{"value"' not in clean_out
 
 
+def test_agent_list_comment_field_extraction(capsys, requests_mock):
+    """Validate list-agents correctly extracts comment from nested structures.
+
+    The comment field may be stored at the top level (v1 format) or nested
+    inside mode/commanded_mode (v2 format). The CLI should handle both.
+    """
+    from datetime import datetime, timezone
+
+    now = datetime.now(timezone.utc).isoformat()
+    fake_agents = [
+        {
+            "name": "agent_top_level",
+            "comment": "Top-level comment",
+            "mode": "online",
+            "state": "waiting",
+        },
+        {
+            "name": "agent_nested_mode",
+            "mode": {
+                "value": "maintenance",
+                "changed_at": now,
+                "comment": "Maintenance comment in mode",
+            },
+            "state": None,
+            "commanded_mode": None,
+        },
+        {
+            "name": "agent_nested_cmd_mode",
+            "mode": {"value": "online", "changed_at": now},
+            "state": {"value": "waiting", "changed_at": now},
+            "commanded_mode": {
+                "value": "offline",
+                "changed_at": now,
+                "comment": "Going offline for upgrades",
+            },
+        },
+        {
+            "name": "agent_no_comment",
+            "mode": {"value": "online", "changed_at": now},
+            "state": None,
+            "commanded_mode": None,
+        },
+    ]
+    requests_mock.get(f"{URL}/v2/agents/data", json=fake_agents)
+    sys.argv = [
+        "",
+        "list-agents",
+        "--fields=name,mode,comment",
+    ]
+    tfcli = testflinger_cli.TestflingerCli()
+    tfcli.list_agents()
+    output = capsys.readouterr()
+
+    # Remove ANSI codes for easier testing
+    import re
+
+    clean_out = re.sub(r"\x1b\[[0-9;]*m", "", output.out)
+
+    # Verify all comments are extracted correctly
+    assert "agent_top_level" in clean_out
+    assert "Top-level comment" in clean_out
+
+    assert "agent_nested_mode" in clean_out
+    assert "Maintenance comment in mode" in clean_out
+
+    assert "agent_nested_cmd_mode" in clean_out
+    assert "Going offline for upgrades" in clean_out
+
+    assert "agent_no_comment" in clean_out
+    assert clean_out.count("-") >= 1  # At least one "-" for missing comment
+
+
 def test_queue_status(capsys, requests_mock, auth_fixture):
     """Validate that the status for the queue is retrieved."""
     auth_fixture("user")

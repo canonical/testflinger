@@ -987,6 +987,19 @@ class TestflingerCli:
                     return cmd_val
                 return "-"
             val = agent.get(key)
+            if val is None and key == "comment":
+                # Special handling for comment field: in v2 schema,
+                # comment may be nested inside commanded_mode or mode
+                # Commanded mode takes precedence over mode
+                val = (
+                    agent.get("commanded_mode", {}).get("comment")
+                    if isinstance(agent.get("commanded_mode"), dict)
+                    else None
+                ) or (
+                    agent.get("mode", {}).get("comment")
+                    if isinstance(agent.get("mode"), dict)
+                    else None
+                )
             if val is None:
                 return "-"
             # Handle nested dict format (e.g., mode/state with value key)
@@ -1042,6 +1055,23 @@ class TestflingerCli:
                         agent_dict[field] = cmd
                     else:
                         agent_dict[field] = None
+                elif field == "comment":
+                    # Comment may be at top level or nested in
+                    # commanded_mode or mode. Commanded mode takes
+                    # precedence.
+                    agent_dict[field] = (
+                        agent.get("comment")
+                        or (
+                            agent.get("commanded_mode", {}).get("comment")
+                            if isinstance(agent.get("commanded_mode"), dict)
+                            else None
+                        )
+                        or (
+                            agent.get("mode", {}).get("comment")
+                            if isinstance(agent.get("mode"), dict)
+                            else None
+                        )
+                    )
                 else:
                     agent_dict[field] = agent.get(field)
             output.append(agent_dict)
