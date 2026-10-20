@@ -355,7 +355,12 @@ def main():
     # job is stamped with a realistic client_id by the server.  The client
     # IDs here must match the credential-based accounts created by
     # create_sample_users.py (from the SAMPLE_CLIENTS dict).
-    job_client_ids = list(SAMPLE_CLIENTS.keys())
+    # Exclude agents since they cannot post jobs.
+    job_client_ids = [
+        client_id
+        for client_id, client in SAMPLE_CLIENTS.items()
+        if client["role"] != "agent"
+    ]
     job_clients = [
         TestflingerClient(
             server_url=args.server,
