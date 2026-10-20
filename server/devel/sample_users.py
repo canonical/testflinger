@@ -19,6 +19,14 @@ Sample user data for use in local testing and development.
 # located in this file due to import and execution environments with respect
 # to mongodb. While create_sample_users can import this file, the other
 # direction is not possible.
+
+# Agent credentials for v2 sample data generation (agents must post their
+# own data to the v2 API)
+AGENT_CREDENTIALS = {
+    "client_id": "testflinger-agent",
+    "secret_key": "testflinger",
+}
+
 # Sample credential-based clients with client_id and email fields.
 # alice@example.com is reused across two client IDs to demonstrate that a
 # single contact email can be associated with multiple service accounts.

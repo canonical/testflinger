@@ -28,7 +28,7 @@ from datetime import datetime, timezone
 from typing import Iterator, Optional, Tuple
 
 import requests
-from sample_users import SAMPLE_CLIENTS, SAMPLE_AGENT_CREDENTIALS
+from sample_users import SAMPLE_CLIENTS, AGENT_CREDENTIALS
 
 logging.basicConfig(level=logging.INFO)
 
@@ -356,8 +356,8 @@ def main():
     )
     agent_client = TestflingerClient(
         server_url=args.server,
-        client_id=SAMPLE_AGENT_CREDENTIALS["client_id"],
-        client_key=SAMPLE_AGENT_CREDENTIALS["secret_key"],
+        client_id=AGENT_CREDENTIALS["client_id"],
+        client_key=AGENT_CREDENTIALS["secret_key"],
     )
 
     queues = QueueDataGenerator(num_queues=args.queues)
@@ -426,20 +426,20 @@ def main():
 
         if job_state not in AGENT_STATE_FOR_JOB_STATE:
             if job_state != "waiting":
-                agent_client.post_job_results(job_id, job_state)
+                admin_client.post_job_results(job_id, job_state)
             continue
 
         # Pick a random agent that serves this queue
         candidates = queue_to_agents.get(queue, [])
         if not candidates:
-            agent_client.post_job_results(job_id, job_state)
+            admin_client.post_job_results(job_id, job_state)
             continue
 
         free = [
             agent for agent in candidates if agent not in agent_running_job
         ]
         if not free:
-            agent_client.post_job_results(job_id, job_state)
+            admin_client.post_job_results(job_id, job_state)
             continue
 
         agent_name = random.choice(free)
@@ -447,7 +447,7 @@ def main():
             agent_name, job_id, AGENT_STATE_FOR_JOB_STATE[job_state]
         )
         agent_running_job[agent_name] = job_id
-        agent_client.post_job_results(job_id, job_state, agent_name)
+        admin_client.post_job_results(job_id, job_state, agent_name)
         associations += 1
 
     logging.info("Associated %s jobs with agents", associations)
