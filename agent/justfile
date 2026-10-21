@@ -82,5 +82,11 @@ start connector='fake_connector' agent_name='' server_url='http://localhost:5000
     # Update agent configuration with the provided name and connector
     python3 devel/update_config.py "{{connector}}" "$name" "{{server_url}}" "$config"
     
-    uv run python devel/refresh-token-getter.py "{{server_url}}" "$token"
-    uv run --group test testflinger-agent -c "$config" --token-file "$token"
+    echo "Starting a while loop to run the agent. Use Ctrl-C TWICE to exit!"
+    while :; do
+        uv run python devel/refresh-token-getter.py "{{server_url}}" "$token"
+        uv run --group test testflinger-agent -c "$config" --token-file "$token"
+        echo "Agent process ended, sleeping for 3 seconds."
+        sleep 3
+    done
+
