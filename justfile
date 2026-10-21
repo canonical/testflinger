@@ -11,6 +11,8 @@ mod device-connectors
 mod server
 # Documentation sub-recipes.
 mod docs
+# Integration tests sub-recipes.
+mod integration
 
 [doc('Describe usage and list the available recipes.')]
 help:
@@ -42,7 +44,7 @@ lint: agent::lint agent::charm::lint cli::lint common::lint device-connectors::l
 
 [doc('Run unit tests for all projects.')]
 [group('test')]
-test: agent::test agent::charm::test cli::test common::test device-connectors::test server::test server::charm::test
+test: agent::test agent::charm::test cli::test common::test device-connectors::test server::test server::charm::test integration::test
     @echo 'All done!'
 
 [doc('Remove tox environments for all projects (forces full reinstall on next run).')]

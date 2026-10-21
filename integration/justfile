@@ -1,0 +1,51 @@
+# Copyright (C) 2022 Canonical
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+
+[doc('Run integration tests against a running server and agent.')]
+[group('test')]
+test:
+    @echo "Integration Test Runner (v2 API)"
+    @echo "=============================="
+    @echo ""
+    @echo "Requirements:"
+    @echo "  - Running server (default: http://localhost:5000)"
+    @echo "  - Running agent (e.g., agent_v2)"
+    @echo ""
+    @echo "Environment variables:"
+    @echo "  TESTFLINGER_SERVER - Server URL (default: http://localhost:5000)"
+    @echo ""
+    @echo "Example:"
+    @echo "  TESTFLINGER_SERVER=http://192.168.4.201:5000 just test"
+    @echo ""
+    cd ../cli && uv run pytest -xvs ../integration/test/
+
+[doc('Run tests with verbose logging.')]
+[group('test')]
+test-verbose:
+    @echo "Running with verbose output..."
+    cd ../cli && PYTEST_LOG_CLI_LEVEL=DEBUG \
+    uv run pytest -xvs ../integration/test/
+
+[doc('Format integration tests.')]
+[group('lint')]
+format:
+    @ruff format .
+    @ruff check --fix .
+
+[doc('Lint integration tests.')]
+[group('lint')]
+lint:
+    @ruff check .

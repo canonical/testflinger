@@ -1,0 +1,14 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "testflinger-integration-tests"
+version = "0.1.0"
+description = "Integration tests for Testflinger v2 mode persistence"
+requires-python = ">=3.10"
+
+dependencies = [
+    "pytest>=7.0",
+    "requests>=2.28",
+]
