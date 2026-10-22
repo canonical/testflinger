@@ -1,5 +1,5 @@
 # Packages that need a Rust toolchain to build from source for which architectures do not
 # have prebuilt wheels. Build the wheels in the wheel-builder stage of the Dockerfile so 
-# doesn't need Rust.
+# the final image doesn't ship Rust.
 cryptography~=50.0
 bcrypt~=5.0

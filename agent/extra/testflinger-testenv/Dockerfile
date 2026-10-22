@@ -10,13 +10,14 @@ ENV container=docker
 RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
     build-essential python3-dev python3-pip python3-venv \
     pkg-config libssl-dev && rm -rf /var/lib/apt/lists/*
+RUN python3 -m venv /tmp/wheel-venv && /tmp/wheel-venv/bin/pip install --upgrade pip
 ENV RUSTUP_HOME=/usr/local/rustup \
     CARGO_HOME=/usr/local/cargo \
     PATH=/usr/local/cargo/bin:$PATH
 COPY --from=rust-source /usr/local/rustup /usr/local/rustup
 COPY --from=rust-source /usr/local/cargo /usr/local/cargo
 COPY requirements-wheels.txt /tmp/requirements-wheels.txt
-RUN pip wheel --wheel-dir /wheels -r /tmp/requirements-wheels.txt
+RUN /tmp/wheel-venv/bin/pip wheel --wheel-dir /wheels -r /tmp/requirements-wheels.txt
 
 FROM ${BASE_IMAGE}
 ENV container=docker
