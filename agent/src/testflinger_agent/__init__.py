@@ -118,15 +118,35 @@ class ReqBufferFormatter(logging.Formatter):
         return {"log": records}
 
 
+class ModeFilter(logging.Filter):
+    """Filter to inject agent mode into log records."""
+
+    def __init__(self, agent=None):
+        super().__init__()
+        self.agent = agent
+
+    def filter(self, record):
+        """Add mode attribute to log record."""
+        if self.agent and hasattr(self.agent, "current_mode"):
+            record.mode = (
+                self.agent.current_mode.name
+                if (self.agent.current_mode)
+                else "UNKNOWN"
+            )
+        else:
+            record.mode = "UNKNOWN"
+        return True
+
+
 def start_agent():
     args = parse_args()
     config = load_config(args.config)
     config["metrics_endpoint_port"] = args.metrics_port
     config["token_file"] = str(args.token_file)
-    configure_logging(config)
-    check_interval = config.get("polling_interval")
     client = TestflingerClient(config)
     agent = TestflingerAgent(client)
+    configure_logging(config, agent)
+    check_interval = config.get("polling_interval")
     while True:
         # Only check agent status and process jobs if server is available
         client.wait_for_server_connectivity()
@@ -157,7 +177,7 @@ def load_config(configfile):
     return config
 
 
-def configure_logging(config):
+def configure_logging(config, agent=None):
     # Create these at the beginning so we fail early if there are
     # permission problems
     os.makedirs(config.get("logging_basedir"), exist_ok=True)
@@ -169,10 +189,11 @@ def configure_logging(config):
     logfmt = logging.Formatter(
         fmt=(
             "[%(asctime)s] %(levelname)+7.7s: "
-            "(%(filename)s:%(lineno)d)| %(message)s"
+            "%(mode)-7.7s | (%(filename)s:%(lineno)d)| %(message)s"
         ),
         datefmt="%y-%m-%d %H:%M:%S",
     )
+    mode_filter = ModeFilter(agent)
     log_path = os.path.join(
         config.get("logging_basedir"), "testflinger-agent.log"
     )
@@ -180,6 +201,7 @@ def configure_logging(config):
         log_path, when="midnight", interval=1, backupCount=6
     )
     file_log.setFormatter(logfmt)
+    file_log.addFilter(mode_filter)
     logger.addHandler(file_log)
     # requests logging
     # inherit from logger __name__
@@ -196,6 +218,7 @@ def configure_logging(config):
     if not config.get("logging_quiet"):
         console_log = logging.StreamHandler()
         console_log.setFormatter(logfmt)
+        console_log.addFilter(mode_filter)
         logger.addHandler(console_log)
     logger.setLevel(log_level)
 
