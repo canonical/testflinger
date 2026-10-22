@@ -66,7 +66,7 @@ clean:
 [group('deploy')]
 start connector='fake_connector' agent_name='' server_url='http://localhost:5000':
     #!/usr/bin/env bash
-    set -euxo pipefail
+    set -uxo pipefail
     runtime_dir="devel/.testflinger"
     
     # Use provided agent_name, or derive it from connector if not provided
@@ -84,8 +84,8 @@ start connector='fake_connector' agent_name='' server_url='http://localhost:5000
     
     echo "Starting a while loop to run the agent. Use Ctrl-C TWICE to exit!"
     while :; do
-        uv run python devel/refresh-token-getter.py "{{server_url}}" "$token"
-        uv run --group test testflinger-agent -c "$config" --token-file "$token"
+        uv run python devel/refresh-token-getter.py "{{server_url}}" "$token" || true
+        uv run --group test testflinger-agent -c "$config" --token-file "$token" || true
         echo "Agent process ended, sleeping for 3 seconds."
         sleep 3
     done
