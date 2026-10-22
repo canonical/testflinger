@@ -1267,11 +1267,15 @@ def upsert_agent_document(
     :param changed_by: Identity of the admin for commanded_mode
         operations (v2 only).
     """
+    # Ensure unset is a list
+    if unset is None:
+        unset = []
+
     # TODO: remove the v1 reshaping once it's no longer needed
     #  Promote incoming v1 data to v2 format as necessary
     incoming_unset = _promote_v1_to_v2(data)
     if incoming_unset:
-        unset = list(unset or []) + incoming_unset
+        unset = unset + incoming_unset
 
     # TODO: remove the latent db data upgrade from v1 once no longer needed.
     #  Read and if necessary re-write v1 data as v2 before continuing edits.
@@ -1279,78 +1283,49 @@ def upsert_agent_document(
 
     updated_at = data.get("updated_at") or _now()
 
-    # Close loop on commanded vs reported mode:
-    # --------------------------
-    # Special handling when agent posts mode=RESTART:
-    # Save the current mode to commanded_mode to preserve the transition.
-    # Agent startup logic is:
-    #   commanded_mode = read from server
-    #   if commanded_mode:
-    #       adopt commanded_mode
-    #   else:
-    #       adopt mode
-    # By saving current mode to commanded_mode, the agent knows to transition
-    # back to the pre-restart mode after restart completes.
-    # Only do this if there's no existing commanded_mode (self-initiated
-    # restart). If there's an existing commanded_mode, it's an admin command
-    # and should be cleared when the agent reports the corresponding mode.
+    reported_mode = None
     if "mode" in data:
-        reported_mode = (
-            data["mode"]["value"]
-            if isinstance(data["mode"], dict)
-            else data["mode"]
-        )
-        if reported_mode == AgentMode.RESTART.value:
-            existing_agent = mongo.db.agents.find_one({"name": agent_name})
-            existing_commanded = None
-            if existing_agent:
-                existing_commanded_raw = existing_agent.get("commanded_mode")
-                if isinstance(existing_commanded_raw, dict):
-                    existing_commanded = existing_commanded_raw.get("value")
-                else:
-                    existing_commanded = existing_commanded_raw
+        reported_mode = data["mode"]["value"]
 
-            # Only save current mode to commanded_mode if there's no
-            # existing commanded_mode (self-initiated restart)
-            if (
-                not existing_commanded
-                and existing_agent
-                and "mode" in existing_agent
-            ):
-                existing_mode = existing_agent["mode"]
-                if isinstance(existing_mode, dict):
-                    existing_mode_value = existing_mode.get("value")
-                else:
-                    existing_mode_value = existing_mode
-                # Save the current mode to commanded_mode
-                data["commanded_mode"] = {
-                    "value": existing_mode_value,
-                    "changed_at": updated_at,
-                }
+    # Extract values for mode/commanded_mode logic
+    current_mode = None
+    commanded_mode = None
+    if existing_agent := (
+        mongo.db.agents.find_one({"name": agent_name})
+        if "mode" in data
+        else None
+    ):
+        current_mode = existing_agent.get("mode", {}).get("value")
+        # The next prescribed mode value will be exactly what it is unless
+        # other conditions exist to change that.
+        commanded_mode = existing_agent.get("commanded_mode", {}).get("value")
 
-    # Check if agent is reporting a mode that matches a pending
-    # commanded_mode. If so, clear the commanded_mode to prevent
-    # re-execution on next restart. (e.g., admin commanded restart,
-    # agent posted mode="restart", shouldn't re-execute same command
-    # on next startup)
-    if data.get("mode"):
-        existing_agent = mongo.db.agents.find_one({"name": agent_name})
-        if existing_agent:
-            existing_commanded = (
-                existing_agent.get("commanded_mode", {}).get("value")
-                if isinstance(existing_agent.get("commanded_mode"), dict)
-                else existing_agent.get("commanded_mode")
-            )
-            reported_mode_val = (
-                data["mode"]["value"]
-                if isinstance(data["mode"], dict)
-                else data["mode"]
-            )
-            # If agent reports a mode that matches the existing commanded_mode,
-            # clear the commanded_mode so it won't be re-executed
-            if existing_commanded and reported_mode_val == existing_commanded:
-                unset.append("commanded_mode")
-    # --------------------------
+    # Considerations:
+    #  - If the commanded mode equals the reported mode, clear the commanded
+    #    mode (agent acked the command).
+    #  - If the agent is reporting mode=RESTART, preserve the current
+    #    mode as the restoration target (unless a command is pending).
+    #  - Otherwise, retain any pending commanded mode for next cycle.
+
+    # Agent adopted the commanded mode; clear the command
+    # (but NOT if mode=restart, agent is still transitioning)
+    if (
+        reported_mode == commanded_mode
+        and reported_mode != AgentMode.RESTART.value
+    ):
+        unset.append("commanded_mode")
+
+    # Agent is restarting; preserve restoration target. Do not clear
+    # pending commands until they are acked.
+    if (
+        reported_mode == AgentMode.RESTART.value
+        and current_mode
+        and not commanded_mode
+    ):
+        data["commanded_mode"] = {
+            "value": current_mode,
+            "changed_at": updated_at,
+        }
 
     # Build set_fields for the aggregation pipeline, handling mode and state
     # specially for conditional timestamp updates.
