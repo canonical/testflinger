@@ -24,7 +24,7 @@ ENV container=docker
 RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y expect build-essential curl jq gettext git openssh-client pipx python3-dev python3-pip python3-psutil python3-requests python3-setuptools python3-venv software-properties-common sudo sshpass virtualenv wget 
 RUN pipx install uv && ln -s /root/.local/bin/uv /usr/local/bin/uv
 
-# Prebuilt  wheels so pip/pipx don't need a Rust toolchain in this imagec
+# Prebuilt  wheels so pip/pipx don't need a Rust toolchain in this image
 ENV PIP_FIND_LINKS=/wheels
 COPY --from=wheel-builder /wheels /wheels
 
