@@ -27,7 +27,7 @@ jobs:
 
     strategy:
       matrix:
-        version: [focal, jammy, noble]
+        version: [jammy, noble]
 
     steps:
       - name: Set up QEMU
