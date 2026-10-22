@@ -13,7 +13,7 @@ dependencies = [
     "pytest-xdist>=3.8.0",
     "pyyaml>=6.0.2",
     "requests>=2.32.3",
-    "typing-extensions~=4.15.0",
+    "typing-extensions~=4.16.0",
     "validators>=0.34.0",
 ]
 
