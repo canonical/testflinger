@@ -25,7 +25,8 @@ from unittest.mock import MagicMock
 import pytest
 import requests
 
-from testflinger_cli.client import HTTPError
+from testflinger_cli.auth import TestflingerCliAuth as AuthManager
+from testflinger_cli.client import Client, HTTPError
 from testflinger_cli.enums import LogType, TestPhase
 from testflinger_cli.errors import NetworkError
 
@@ -84,6 +85,43 @@ def test_client_request_methods(requests_mock, method, client):
         response = client_method("test")
 
     assert response == "success"
+
+
+@pytest.mark.parametrize("method", ["get", "post", "put", "delete"])
+def test_client_uses_configured_timeout(method):
+    """Use the configured client timeout for API requests."""
+    client = Client(URL, AuthManager(URL), timeout=42)
+    response = MagicMock(status_code=HTTPStatus.OK, text="success")
+    request = MagicMock(return_value=response)
+    setattr(client.session, method, request)
+
+    client_method = getattr(client, method)
+    expected_kwargs = {"timeout": 42}
+    if method in ["post", "put"]:
+        expected_kwargs["json"] = {"key": "value"}
+        result = client_method("test", {"key": "value"})
+    else:
+        result = client_method("test")
+
+    assert result == "success"
+    request.assert_called_once_with(f"{URL}/test", **expected_kwargs)
+
+
+def test_client_artifact_uses_configured_timeout(tmp_path):
+    """Artifact downloads use the configured client timeout too."""
+    client = Client(URL, AuthManager(URL), timeout=42)
+    response = MagicMock(status_code=HTTPStatus.OK)
+    response.raw.stream.return_value = [b"artifact"]
+    request = MagicMock(return_value=response)
+    client.session.get = request
+    path = tmp_path / "artifact.tar.gz"
+
+    client.get_artifact("job-id", path)
+
+    request.assert_called_once_with(
+        f"{URL}/v1/result/job-id/artifact", timeout=42, stream=True
+    )
+    assert path.read_bytes() == b"artifact"
 
 
 @pytest.mark.parametrize("method", ["get", "post", "put", "delete"])
