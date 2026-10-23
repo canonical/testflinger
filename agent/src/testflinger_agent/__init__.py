@@ -133,6 +133,9 @@ class ModeFilter(logging.Filter):
                 if (self.agent.current_mode)
                 else "UNKNOWN"
             )
+            # MAINT is cleaner
+            if record.mode == "MAINTENANCE":
+                record.mode = "MAINT"
         else:
             record.mode = "UNKNOWN"
         return True
