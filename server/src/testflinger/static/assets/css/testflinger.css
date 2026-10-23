@@ -100,7 +100,7 @@ main {
 /* Agent-state chips – colours come from Vanilla's semantic chip classes:
    p-chip--positive (green), p-chip--caution (amber), p-chip--negative (red).
    Vanilla defaults: lead 1rem, value 0.875rem. We shrink both to 9pt. */
-.agent-state-chip { margin-bottom: 0; }
+.agent-state-chip { margin: 0; }
 button.agent-state-chip { cursor: pointer; display: inline-flex; align-items: center; border: none; padding: 0; margin: 0; }
 .agent-state-chip .p-chip__lead,
 .agent-state-chip .p-chip__value { font-size: 9pt; }
@@ -176,7 +176,7 @@ body.is-dark .p-icon--edit,
    p-chip (neutral grey), p-chip--information (blue), p-chip--positive (green),
    p-chip--caution (amber), p-chip--negative (red).
    Vanilla defaults: lead 1rem, value 0.875rem. We shrink to lead 11px / value 10px. */
-.job-state-chip { margin-bottom: 0; }
+.job-state-chip { margin: 0; }
 .job-state-chip.is-read-only { border: 0; }
 /* "waiting" jobs use p-chip (default), which is near-white; nudge to light grey. */
 .job-state-chip.p-chip { background-color: #d9d9d9; }
