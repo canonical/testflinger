@@ -1281,11 +1281,7 @@ def upsert_agent_document(
     # Extract values for mode/commanded_mode logic
     current_mode = None
     commanded_mode = None
-    if existing_agent := (
-        mongo.db.agents.find_one({"name": agent_name})
-        if "mode" in data
-        else None
-    ):
+    if existing_agent := (mongo.db.agents.find_one({"name": agent_name})):
         current_mode = existing_agent.get("mode", {}).get("value")
         # The next prescribed mode value will be exactly what it is unless
         # other conditions exist to change that.
@@ -1299,23 +1295,25 @@ def upsert_agent_document(
     #  - Otherwise, retain any pending commanded mode for next cycle.
 
     # Agent adopted the commanded mode; clear the command
-    # (but NOT if mode=restart, agent is still transitioning)
     if (
-        reported_mode == commanded_mode
-        and reported_mode != AgentMode.RESTART.value
+        reported_mode
+        and commanded_mode
+        and reported_mode == commanded_mode
+        and commanded_mode != AgentMode.RESTART.value
     ):
         unset.append("commanded_mode")
 
-    # Agent is restarting; preserve restoration target. Do not clear
-    # pending commands until they are acked.
+    # Agent is restarting; preserve restoration target, favor exiting command
+    # if the command has not yet been ack'ed.
     if (
         reported_mode == AgentMode.RESTART.value
         and current_mode
-        and not commanded_mode
+        and commanded_mode in (None, AgentMode.RESTART.value)
     ):
         data["commanded_mode"] = {
             "value": current_mode,
             "changed_at": updated_at,
+            "changed_by": changed_by,
         }
 
     # Build set_fields for the aggregation pipeline, handling mode and state
@@ -1338,9 +1336,16 @@ def upsert_agent_document(
                     {"$ifNull": ["$mode.changed_at", updated_at]},
                 ]
             },
+            "changed_by": {
+                "$cond": [
+                    mode_is_changing,
+                    changed_by,
+                    {"$ifNull": ["$mode.changed_by", changed_by]},
+                ]
+            },
         }
         # Preserve other fields that may exist (comment, changed_by, etc)
-        for key in {"comment", "changed_by"}:
+        for key in {"comment"}:
             if key in data["mode"]:
                 set_fields["mode"][key] = data["mode"][key]
 
