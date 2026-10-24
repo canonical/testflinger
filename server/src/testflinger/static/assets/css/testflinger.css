@@ -111,6 +111,18 @@ main {
 button.agent-state-chip { cursor: pointer; display: inline-flex; align-items: center; border: none; padding: 0; margin: 0; }
 .agent-state-chip .p-chip__lead,
 .agent-state-chip .p-chip__value { font-size: 9pt; }
+.agent-state-chip.p-tooltip--right { position: relative; }
+.agent-state-chip .p-tooltip__message {
+    display: none;
+}
+.agent-state-chip.p-tooltip--right:hover .p-tooltip__message,
+.agent-state-chip.p-tooltip--right:focus .p-tooltip__message {
+    display: block;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    margin-top: 0.5rem;
+}
 
 /* Pending-mode transition pair: current chip on line 1,
    arrow + commanded chip on line 2 — stacks vertically to save row width. */
@@ -262,4 +274,9 @@ body.is-dark .p-icon--edit,
 #agentsTable td:nth-child(4) {
     overflow: visible;
     white-space: normal;
+}
+
+/* Ensure tooltips are not clipped in table cells */
+#agentsTable td {
+    overflow: visible;
 }
