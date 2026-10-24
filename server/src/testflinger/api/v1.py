@@ -167,7 +167,7 @@ def job_post(json_data: dict) -> dict:
         "created_at": job["created_at"],
     }
     database.add_job_statistics(job_id, job_statistics)
-    return jsonify(job_id=job_id)
+    return {"job_id": job_id}
 
 
 def validate_secrets(data: dict):
@@ -302,7 +302,7 @@ def job_get():
         job["test_data"]["secrets"] = secrets
     database.set_agent_job(agent_name, job["job_id"])
     job["started_at"] = datetime.now(timezone.utc)
-    return jsonify(job)
+    return job
 
 
 def retrieve_secrets(data: dict) -> dict | None:
@@ -419,7 +419,7 @@ def attachments_post(job_id):
 @authenticate
 @require_role(ServerRoles.ADMIN, ServerRoles.MANAGER, ServerRoles.CONTRIBUTOR)
 @v1.input(schemas.JobSearchRequest, location="query")
-@v1.output(schemas.JobSearchResponse)
+@v1.output(schemas.JobSearchResult(many=True))
 def search_jobs(query_data):
     """Search for jobs by tags."""
     tags = query_data.get("tags")
@@ -453,7 +453,7 @@ def search_jobs(query_data):
 
     jobs = database.search_jobs_by_pipeline(pipeline)
 
-    return jsonify(jobs)
+    return jobs
 
 
 @v1.post("/result/<job_id>/artifact")
@@ -770,7 +770,7 @@ def queues_get():
     # Create a dict of queues and descriptions
     for queue in all_queues:
         queue_dict[queue.get("name")] = queue.get("description", "")
-    return jsonify(queue_dict)
+    return queue_dict
 
 
 @v1.post("/agents/queues")
@@ -832,7 +832,7 @@ def images_post(json_data: dict):
 @v1.output(schemas.AgentOut(many=True))
 def agents_get_all():
     """Get all agent data."""
-    agents = database.get_agents()
+    agents = database.get_agents_v1()
     restricted_queues = database.get_restricted_queues()
     restricted_queues_owners = database.get_restricted_queues_owners()
 
@@ -844,7 +844,7 @@ def agents_get_all():
             and restricted_queues_owners.get(queue)
         }
 
-    return jsonify(agents)
+    return agents
 
 
 @v1.get("/agents/data/<agent_name>")
@@ -864,7 +864,7 @@ def agents_get_one(agent_name):
     :return:
         JSON data with the specified agent information.
     """
-    agent_data = database.get_agent_info(agent_name)
+    agent_data = database.get_agent_info_v1(agent_name)
 
     if not agent_data:
         return {}, HTTPStatus.NOT_FOUND
@@ -878,7 +878,7 @@ def agents_get_one(agent_name):
         if queue in restricted_queues and restricted_queues_owners.get(queue)
     }
 
-    return jsonify(agent_data)
+    return agent_data
 
 
 @v1.post("/agents/data/<agent_name>")
@@ -896,6 +896,9 @@ def agents_post(agent_name, json_data):
         "job_id": string, # Job ID the device is running, if any
         "log": array[string], # push and keep only the last 100 lines
     }
+
+    V1 agents continue to write flat format (state-only) to the database.
+    The database layer handles normalization for v2 compatibility.
     """
     json_data["name"] = agent_name
     json_data["updated_at"] = datetime.now(timezone.utc)
@@ -1088,7 +1091,7 @@ def get_agents_on_queue(queue_name):
             message=f"Queue '{queue_name}' does not exist.",
         )
 
-    agents = database.get_agents(queue=queue_name)
+    agents = database.get_agents_v1(queue=queue_name)
     if not agents:
         return [], HTTPStatus.NO_CONTENT
     return agents
@@ -1126,7 +1129,7 @@ def get_jobs_by_queue(queue_name):
             message="Unable to retrieve information about specified queue.",
         )
 
-    return jsonify(jobs_in_queue)
+    return jobs_in_queue
 
 
 @v1.post("/oauth2/token")
@@ -1291,7 +1294,7 @@ def get_all_restricted_queues() -> list[dict]:
             }
         )
 
-    return jsonify(response)
+    return response
 
 
 @v1.get("/restricted-queues/<queue_name>")
@@ -1306,12 +1309,10 @@ def get_restricted_queue(queue_name: str) -> dict:
     restricted_queues_owners = database.get_restricted_queues_owners()
     owners = restricted_queues_owners.get(queue_name, [])
 
-    return jsonify(
-        {
-            "queue": queue_name,
-            "owners": owners,
-        }
-    )
+    return {
+        "queue": queue_name,
+        "owners": owners,
+    }
 
 
 @v1.post("/restricted-queues/<queue_name>")

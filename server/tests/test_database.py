@@ -33,7 +33,9 @@ from testflinger.database import (
     get_job_statistics_totals,
     retrieve_file,
     save_file,
+    set_agent_commanded_mode,
     update_job_results,
+    upsert_agent_document,
 )
 
 # Enable GridFS support once for all tests in this module.
@@ -242,6 +244,82 @@ def test_new_job_events_preserve_insertion_order(mock_mongo):
         for evt in events
     ]
     assert stored_events == normalized_expected
+
+
+@patch("testflinger.database.mongo", new_callable=mongomock.MongoClient)
+def test_set_agent_mode_stamps_change_when_mode_differs(mock_mongo):
+    """A changed commanded_mode stamps commanded_mode_changed_at and _by."""
+    mock_mongo.db.agents.insert_one(
+        {"name": "agent1", "commanded_mode": {"value": "online"}}
+    )
+
+    set_agent_commanded_mode(
+        "agent1", "offline", "downtime", "admin@example.com"
+    )
+
+    record = mock_mongo.db.agents.find_one({"name": "agent1"})
+    assert record["commanded_mode"]["value"] == "offline"
+    assert record["commanded_mode"]["comment"] == "downtime"
+    assert record["commanded_mode"]["changed_by"] == "admin@example.com"
+    assert record["commanded_mode"]["changed_at"] is not None
+    assert record["updated_at"] is not None
+
+
+@patch("testflinger.database.mongo", new_callable=mongomock.MongoClient)
+def test_set_agent_mode_no_stamp_when_mode_unchanged(mock_mongo):
+    """An unchanged commanded_mode updates timestamp but not attribution."""
+    mock_mongo.db.agents.insert_one(
+        {"name": "agent1", "commanded_mode": {"value": "online"}}
+    )
+
+    set_agent_commanded_mode("agent1", "online", "", "admin@example.com")
+
+    record = mock_mongo.db.agents.find_one({"name": "agent1"})
+    assert record["commanded_mode"]["value"] == "online"
+    assert "changed_by" not in record["commanded_mode"]
+    assert "changed_at" not in record["commanded_mode"]
+    assert record["commanded_mode"]["comment"] == ""
+    assert record["updated_at"] is not None
+
+
+@patch("testflinger.database.mongo", new_callable=mongomock.MongoClient)
+def test_set_agent_mode_creates_and_stamps_new_agent(mock_mongo):
+    """A first-time agent is upserted with its initial commanded_mode
+    stamped.
+    """
+    set_agent_commanded_mode(
+        "newagent", "offline", "downtime", "admin@example.com"
+    )
+
+    record = mock_mongo.db.agents.find_one({"name": "newagent"})
+    assert record is not None
+    assert record["commanded_mode"]["value"] == "offline"
+    assert record["commanded_mode"]["comment"] == "downtime"
+    assert record["commanded_mode"]["changed_by"] == "admin@example.com"
+    assert record["commanded_mode"]["changed_at"] is not None
+
+
+@patch("testflinger.database.mongo", new_callable=mongomock.MongoClient)
+def test_upsert_agent_document_stamps_state_change(mock_mongo):
+    """A state transition records its own timestamp."""
+    timestamp = datetime.datetime(2026, 1, 1, tzinfo=datetime.timezone.utc)
+    mock_mongo.db.agents.insert_one(
+        {
+            "name": "agent1",
+            "mode": {"value": "online"},
+            "state": {"value": "waiting"},
+        }
+    )
+
+    upsert_agent_document(
+        "agent1",
+        {"state": "reserve", "updated_at": timestamp},
+        [],
+        changed_by="agent1",
+    )
+
+    record = mock_mongo.db.agents.find_one({"name": "agent1"})
+    assert record["state"]["changed_at"] == timestamp.replace(tzinfo=None)
 
 
 @pytest.mark.parametrize(
@@ -464,3 +542,182 @@ def test_statistics_combined_filters(statistics_data):
         queues=["queue1"],
     )
     assert totals == [{"key": "user2", "count": 1}]
+
+
+# ---------------------------------------------------------------------------
+# upsert_agent_document: restart and commanded_mode logic
+# ---------------------------------------------------------------------------
+
+
+@patch("testflinger.database.mongo", new_callable=mongomock.MongoClient)
+def test_agent_restart_preserves_current_mode_when_no_command_pending(
+    mock_mongo,
+):
+    """When agent reports restart without pending command, save current mode.
+
+    Scenario:
+    1. Agent is online
+    2. Agent reports mode=restart (no commanded_mode set)
+    3. Server should save current mode to commanded_mode for restoration
+    """
+    timestamp = datetime.datetime(2026, 1, 1, tzinfo=datetime.timezone.utc)
+    mock_mongo.db.agents.insert_one(
+        {
+            "name": "agent1",
+            "mode": {"value": "online"},
+            "state": {"value": "waiting"},
+        }
+    )
+
+    # Agent reports restart without pending command
+    # V2 API sends mode as nested dict: {"value": "restart", ...}
+    upsert_agent_document(
+        "agent1",
+        {"mode": {"value": "restart"}, "updated_at": timestamp},
+        [],
+        changed_by="agent1",
+    )
+
+    record = mock_mongo.db.agents.find_one({"name": "agent1"})
+    # Mode should be restart
+    assert record["mode"]["value"] == "restart"
+    # commanded_mode should be set to the previous mode (online)
+    assert record["commanded_mode"]["value"] == "online"
+    assert record["commanded_mode"]["changed_at"] == timestamp.replace(
+        tzinfo=None
+    )
+
+
+@patch("testflinger.database.mongo", new_callable=mongomock.MongoClient)
+def test_agent_restart_preserves_pending_command(mock_mongo):
+    """When agent reports restart with pending command, preserve it.
+
+    Scenario:
+    1. Admin commanded agent to restart
+    2. Agent reports mode=restart
+    3. Server should preserve the commanded_mode=restart (don't overwrite)
+    """
+    timestamp = datetime.datetime(2026, 1, 1, tzinfo=datetime.timezone.utc)
+    mock_mongo.db.agents.insert_one(
+        {
+            "name": "agent1",
+            "mode": {"value": "online"},
+            "commanded_mode": {"value": "restart"},
+        }
+    )
+
+    # Agent reports restart (acknowledging the command)
+    upsert_agent_document(
+        "agent1",
+        {"mode": {"value": "restart"}, "updated_at": timestamp},
+        [],
+        changed_by="agent1",
+    )
+
+    record = mock_mongo.db.agents.find_one({"name": "agent1"})
+    # Mode should be restart
+    assert record["mode"]["value"] == "restart"
+    # commanded_mode should still be restart (not overwritten)
+    assert record["commanded_mode"]["value"] == "restart"
+
+
+@patch("testflinger.database.mongo", new_callable=mongomock.MongoClient)
+def test_agent_acks_commanded_mode(mock_mongo):
+    """When agent reports mode matching commanded_mode, clear command.
+
+    Scenario:
+    1. Admin commanded agent to offline
+    2. Agent reports mode=offline
+    3. Server should clear commanded_mode (ack received)
+    """
+    timestamp = datetime.datetime(2026, 1, 1, tzinfo=datetime.timezone.utc)
+    mock_mongo.db.agents.insert_one(
+        {
+            "name": "agent1",
+            "mode": {"value": "online"},
+            "commanded_mode": {"value": "offline"},
+        }
+    )
+
+    # Agent reports adopting the commanded mode
+    unset_list = []
+    upsert_agent_document(
+        "agent1",
+        {"mode": {"value": "offline"}, "updated_at": timestamp},
+        unset_list,
+        changed_by="agent1",
+    )
+
+    record = mock_mongo.db.agents.find_one({"name": "agent1"})
+    # Mode should be offline
+    assert record["mode"]["value"] == "offline"
+    # commanded_mode should be unset (removed from database)
+    assert "commanded_mode" not in record or unset_list == ["commanded_mode"]
+
+
+@patch("testflinger.database.mongo", new_callable=mongomock.MongoClient)
+def test_agent_restart_without_current_mode_does_not_set_commanded_mode(
+    mock_mongo,
+):
+    """When agent reports restart but has no current mode, don't set command.
+
+    Scenario:
+    1. New agent (no mode in database)
+    2. Agent reports mode=restart
+    3. Server should NOT set commanded_mode (nothing to preserve)
+    """
+    timestamp = datetime.datetime(2026, 1, 1, tzinfo=datetime.timezone.utc)
+    # New agent, no existing record
+    # After upgrade, agent record exists but mode doesn't
+
+    mock_mongo.db.agents.insert_one({"name": "agent1"})
+
+    # Agent reports restart (but we have no current mode to preserve)
+    upsert_agent_document(
+        "agent1",
+        {"mode": {"value": "restart"}, "updated_at": timestamp},
+        [],
+        changed_by="agent1",
+    )
+
+    record = mock_mongo.db.agents.find_one({"name": "agent1"})
+    # Mode should be restart
+    assert record["mode"]["value"] == "restart"
+    # commanded_mode should NOT be set (nothing to preserve)
+    assert "commanded_mode" not in record
+
+
+@patch("testflinger.database.mongo", new_callable=mongomock.MongoClient)
+def test_agent_reports_different_mode_preserves_commanded_mode(mock_mongo):
+    """When agent reports different mode than commanded, preserve command.
+
+    Scenario:
+    1. Admin commanded agent to maintenance
+    2. Agent reports mode=online (not yet adopted command)
+    3. Server should preserve commanded_mode (for next cycle)
+    """
+    timestamp = datetime.datetime(2026, 1, 1, tzinfo=datetime.timezone.utc)
+    mock_mongo.db.agents.insert_one(
+        {
+            "name": "agent1",
+            "mode": {"value": "online"},
+            "commanded_mode": {"value": "maintenance"},
+        }
+    )
+
+    # Agent reports online (hasn't adopted maintenance yet)
+    unset_list = []
+    upsert_agent_document(
+        "agent1",
+        {"mode": {"value": "online"}, "updated_at": timestamp},
+        unset_list,
+        changed_by="agent1",
+    )
+
+    record = mock_mongo.db.agents.find_one({"name": "agent1"})
+    # Mode should be online
+    assert record["mode"]["value"] == "online"
+    # commanded_mode should still be maintenance (preserved)
+    assert record["commanded_mode"]["value"] == "maintenance"
+    # Should NOT be in unset list
+    assert "commanded_mode" not in unset_list
