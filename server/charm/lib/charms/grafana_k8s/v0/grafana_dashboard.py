@@ -184,7 +184,7 @@ import platform
 import re
 import subprocess
 import tempfile
-import uuid
+
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple
 import yaml
@@ -217,7 +217,7 @@ LIBAPI = 0
 # Increment this PATCH version before using `charmcraft publish-lib` or reset
 # to 0 if you are raising the major API version
 
-LIBPATCH = 50
+LIBPATCH = 52
 
 PYDEPS = ["cosl >= 0.0.50"]
 
@@ -390,6 +390,13 @@ REACTIVE_CONVERTER = {  # type: ignore
     "type": "query",
     "useTags": False,
 }
+
+
+def _data_hash(data: Any) -> str:
+    """Deterministic hash of a template dict for use as a stable relation data key."""
+    return hashlib.shake_128(
+        json.dumps(data, sort_keys=True).encode()
+    ).digest(8).hex()
 
 
 class RelationNotFoundError(Exception):
@@ -1366,10 +1373,12 @@ class GrafanaDashboardProvider(Object):
             return  # No change in templates, don't update the databag
 
         # It's completely ridiculous to add a UUID, but if we don't have some
-        # pseudo-random value, this never makes it across 'juju set-state'
+        # pseudo-random value, this never makes it across 'juju set-state'.
+        # Use a deterministic hash of the templates so the value is stable when
+        # templates haven't changed, avoiding spurious relation-changed events.
         stored_data = {
             "templates": new_templates,
-            "uuid": str(uuid.uuid4()),
+            "uuid": _data_hash(new_templates),
         }
 
         relation.data[self._charm.app]["dashboards"] = json.dumps(stored_data)
@@ -1511,6 +1520,41 @@ class GrafanaDashboardConsumer(Object):
             for relation in relations:
                 self._render_dashboards_and_signal_changed(relation)
 
+    def has_invalid_dashboards(self) -> bool:
+        """Check whether any relation reported invalid dashboards.
+
+        Validation errors written to relation app data by this consumer (see
+        :meth:`_render_dashboards_and_signal_changed`) are read back to determine
+        whether the relationship currently carries an invalid dashboard.
+
+        Returns:
+            True if any related dashboard provider reported dashboard validation
+            errors, False otherwise.
+        """
+        if not self._charm.unit.is_leader():
+            return False
+
+        for relation in self._charm.model.relations.get(self._relation_name, []):
+            app_data = relation.data.get(self._charm.app)
+            if not app_data:
+                continue
+
+            event_raw = app_data.get("event", "{}")
+            try:
+                event_data = json.loads(event_raw)
+            except (json.JSONDecodeError, TypeError):
+                continue
+
+            if event_data.get("errors"):
+                logger.error(
+                    "Invalid dashboards on relation %s: %s",
+                    relation.id,
+                    event_data["errors"],
+                )
+                return True
+
+        return False
+
     def _on_grafana_dashboard_relation_broken(self, event: RelationBrokenEvent) -> None:
         """Update job config when providers depart.
 
@@ -1583,7 +1627,11 @@ class GrafanaDashboardConsumer(Object):
             except json.JSONDecodeError as e:
                 error = str(e.msg)
                 logger.warning("Invalid JSON in Grafana dashboard '{}': {}".format(fname, error))
-                continue
+                relation_has_invalid_dashboards = True
+            except (KeyError, TypeError, AttributeError) as e:
+                error = str(e)
+                logger.warning("Invalid Grafana dashboard '{}': {}".format(fname, error))
+                relation_has_invalid_dashboards = True
 
             # Prepend the relation name and ID to the dashboard ID to avoid clashes with
             # multiple relations with apps from the same charm, or having dashboards with
@@ -1630,6 +1678,12 @@ class GrafanaDashboardConsumer(Object):
 
             # Dropping dashboards for a relation needs to be signalled
             return True
+
+        # Clear any stale validation errors so the charm returns to Active once fixed
+        event_data = json.loads(relation.data[self._charm.app].get("event", "{}"))
+        if event_data.get("errors"):
+            event_data.pop("errors")
+            relation.data[self._charm.app]["event"] = json.dumps(event_data)
 
         stored_data = rendered_dashboards
         currently_stored_data = self._get_stored_dashboards(relation.id)
@@ -1733,7 +1787,7 @@ class GrafanaDashboardConsumer(Object):
         if not peers or not peers.data:
             logger.info("set_peer_data: no peer relation. Is the charm being installed/removed?")
             return
-        peers.data[self._charm.app][key] = json.dumps(data)  # type: ignore[attr-defined]
+        peers.data[self._charm.app][key] = json.dumps(data, sort_keys=True)  # type: ignore[attr-defined]
 
     def get_peer_data(self, key: str) -> Any:
         """Retrieve information from the peer data bucket instead of `StoredState`."""
@@ -1864,10 +1918,12 @@ class GrafanaDashboardAggregator(Object):
                 if new_templates == existing_templates:
                     continue  # No change in templates, don't update the databag
 
-                # It's still ridiculous to add a UUID here, but needed
+                # It's still ridiculous to add a UUID here, but needed.
+                # Use a deterministic hash of the templates so the value is stable when
+                # templates haven't changed, avoiding spurious relation-changed events.
                 stored_data = {
                     "templates": new_templates,
-                    "uuid": str(uuid.uuid4()),
+                    "uuid": _data_hash(new_templates),
                 }
                 grafana_relation.data[self._charm.app]["dashboards"] = json.dumps(stored_data)
 
@@ -1883,9 +1939,10 @@ class GrafanaDashboardAggregator(Object):
         for id in app_ids:
             del self._stored.dashboard_templates[id]  # type: ignore
 
+        remaining_templates = type_convert_stored(self._stored.dashboard_templates)  # pyright: ignore
         stored_data = {
-            "templates": type_convert_stored(self._stored.dashboard_templates),  # pyright: ignore
-            "uuid": str(uuid.uuid4()),
+            "templates": remaining_templates,
+            "uuid": _data_hash(remaining_templates),
         }
 
         if self._charm.unit.is_leader():
@@ -2130,11 +2187,11 @@ class CosTool:
             #       - alert: OtherAlert
             #         expr: up
             transformed_rules = {"groups": []}  # type: ignore
-            for rule in rules["groups"]:
-                transformed = {"name": str(uuid.uuid4()), "rules": [rule]}
+            for i, rule in enumerate(rules["groups"]):
+                transformed = {"name": f"group_{i}", "rules": [rule]}
                 transformed_rules["groups"].append(transformed)
 
-            rule_path.write_text(yaml.dump(transformed_rules))
+            rule_path.write_text(yaml.safe_dump(transformed_rules, sort_keys=True)) # databag-order: ignore
 
             args = [str(self.path), "validate", str(rule_path)]
             # noinspection PyBroadException
