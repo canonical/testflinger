@@ -119,9 +119,11 @@ button.agent-state-chip { cursor: pointer; display: inline-flex; align-items: ce
 .agent-state-chip.p-tooltip--right:focus .p-tooltip__message {
     display: block;
     position: absolute;
-    top: 100%;
-    left: 0;
-    margin-top: 0.5rem;
+    top: 0;
+    left: 100%;
+    margin-left: 0.5rem;
+    max-width: 600px;
+    width: max-content;
 }
 
 /* Pending-mode transition pair: current chip on line 1,

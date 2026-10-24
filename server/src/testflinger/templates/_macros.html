@@ -18,7 +18,7 @@
 --#}
 {% macro _mode_chip(mode_data, state=none, tooltip_id=none, duration=none,
   icon='information', is_inline=false,
-  state_data=none) %}
+  state_data=none, is_pending=false) %}
   {%- set mode_value = mode_data.get("value") -%}
   {%- set mode_changed_at = mode_data.get("changed_at") -%}
   {%- set mode_comment = mode_data.get("comment") -%}
@@ -38,9 +38,10 @@
   {%- endif -%}
   {#-- Build tooltip text using state time if present, else mode time --#}
   {%- set label = mode_value ~ (": " ~ state if state else "") -%}
+  {%- set pending_str = "pending " if is_pending else "" -%}
   {%- set changed_at = state_changed_at if state else mode_changed_at -%}
   {%- if changed_at -%}
-    {%- set tooltip_text = label ~ " since "
+    {%- set tooltip_text = label ~ " " ~ pending_str ~ "since "
         ~ changed_at.strftime("%Y-%m-%d %H:%M:%S")
         ~ " UTC" -%}
     {%- if duration -%}
@@ -139,7 +140,7 @@
           <i class="p-icon--arrow-right" aria-hidden="true"></i>
           {{- _mode_chip(commanded_mode_data, none,
                     tooltip_id ~ "-commanded", none, icon='revisions',
-                    is_inline=true) -}}
+                    is_inline=true, is_pending=true) -}}
         </span>
       {% endif %}
       {#-- Close container --#}
