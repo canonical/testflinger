@@ -8,7 +8,7 @@ line and displayed in several formats. When collecting the list of agents for
 display, a variety of filters may also be applied. Aside from the filter for
 status, the filters all support use of regular expressions.
 
-The ``list-agents`` subcommand can provide output in three different modes:
+The ``list-agents`` subcommand can provide output in four different modes:
 
 - Table output (default)
 
@@ -17,6 +17,8 @@ The ``list-agents`` subcommand can provide output in three different modes:
 - Status summary (``--summary``)
 
 - Single-column list of agent names (``-1``)
+
+- JSON output (``--json``)
 
 In all cases, filtering can be applied to various fields, e.g:
 
@@ -49,8 +51,8 @@ In all cases, filtering can be applied to various fields, e.g:
 Table mode (default)
 -------------------------
 
-If neither ``-1`` nor ``--summary`` are specified, the default is to output a
-table of agents matching the specified filters. The table fields can be selected
+If none of ``-1``, ``--summary``, or ``--json`` are specified, the default
+is to output a table of agents matching the specified filters. The table fields can be selected
 by specifying a comma-separated list of fields via ``--fields``, including any
 of: name, status, location, provision_type, comment, job_id, queues. By default
 name, status, location, provision_type, and comment are displayed.
@@ -115,3 +117,19 @@ within a for loop:
 
    This can be particularly useful in combination with ``--filter-comment``
    if good comments are made as agents are brought offline.
+
+JSON mode (--json)
+------------------
+
+Use ``--json`` to process agent details with tools such as ``jq``.
+The output is an array containing the complete agent objects returned by the
+server, including nested job data and queue lists. Agent status uses the
+server's ``state`` key. Filters apply before the JSON is printed, and an empty
+result is printed as ``[]``.
+
+.. code-block:: shell
+
+  $ testflinger list-agents --json --filter-status offline | jq '.[].name'
+
+The ``--json`` option cannot be combined with ``-1``, ``--summary``, or
+``--fields``.

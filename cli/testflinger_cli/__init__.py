@@ -444,6 +444,9 @@ class TestflingerCli:
             "piping)",
         )
         subgroup.add_argument(
+            "--json", action="store_true", help="Print output in JSON format"
+        )
+        subgroup.add_argument(
             "--summary",
             action="store_true",
             help="Show summary of online/offline agent counts",
@@ -728,7 +731,9 @@ class TestflingerCli:
         filtered_agents = self._filter_agents(agents)
 
         # Display output based on flags
-        if self.args.summary:
+        if self.args.json:
+            print(json.dumps(filtered_agents, sort_keys=True))
+        elif self.args.summary:
             # just a summary of counts per status
             self._print_agent_summary(filtered_agents)
         elif self.args.single_column:
