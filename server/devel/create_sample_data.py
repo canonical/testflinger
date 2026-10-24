@@ -28,7 +28,7 @@ from datetime import datetime, timezone
 from typing import Iterator, Optional, Tuple
 
 import requests
-from sample_users import SAMPLE_CLIENTS
+from sample_users import SAMPLE_CLIENTS, TESTFLINGER_ADMIN_ID
 
 logging.basicConfig(level=logging.INFO)
 
@@ -317,10 +317,11 @@ def main():
     args = get_args()
 
     # Primary client used for queue/agent setup (needs admin role)
+    admin_creds = SAMPLE_CLIENTS[TESTFLINGER_ADMIN_ID]
     admin_client = TestflingerClient(
         server_url=args.server,
-        client_id=os.environ.get("TESTFLINGER_CLIENT_ID", "testflinger-admin"),
-        client_key=os.environ.get("TESTFLINGER_SECRET_KEY", "testflinger"),
+        client_id=admin_creds["client_id"],
+        client_key=admin_creds["secret_key"],
     )
 
     queues = QueueDataGenerator(num_queues=args.queues)
@@ -353,17 +354,18 @@ def main():
     # Post jobs distributed across all known dev client IDs so that each
     # job is stamped with a realistic client_id by the server.  The client
     # IDs here must match the credential-based accounts created by
-    # create_sample_users.py (from the SAMPLE_CLIENTS list).
+    # create_sample_users.py (from the SAMPLE_CLIENTS dict).
+    # Exclude agents since they cannot post jobs.
     job_client_ids = [
-        sample["client_id"]
-        for sample
-        in SAMPLE_CLIENTS
+        client_id
+        for client_id, client in SAMPLE_CLIENTS.items()
+        if client["role"] != "agent"
     ]
     job_clients = [
         TestflingerClient(
             server_url=args.server,
             client_id=client_id,
-            client_key="testflinger",
+            client_key=SAMPLE_CLIENTS[client_id]["secret_key"],
         )
         for client_id in job_client_ids
     ]

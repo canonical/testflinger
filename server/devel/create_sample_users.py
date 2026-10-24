@@ -22,9 +22,9 @@ container.
 
     docker compose exec testflinger python3 devel/create_sample_users.py
 
-The inserted credential matches the defaults used by create_sample_data.py:
-    TESTFLINGER_CLIENT_ID : dev-admin
-    TESTFLINGER_SECRET_KEY: dev-secret-for-testing
+The inserted credentials match the defaults used by create_sample_data.py:
+    TESTFLINGER_ADMIN_ID : testflinger-admin
+    TESTFLINGER_AGENT_ID : testflinger-agent
 
 Sample clients are also inserted with varied client_id/email combinations.
 Some emails are intentionally reused across different client IDs to reflect
@@ -39,11 +39,6 @@ from pymongo import MongoClient
 from testflinger.database import get_mongo_uri
 from sample_users import SAMPLE_CLIENTS
 
-# testflinger-admin is both the OIDC identity (via Dex) and a credential-based
-# admin client used by create_sample_data.py.
-TESTFLINGER_ADMIN_ID = "testflinger-admin"
-TESTFLINGER_ADMIN_SECRET = "testflinger"
-
 
 def _make_secret_hash(secret: str) -> str:
     return bcrypt.hashpw(secret.encode(), bcrypt.gensalt()).decode()
@@ -54,28 +49,15 @@ def main():
     mongo_db = os.environ.get("MONGODB_DATABASE", "testflinger_db")
     db = MongoClient(host=mongo_uri)[mongo_db]
 
-    if not db.client_permissions.find_one({"client_id": TESTFLINGER_ADMIN_ID}):
-        db.client_permissions.insert_one(
-            {
-                "client_id": TESTFLINGER_ADMIN_ID,
-                "client_secret_hash": _make_secret_hash(TESTFLINGER_ADMIN_SECRET),
-                "role": "admin",
-                "max_priority": {"*": 100},
-                "allowed_queues": [],
-                "max_reservation_time": {},
-            }
-        )
-        print(f"Created admin credential '{TESTFLINGER_ADMIN_ID}'")
-
-    for client in SAMPLE_CLIENTS:
-        client_id = client["client_id"]
+    # Create all clients from SAMPLE_CLIENTS
+    for client_id, client in SAMPLE_CLIENTS.items():
         if db.client_permissions.find_one({"client_id": client_id}):
-            print(f"Sample client '{client_id}' already exists, skipping.")
+            print(f"Client '{client_id}' already exists, skipping.")
             continue
         secret_key = client["secret_key"]
         doc = {**client, "client_secret_hash": _make_secret_hash(secret_key)}
         db.client_permissions.insert_one(doc)
-        print(f"Created sample client '{client_id}' (email: {client['email']})")
+        print(f"Created client '{client_id}' (email: {client['email']})")
 
 
 if __name__ == "__main__":
