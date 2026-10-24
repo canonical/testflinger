@@ -81,3 +81,8 @@ integration *args: pack
 [group('package')]
 pack:
     @charmcraft pack
+
+[doc('Run all fixes.')]
+[group('test')]
+fix: format
+    @echo 'All done!'

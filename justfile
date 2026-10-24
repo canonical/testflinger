@@ -55,3 +55,8 @@ clean: agent::clean agent::charm::clean cli::clean common::clean device-connecto
 [group('test')]
 check: zizmor agent::check agent::charm::check cli::check common::check device-connectors::check server::check server::charm::check
     @echo 'All done!'
+
+[doc('Run all fixes.')]
+[group('test')]
+fix: agent::fix agent::charm::fix cli::fix common::fix device-connectors::fix server::fix
+    @echo 'All done!'
