@@ -151,6 +151,8 @@ def do_call(app, method, endpoint, role_data, webhook_fixture, auth_type):
             )
         else:
             response = app.post(endpoint, headers=headers, json=data)
+    elif method.lower() == "patch":
+        response = app.patch(endpoint, headers=headers, json=data)
     elif method.lower() == "put":
         response = app.put(endpoint, headers=headers, json=data)
     elif method.lower() == "delete":
@@ -160,7 +162,8 @@ def do_call(app, method, endpoint, role_data, webhook_fixture, auth_type):
             response = app.delete(endpoint, headers=headers)
     else:
         raise ValueError(
-            "do_call expected one of GET, PUT, POST, DELETE, not {}", method
+            "do_call expected one of GET, PUT, POST, PATCH, DELETE, not {}",
+            method,
         )
     return response
 
@@ -206,7 +209,6 @@ def do_setup(
     need_job = False
     need_client = False
     is_agent = role and (ServerRoles(role) == ServerRoles.AGENT)
-
     if "/restricted-queue" in endpoint:
         need_client = True
         need_agent = True
@@ -236,19 +238,21 @@ def do_setup(
         response = app.post(
             f"/v1/agents/data/{agent_name}",
             json=agent_data,
-            headers=headers if is_agent else setup_headers,
+            headers=get_access_token_header(agent_name, ServerRoles.AGENT),
         )
-        assert response.status_code == HTTPStatus.OK, (
-            f"{response.status} {response.data}"
-        )
+        assert response.status_code in (
+            HTTPStatus.OK,
+            HTTPStatus.NO_CONTENT,
+        ), f"{response.status} {response.data}"
         endpoint = endpoint.replace("<agent_name>", agent_name)
 
     if "<job_id>" in endpoint or need_job:
         response = app.post("/v1/job", json=job_data, headers=setup_headers)
         job_id = response.json.get("job_id")
-        assert response.status_code == HTTPStatus.OK, (
-            f"{response.status} {response.data}"
-        )
+        assert response.status_code in (
+            HTTPStatus.OK,
+            HTTPStatus.NO_CONTENT,
+        ), f"{response.status} {response.data}"
         endpoint = endpoint.replace("<job_id>", job_id)
 
     if "<log_type>" in endpoint:
@@ -292,9 +296,10 @@ def do_setup(
             },
             headers=setup_headers,
         )
-        assert response.status_code == HTTPStatus.OK, (
-            f"{response.status} {response.data}"
-        )
+        assert response.status_code in (
+            HTTPStatus.OK,
+            HTTPStatus.NO_CONTENT,
+        ), f"{response.status} {response.data}"
         endpoint = endpoint.replace("<client_id>", client_id)
 
     # client_id must already exist
@@ -314,9 +319,10 @@ def do_setup(
                 json=test_data,
                 headers=setup_headers,
             )
-            assert response.status_code == HTTPStatus.OK, (
-                f"{response.status} {response.data}"
-            )
+            assert response.status_code in (
+                HTTPStatus.OK,
+                HTTPStatus.NO_CONTENT,
+            ), f"{response.status} {response.data}"
 
     if "images" in endpoint:
         test_data = {
@@ -329,9 +335,10 @@ def do_setup(
             response = app.post(
                 "/v1/agents/images", json=test_data, headers=setup_headers
             )
-            assert response.status_code == HTTPStatus.OK, (
-                f"{response.status} {response.data}"
-            )
+            assert response.status_code in (
+                HTTPStatus.OK,
+                HTTPStatus.NO_CONTENT,
+            ), f"{response.status} {response.data}"
 
     if "provision_logs" in endpoint:
         test_data = {
@@ -377,9 +384,10 @@ def do_setup(
                 content_type="multipart/form-data",
                 headers=setup_headers,
             )
-            assert response.status_code == HTTPStatus.OK, (
-                f"{response.status} {response.data}"
-            )
+            assert response.status_code in (
+                HTTPStatus.OK,
+                HTTPStatus.NO_CONTENT,
+            ), f"{response.status} {response.data}"
 
     if "artifact" in endpoint:
         data = b"test file content"
@@ -394,9 +402,13 @@ def do_setup(
                 content_type="multipart/form-data",
                 headers=headers if is_agent else setup_headers,
             )
-            assert response.status_code == HTTPStatus.OK, (
-                f"{response.status} {response.data}"
-            )
+            assert response.status_code in (
+                HTTPStatus.OK,
+                HTTPStatus.NO_CONTENT,
+            ), f"{response.status} {response.data}"
+
+    if "/commanded_mode" in endpoint:
+        test_data = {"commanded_mode": "offline"}
 
     return endpoint, test_data
 
@@ -463,7 +475,10 @@ class TestAllEndPoints:
                     webhook_fixture,
                     auth_type,
                 )
-                assert response.status_code == HTTPStatus.OK, (
+                assert response.status_code in (
+                    HTTPStatus.OK,
+                    HTTPStatus.NO_CONTENT,
+                ), (
                     f"Role {role}, Method {method}, URI {endpoint}: was "
                     f"expected to be allowed (200) not {response.status} "
                     f"{response.data}"
@@ -538,7 +553,10 @@ class TestAllEndPoints:
                     webhook_fixture,
                     auth_type,
                 )
-                assert response.status_code == HTTPStatus.OK, (
+                assert response.status_code in (
+                    HTTPStatus.OK,
+                    HTTPStatus.NO_CONTENT,
+                ), (
                     f"Role {role}, Method {method}, URI {endpoint}: was "
                     f"expected to be allowed (200) not {response.status} "
                     f"{response.data}"
@@ -572,7 +590,10 @@ class TestAllEndPoints:
                     f"{response.data}"
                 )
             else:  # allowed
-                assert response.status_code == HTTPStatus.OK, (
+                assert response.status_code in (
+                    HTTPStatus.OK,
+                    HTTPStatus.NO_CONTENT,
+                ), (
                     f"Role {role}, Method {method}, URI {endpoint}: was "
                     f"expected to be allowed (200) not {response.status} "
                     f"{response.data}"
