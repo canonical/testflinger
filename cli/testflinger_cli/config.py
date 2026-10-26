@@ -14,7 +14,45 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-"""Testflinger config module."""
+"""Testflinger config module.
+
+MCP server entries
+------------------
+The MCP server used by ``testflinger find`` is configured with flat keys
+inside the ``[testflinger-cli]`` section::
+
+    mcp.transport = stdio | sse
+    mcp.command   = <executable> [args...]   # stdio only
+    mcp.url       = <SSE endpoint URL>       # sse only
+    mcp.env.<NAME> = <value>                 # stdio only
+
+Example::
+
+    [testflinger-cli]
+    server = https://testflinger.canonical.com
+
+    mcp.transport = stdio
+    mcp.command = hexr-mcp
+    mcp.env.<HEXR_AUTH_VARIABLE> = ${HEXR_AUTH_VARIABLE}
+
+Model API keys
+--------------
+API keys for the ``testflinger find`` command are stored as flat keys using
+the convention::
+
+    model.<provider>.api_key = <key>
+
+Supported providers include ``openai``, ``openrouter``, ``github-copilot``,
+and ``ollama``.
+
+Example::
+
+    [testflinger-cli]
+    model.openai.api_key = sk-...
+    model.openrouter.api_key = sk-or-...
+    model.github-copilot.api_key = <Copilot OAuth token>
+    model.ollama.api_key = (optional)
+"""
 
 import configparser
 from collections import OrderedDict

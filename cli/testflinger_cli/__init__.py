@@ -44,6 +44,7 @@ from testflinger_cli import (
     config,
     consts,
     errors,
+    find,
     helpers,
     history,
 )
@@ -192,6 +193,7 @@ class TestflingerCli:
         self.admin_cli = TestflingerAdminCLI(subparsers, self)
         self._add_artifacts_args(subparsers)
         self._add_cancel_args(subparsers)
+        self._add_find_args(subparsers)
         self._add_config_args(subparsers)
         self._add_jobs_args(subparsers)
         self._add_list_agent_args(subparsers)
@@ -564,6 +566,165 @@ class TestflingerCli:
             action="store_true",
             help="Print the job as a YAML document instead of a JSON object",
         )
+
+    def _add_find_args(self, subparsers):
+        """Command line arguments for find."""
+        parser = subparsers.add_parser(
+            "find",
+            help=(
+                "Find queues using a natural language description. "
+                "Optionally submit a job to the best match and poll it."
+            ),
+        )
+        parser.set_defaults(func=self.find_queues)
+        parser.add_argument(
+            "query",
+            nargs="*",
+            help=(
+                "Natural language description of the hardware you need, "
+                'e.g. "Pi4 with Ubuntu Noble and serial console" '
+                "(omit if using --show-models)"
+            ),
+        )
+        parser.add_argument(
+            "--model",
+            default=None,
+            help=(
+                "Model to use for the search. OpenRouter accepts model IDs "
+                "like 'anthropic/claude-haiku-4.5'; Copilot accepts "
+                "'github-copilot:claude-haiku-4.5'. "
+                "Defaults to model.default from config, or "
+                f"{find.DEFAULT_MODEL}."
+            ),
+        )
+        parser.add_argument(
+            "--show-models",
+            action="store_true",
+            help=(
+                "Show OpenRouter examples, or use --model "
+                "github-copilot:<model> to list Copilot models."
+            ),
+        )
+        parser.add_argument(
+            "--submit",
+            metavar="FILE",
+            type=partial(helpers.parse_filename, parse_stdin=True),
+            default=None,
+            help=(
+                "YAML or JSON job definition. Its requirements are used for "
+                "hardware matching; the selected queue replaces job_queue "
+                "before submission."
+            ),
+        )
+        parser.add_argument(
+            "--poll",
+            "-p",
+            action="store_true",
+            help="After submitting, stream output until the job completes.",
+        )
+
+    def find_queues(self):
+        """Subcommand: find queues matching a natural language query."""
+        args = self.args
+
+        # Handle --show-models flag
+        if args.show_models:
+            find.show_available_models(self.config, args.model)
+            return
+
+        if not args.query:
+            print(
+                "Error: query is required (unless using --show-models)",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+
+        query = " ".join(args.query)
+        job_data = None
+        if args.submit:
+            try:
+                with open(args.submit, encoding="utf-8") as job_file:
+                    job_data = yaml.safe_load(job_file)
+            except OSError as exc:
+                print(f"Could not read job file: {exc}", file=sys.stderr)
+                sys.exit(1)
+            if not isinstance(job_data, dict):
+                print(
+                    "Job file must contain a YAML/JSON mapping.",
+                    file=sys.stderr,
+                )
+                sys.exit(1)
+
+        # Explicit CLI selection takes precedence over config and default.
+        model = (
+            args.model
+            or self.config.get("model.default")
+            or find.DEFAULT_MODEL
+        )
+
+        # Try to load MCP config if available
+        mcp_cfg = None
+        try:
+            mcp_cfg = find.load_mcp_config(self.config)
+        except ValueError as exc:
+            print(str(exc), file=sys.stderr)
+            sys.exit(1)
+
+        # MCP-backed search cross-references C3 hardware against agent names
+        # and queue memberships. The advertised queues endpoint is only used
+        # for the no-MCP fallback.
+        live_queues = []
+        live_agents = None
+        try:
+            if mcp_cfg is not None:
+                live_agents = self.client.get_all_agents()
+                logger.info(
+                    "Loaded %d Testflinger agents for hardware/queue matching",
+                    len(live_agents),
+                )
+            else:
+                raw = self.client.get_queues()
+                live_queues = [
+                    q.get("name", q) if isinstance(q, dict) else str(q)
+                    for q in (raw or [])
+                ]
+        except Exception as exc:  # noqa: BLE001
+            print(
+                f"Could not fetch live Testflinger agent/queue data: {exc}",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+
+        try:
+            matches = find.find_queues(
+                query,
+                mcp_cfg=mcp_cfg,
+                live_queues=live_queues,
+                live_agents=live_agents,
+                job_data=job_data,
+                model=model,
+                config=self.config,
+            )
+        except (ImportError, ValueError, RuntimeError) as exc:
+            print(str(exc), file=sys.stderr)
+            sys.exit(1)
+
+        if not matches:
+            print("No matching queues found.", file=sys.stderr)
+            sys.exit(1)
+
+        # Always print the matches so the user can see them
+        for queue in matches:
+            print(queue)
+
+        if args.submit:
+            # The selected queue intentionally replaces any queue in the file.
+            job_data["job_queue"] = matches[0]
+            print(f"\nSubmitting to queue: {matches[0]}")
+            self.submit_job_data(job_data)
+
+            if args.poll and hasattr(self.args, "job_id"):
+                self.poll_output()
 
     def _add_submit_args(self, subparsers):
         """Command line arguments for submit."""
