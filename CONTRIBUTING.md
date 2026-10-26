@@ -116,7 +116,7 @@ certain aspects about the testflinger services, the way that they are run in the
 
 ```shell
 # At its simplest: Start the workshop (if necessary), start the testflinger
-# server and attempt to connect the service to the host's ports
+# server and connect the services to localhost only.
 just workshop serve
 ```
 
@@ -129,8 +129,12 @@ control which workshop is exposed at a given time.
 # Disconnect the workshop container from the local host system.
 just workshop disconnect
 
-# Connect the workshop container's internal services to the local host system.
+# Connect the workshop container's internal services to localhost only.
 just workshop connect
+
+# Expose the workshop container's internal services on all host network
+# interfaces. Use only for short-lived demos on a trusted network.
+just workshop connect-expose
 
 # Disconnect and then teardown the internal testflinger services.
 just workshop teardown

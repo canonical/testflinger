@@ -54,3 +54,8 @@ test:
 [group('test')]
 check: lint format test
     @echo 'Device connectors checks done!'
+
+[doc('Remove tox environments (forces full reinstall on next run).')]
+[group('venv')]
+clean:
+    @rm -rf .tox

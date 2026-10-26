@@ -40,7 +40,7 @@ try:
 except ImportError:
     pass
 
-VANILLA_FRAMEWORK_VERSION = "4.56.0"  # renovate: vanilla-framework-latest
+VANILLA_FRAMEWORK_VERSION = "4.59.0"  # renovate: vanilla-framework-latest
 
 
 def create_flask_app(config=None, secrets_store=None):
@@ -97,12 +97,12 @@ def create_flask_app(config=None, secrets_store=None):
 
     @tf_app.errorhandler(ConnectionFailure)
     def handle_timeout(exc):
-        tf_app.owasp_logger.exception("pymongo connection failure: %s", exc)
+        tf_app.owasp_logger.exception("pymongo connection failure: %s", exc)  # noqa: LOG004
         return "Server Connection Failure", 500
 
     @tf_app.errorhandler(Exception)
     def unhandled_exception(exc):
-        tf_app.owasp_logger.exception("Unhandled Exception: %s", exc)
+        tf_app.owasp_logger.exception("Unhandled Exception: %s", exc)  # noqa: LOG004
         return f"Unhandled Exception: {exc}\n", 500
 
     @tf_app.context_processor

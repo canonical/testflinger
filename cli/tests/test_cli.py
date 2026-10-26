@@ -753,10 +753,9 @@ def test_submit_no_agents_fails(capsys, tmp_path, requests_mock):
     with pytest.raises(SystemExit) as exc_info:
         tfcli.submit()
     assert exc_info.value.code == 1
-    assert (
-        "ERROR: No online agents available for queue fake"
-        in capsys.readouterr().out
-    )
+    std = capsys.readouterr()
+    assert "ERROR: No online agents available for queue fake" in std.err
+    assert not std.out
 
 
 def test_submit_no_agents_fails_excluded(capsys, tmp_path, requests_mock):
@@ -789,10 +788,9 @@ def test_submit_no_agents_fails_excluded(capsys, tmp_path, requests_mock):
     with pytest.raises(SystemExit) as exc_info:
         tfcli.submit()
     assert exc_info.value.code == 1
-    assert (
-        "ERROR: No online agents available for queue fake"
-        in capsys.readouterr().out
-    )
+    std = capsys.readouterr()
+    assert "ERROR: No online agents available for queue fake" in std.err
+    assert not std.out
 
 
 def test_submit_no_agents_wait(capsys, tmp_path, requests_mock, auth_fixture):

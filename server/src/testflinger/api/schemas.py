@@ -15,6 +15,9 @@
 #
 """Testflinger v1 OpenAPI schemas."""
 
+import typing
+from datetime import datetime, timezone
+
 from apiflask import Schema, fields, validators
 from apiflask.validators import Length, OneOf, Regexp
 from marshmallow import INCLUDE, RAISE, ValidationError, validates_schema
@@ -39,12 +42,66 @@ ValidJobStates = (
 TestPhases = [phase.value for phase in TestPhase]
 
 
+class UTCDateTime(fields.DateTime):
+    """DateTime field that normalizes values to UTC on load and dump.
+
+    Matches how timestamps are stored and compared in MongoDB: naive
+    ``datetime`` values are treated as UTC internally, while the wire
+    format is always explicit about the UTC offset.
+    """
+
+    def _deserialize(
+        self, value: typing.Any, attr: str | None, data: typing.Any, **kwargs
+    ) -> datetime:
+        """Deserialize to a naive UTC ``datetime``.
+
+        Accepts ISO 8601 input with a 'Z' suffix (e.g.
+        ``2024-01-01T00:00:00Z``), a numeric UTC offset (e.g.
+        ``2024-01-01T02:00:00+02:00``), or no timezone designator at all.
+        A timezone-aware input is converted to UTC before the timezone is
+        dropped, so the result is always a naive ``datetime`` in UTC.
+        """
+        result = super()._deserialize(value, attr, data, **kwargs)
+        if result.tzinfo is not None:
+            result = result.astimezone(timezone.utc).replace(tzinfo=None)
+        return result
+
+    def _serialize(
+        self,
+        value: datetime | None,
+        attr: str | None,
+        obj: typing.Any,
+        **kwargs,
+    ) -> typing.Any:
+        """Serialize a ``datetime`` as explicit UTC.
+
+        A naive ``datetime`` value is assumed to already be UTC and has
+        ``timezone.utc`` attached. An aware ``datetime`` with a different
+        offset is converted to UTC. Either way, the output string carries
+        an explicit UTC offset instead of being timezone-naive or using a
+        non-UTC offset.
+        """
+        if value is not None:
+            if value.tzinfo is None:
+                value = value.replace(tzinfo=timezone.utc)
+            else:
+                value = value.astimezone(timezone.utc)
+        return super()._serialize(value, attr, obj, **kwargs)
+
+
 class ProvisionLogsIn(Schema):
     """Provision logs input schema."""
 
     job_id = fields.String(required=True)
     exit_code = fields.Integer(required=True)
     detail = fields.String(required=False)
+
+
+class AgentLink(Schema):
+    """Link schema for links provided for each agent."""
+
+    label = fields.String(required=True)
+    url = fields.URL(required=True)
 
 
 class AgentIn(Schema):
@@ -58,6 +115,7 @@ class AgentIn(Schema):
     queues = fields.List(fields.String(), required=False)
     state = fields.String(required=False)
     comment = fields.String(required=False)
+    links = fields.List(fields.Nested(AgentLink), required=False)
 
 
 class AgentJob(Schema):
@@ -94,6 +152,7 @@ class AgentOut(Schema):
     restricted_to = fields.Dict(required=False)
     job = fields.Nested(AgentJob, required=False, allow_none=True)
     provision_streak = fields.Nested(ProvisionStreak, required=False)
+    links = fields.List(fields.Nested(AgentLink), required=False)
 
 
 class ActionIn(Schema):
@@ -801,10 +860,11 @@ class Event(Schema):
     """Event schema."""
 
     event_name = fields.String(required=True)
-    timestamp = fields.DateTime(required=True)
+    timestamp = UTCDateTime(required=True)
     message = fields.String(required=False)
     detail = fields.String(required=False)
-    status = fields.Integer(required=False, allow_none=True)
+    exit_code = fields.Integer(required=False, allow_none=True)
+    phase = fields.String(required=False, allow_none=True)
 
 
 class JobEventsOut(Schema):
@@ -812,3 +872,71 @@ class JobEventsOut(Schema):
 
     job_id = fields.String(required=True)
     events = fields.List(fields.Nested(Event), required=True)
+
+
+class JobStatisticsQuery(Schema):
+    """Class to validate query parameters for job statistics."""
+
+    group_by = fields.String(
+        required=False,
+        validate=OneOf(["queue", "submitted_by"]),
+        load_default="submitted_by",
+        metadata={
+            "description": "Group statistics by 'queue' or 'submitted_by'."
+        },
+    )
+    queues = fields.List(
+        fields.String(),
+        required=False,
+        metadata={"description": "Filter statistics by specific queues."},
+    )
+    submitters = fields.List(
+        fields.String(),
+        required=False,
+        metadata={"description": "Filter statistics by specific submitters."},
+    )
+    start_at = UTCDateTime(
+        required=False,
+        metadata={
+            "description": "Filter statistics for jobs created at or after "
+            "this datetime (ISO 8601). All times are treated as UTC: a "
+            "'Z' suffix or numeric offset is honored and converted to UTC, "
+            "and a value with no offset is assumed to already be UTC."
+        },
+    )
+    end_at = UTCDateTime(
+        required=False,
+        metadata={
+            "description": "Filter statistics for jobs created before "
+            "this datetime (ISO 8601). All times are treated as UTC: a "
+            "'Z' suffix or numeric offset is honored and converted to UTC, "
+            "and a value with no offset is assumed to already be UTC."
+        },
+    )
+
+
+class JobStatisticsTotal(Schema):
+    """Class to represent total job statistics."""
+
+    key = fields.String(required=True)
+    count = fields.Integer(required=True)
+
+
+class JobStatisticsDaily(Schema):
+    """Class to represent daily job statistics."""
+
+    date = fields.String(required=True)  # Not an ISO 8601 Datetime object
+    key = fields.String(required=True)
+    count = fields.Integer(required=True)
+
+
+class JobStatisticsTotalsOut(Schema):
+    """Class to represent job statistics totals output response."""
+
+    totals = fields.List(fields.Nested(JobStatisticsTotal), required=True)
+
+
+class JobStatisticsDailyOut(Schema):
+    """Class to represent job statistics daily output response."""
+
+    daily = fields.List(fields.Nested(JobStatisticsDaily), required=True)

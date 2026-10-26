@@ -224,10 +224,11 @@ def do_setup(
     if "/job" in endpoint and method in ("GET", "DELETE"):
         need_job = True
 
-    if "<queue_name>" in endpoint or need_agent:
+    if "<queue_name>" in endpoint or "<queue>" in endpoint or need_agent:
         need_agent = True
         queue_name = "qqqq"
         endpoint = endpoint.replace("<queue_name>", queue_name)
+        endpoint = endpoint.replace("<queue>", queue_name)
 
     if "<agent_name>" in endpoint or need_agent:
         agent_name = "agent-one"

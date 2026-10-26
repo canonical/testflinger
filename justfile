@@ -28,7 +28,7 @@ pre-commit:
 [doc('Perform static analysis on GitHub workflows.')]
 [group('lint')]
 zizmor:
-    @uvx zizmor --gh-token=$(gh auth token) .
+    @uvx zizmor --config .github/zizmor.yml --gh-token=$(gh auth token) .
 
 [doc('Format all projects.')]
 [group('lint')]
@@ -43,6 +43,12 @@ lint: agent::lint agent::charm::lint cli::lint common::lint device-connectors::l
 [doc('Run unit tests for all projects.')]
 [group('test')]
 test: agent::test agent::charm::test cli::test common::test device-connectors::test server::test server::charm::test
+    @echo 'All done!'
+
+[doc('Remove tox environments for all projects (forces full reinstall on next run).')]
+[group('venv')]
+clean: agent::clean agent::charm::clean cli::clean common::clean device-connectors::clean server::clean server::charm::clean
+    @uv cache clean testflinger-common testflinger-device-connectors --force
     @echo 'All done!'
 
 [doc('Run all checks.')]
