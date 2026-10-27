@@ -409,6 +409,18 @@ sync_to_swift() {
     download_image "$oem_share_path" "$img_name" "$oem_share_credential"
 }
 
+cleanup_dut() {
+    # Preserve recent logs while freeing space from previous jobs.
+    echo "Pruning old journal logs on DUT..."
+    $SSH "$user_on_target"@"$target_ip" -- sudo journalctl --rotate --vacuum-size=100M
+    # Truncate in place: an X11 server keeps this log's inode open, and the
+    # file only exists after a graphical login of that type - a Wayland
+    # session has no Xorg log, and the directory may be missing entirely.
+    # This script runs under `set -e`, so never fail over an absent log.
+    $SSH "$user_on_target"@"$target_ip" \
+        "truncate -s 0 ~/.local/share/xorg/Xorg.0.log* 2>/dev/null || true"
+}
+
 wget_iso_on_dut() {
     # Download ISO on DUT
     WGET_OPTS="--no-verbose --tries=3 --no-check-certificate"
@@ -484,6 +496,7 @@ EOF
 }
 prepare() {
     echo "prepare"
+    cleanup_dut
     inject_recovery_iso
     inject_preseed
 }
