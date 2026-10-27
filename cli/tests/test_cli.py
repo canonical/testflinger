@@ -1810,6 +1810,60 @@ def test_agent_list_filter_by_name_pattern(capsys, requests_mock):
     assert "agent-test-1" not in std.out
 
 
+def test_agent_list_filter_by_fail_streak(capsys, requests_mock):
+    """Validate list-agents --filter-fail-streak filters by streak."""
+    fake_agents = [
+        {
+            "name": "agent1",
+            "state": "waiting",
+            "queues": ["queue1"],
+            "provision_streak_type": "fail",
+            "provision_streak_count": 5,
+        },
+        {
+            "name": "agent2",
+            "state": "waiting",
+            "queues": ["queue1"],
+            "provision_streak_type": "fail",
+            "provision_streak_count": 2,
+        },
+        {
+            "name": "agent3",
+            "state": "waiting",
+            "queues": ["queue1"],
+            "provision_streak_type": "pass",
+            "provision_streak_count": 10,
+        },
+    ]
+    requests_mock.get(f"{URL}/v1/agents/data", json=fake_agents)
+    sys.argv = ["", "list-agents", "--filter-fail-streak", "3"]
+    tfcli = testflinger_cli.TestflingerCli()
+    tfcli.list_agents()
+    std = capsys.readouterr()
+    assert "agent1" in std.out
+    assert "agent2" not in std.out
+    assert "agent3" not in std.out
+
+
+def test_agent_list_filter_fail_streak_exact_threshold(capsys, requests_mock):
+    """Validate --filter-fail-streak includes a streak equal to N."""
+    fake_agents = [
+        {
+            "name": "agent1",
+            "state": "waiting",
+            "queues": ["queue1"],
+            "provision_streak_type": "fail",
+            "provision_streak_count": 3,
+        },
+    ]
+    requests_mock.get(f"{URL}/v1/agents/data", json=fake_agents)
+    sys.argv = ["", "list-agents", "--filter-fail-streak", "3"]
+    tfcli = testflinger_cli.TestflingerCli()
+    tfcli.list_agents()
+    std = capsys.readouterr()
+    assert "agent1" in std.out
+
+
 def test_agent_list_combined_filters(capsys, requests_mock):
     """Validate list-agents with multiple filters combined."""
     fake_agents = [

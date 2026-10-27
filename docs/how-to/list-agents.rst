@@ -46,14 +46,21 @@ In all cases, filtering can be applied to various fields, e.g:
 
   - ``--filter-comment``
 
+- The current provision streak can be filtered on with
+  ``--filter-fail-streak N``, which selects agents whose latest provision
+  streak is a run of ``N`` or more consecutive failures
+
+  - e.g.: ``--filter-fail-streak 3``
+
 Table mode (default)
 -------------------------
 
 If neither ``-1`` nor ``--summary`` are specified, the default is to output a
 table of agents matching the specified filters. The table fields can be selected
 by specifying a comma-separated list of fields via ``--fields``, including any
-of: name, status, location, provision_type, comment, job_id, queues. By default
-name, status, location, provision_type, and comment are displayed.
+of: name, status, location, provision_type, comment, job_id, submitted_by,
+queues, provision_streak. By default name, status, location, provision_type,
+and comment are displayed.
 
 .. code-block:: shell
 

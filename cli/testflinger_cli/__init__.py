@@ -101,6 +101,7 @@ FIELDS_CHOICES = (
     "job_id",
     "submitted_by",
     "queues",
+    "provision_streak",
 )
 
 
@@ -522,6 +523,17 @@ class TestflingerCli:
             default=None,
             help="Filter agents by the submitter of their current job (regex)",
         )
+        parser.add_argument(
+            "--filter-fail-streak",
+            dest="filter_fail_streak",
+            type=int,
+            default=None,
+            metavar="N",
+            help=(
+                "Filter agents with a current failed provision streak "
+                "of at least N consecutive failures"
+            ),
+        )
 
     def _add_queue_status_args(self, subparsers):
         """Command line arguments for queue status."""
@@ -799,6 +811,16 @@ class TestflingerCli:
                 )
             return lambda a: True
 
+        # Filter by minimum length of a "fail" provision streak
+        def fail_streak_filter(agent: dict) -> bool:
+            if self.args.filter_fail_streak is None:
+                return True
+            return (
+                agent.get("provision_streak_type") == "fail"
+                and agent.get("provision_streak_count", 0)
+                >= self.args.filter_fail_streak
+            )
+
         # Filter agents by allowed states
         return [
             a
@@ -816,6 +838,7 @@ class TestflingerCli:
                     nested_job_re_filter(
                         "submitted_by", self.args.filter_submitted_by
                     )(a),
+                    fail_streak_filter(a),
                 )
             )
         ]
@@ -884,6 +907,12 @@ class TestflingerCli:
             """Resolve a field value from an agent dict, including nested."""
             if field in ("job_id", "submitted_by"):
                 return (agent.get("job") or {}).get(field, "-")
+            if field == "provision_streak":
+                streak_type = agent.get("provision_streak_type")
+                streak_count = agent.get("provision_streak_count")
+                if not streak_type or not streak_count:
+                    return "-"
+                return f"{streak_count} {streak_type}"
             key = field_map.get(field, field)
             val = agent.get(key, "-")
             if isinstance(val, list):
@@ -900,6 +929,7 @@ class TestflingerCli:
             "job_id": "Job ID",
             "submitted_by": "Submitted By",
             "queues": "Queues",
+            "provision_streak": "Provision Streak",
         }
         headers = [header_map[f] for f in self.args.fields]
 
