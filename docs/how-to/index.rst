@@ -16,6 +16,7 @@ Work with jobs via Testflinger CLI
     cancel-job
     reserve-job
     search-job
+    find-queues
     list-agents
     job-priority
     authentication

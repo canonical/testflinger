@@ -37,18 +37,53 @@ from testflinger_cli.find import (
     load_mcp_config,
     match_agents_to_canonical_labels,
     queues_from_online_agents,
+    resolve_model,
     show_available_models,
 )
 
 
-def test_default_model_normalizes_to_openrouter_haiku_45():
-    """The default model is Claude Haiku 4.5 on OpenRouter."""
-    from testflinger_cli.find import find_queues
-
-    assert (
-        _normalize_model_string(find_queues.__kwdefaults__["model"])
-        == "openrouter:anthropic/claude-haiku-4.5"
+def test_model_resolution_prefers_explicit_model_over_configured_default(
+    tmp_path,
+):
+    """Use the configured default unless the user selects a model."""
+    config_file = tmp_path / "test.conf"
+    config_file.write_text(
+        "[testflinger-cli]\nmodel.default = github-copilot:claude-haiku-4.5\n"
     )
+    config = TestflingerCliConfig(config_file)
+
+    assert resolve_model(None, config) == "github-copilot:claude-haiku-4.5"
+    assert resolve_model("openai:gpt-4o", config) == "openai:gpt-4o"
+
+
+def test_find_queues_uses_configured_model_without_openrouter_key(
+    tmp_path, monkeypatch
+):
+    """Use configured provider credentials without OpenRouter auth."""
+    config_file = tmp_path / "test.conf"
+    config_file.write_text(
+        "[testflinger-cli]\nmodel.default = github-copilot:claude-haiku-4.5\n"
+    )
+    config = TestflingerCliConfig(config_file)
+    monkeypatch.setenv("GITHUB_COPILOT_API_KEY", "copilot-test-token")
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+    seen_models = []
+
+    async def find_without_mcp(query, queues, model, job_data=None):
+        seen_models.append(model)
+        return ["raspberry-pi-4"]
+
+    monkeypatch.setattr(
+        "testflinger_cli.find._find_without_mcp", find_without_mcp
+    )
+
+    matches = find_queues(
+        "Raspberry Pi 4", live_queues=["raspberry-pi-4"], config=config
+    )
+
+    assert matches == ["raspberry-pi-4"]
+    assert seen_models == ["github-copilot:claude-haiku-4.5"]
+    assert "OPENROUTER_API_KEY" not in os.environ
 
 
 def test_mcp_inventory_preflight_checks_required_tool():
@@ -492,12 +527,21 @@ class TestSetupApiKeyEnv:
         config = TestflingerCliConfig(config_file)
         monkeypatch.delenv("GITHUB_COPILOT_API_KEY", raising=False)
 
-        with patch(
-            "testflinger_cli.find.subprocess.run",
-            return_value=subprocess.CompletedProcess(
-                args=["gh"], returncode=0, stdout="gh-oauth-token\n", stderr=""
+        with (
+            patch(
+                "testflinger_cli.find.shutil.which",
+                return_value="gh",
             ),
-        ) as gh_run:
+            patch(
+                "testflinger_cli.find.subprocess.run",
+                return_value=subprocess.CompletedProcess(
+                    args=["gh"],
+                    returncode=0,
+                    stdout="gh-oauth-token\n",
+                    stderr="",
+                ),
+            ) as gh_run,
+        ):
             _setup_api_key_env("github-copilot:claude-haiku-4.5", config)
 
         assert os.environ["GITHUB_COPILOT_API_KEY"] == "gh-oauth-token"
@@ -518,6 +562,7 @@ class TestSetupApiKeyEnv:
         monkeypatch.delenv("GITHUB_COPILOT_API_KEY", raising=False)
 
         with (
+            patch("testflinger_cli.find.shutil.which", return_value=None),
             patch(
                 "testflinger_cli.find.subprocess.run",
                 side_effect=FileNotFoundError,

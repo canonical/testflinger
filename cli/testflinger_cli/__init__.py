@@ -655,12 +655,8 @@ class TestflingerCli:
                 )
                 sys.exit(1)
 
-        # Explicit CLI selection takes precedence over config and default.
-        model = (
-            args.model
-            or self.config.get("model.default")
-            or find.DEFAULT_MODEL
-        )
+        # Select the provider before resolving that provider's credentials.
+        model = find.resolve_model(args.model, self.config)
 
         # Try to load MCP config if available
         mcp_cfg = None

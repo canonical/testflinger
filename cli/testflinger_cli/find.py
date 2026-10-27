@@ -61,6 +61,17 @@ DEFAULT_MODEL = "anthropic/claude-haiku-4.5"
 # ---------------------------------------------------------------------------
 
 
+def resolve_model(
+    model: str | None, config: TestflingerCliConfig | None = None
+) -> str:
+    """Select the explicit model, configured default, or built-in default."""
+    return (
+        model
+        or (config.get("model.default") if config is not None else None)
+        or DEFAULT_MODEL
+    )
+
+
 def _normalize_model_string(model: str) -> str:
     """Normalize model string to include provider prefix if needed.
 
@@ -148,10 +159,12 @@ def _setup_api_key_env(model: str, config: TestflingerCliConfig) -> None:
             if api_key:
                 os.environ["GITHUB_COPILOT_API_KEY"] = api_key
             else:
-                gh_path = shutil.which("gh")
-                if gh_path is None:
-                    raise FileNotFoundError("GitHub CLI (`gh`) was not found.")
                 try:
+                    gh_path = shutil.which("gh")
+                    if gh_path is None:
+                        raise FileNotFoundError(
+                            "GitHub CLI (`gh`) was not found."
+                        )
                     result = subprocess.run(  # noqa: S603
                         [
                             gh_path,
@@ -894,7 +907,7 @@ def find_queues(
     live_queues: list[str] | None = None,
     live_agents: list[dict] | None = None,
     job_data: dict | None = None,
-    model: str = DEFAULT_MODEL,
+    model: str | None = None,
     config: TestflingerCliConfig | None = None,
 ) -> list[str]:
     """Resolve *query* to a list of queue names (synchronous entry point).
@@ -927,8 +940,8 @@ def find_queues(
     list[str]
         Queue names ranked by relevance (best match first).
     """
-    # Normalize the model string to ensure it has the provider prefix
-    model = _normalize_model_string(model)
+    # Resolve the model before configuring credentials for its provider.
+    model = _normalize_model_string(resolve_model(model, config))
 
     if config is not None:
         _setup_api_key_env(model, config)
