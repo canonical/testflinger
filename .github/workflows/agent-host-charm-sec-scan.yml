@@ -77,7 +77,7 @@ jobs:
           # By default, SARIF format enforces output of all vulnerabilities regardless of configured severities.
           severity: 'UNKNOWN,LOW,MEDIUM,CRITICAL,HIGH'
       - name: Upload Trivy scan results to GitHub Security tab
-        uses: github/codeql-action/upload-sarif@cdf488f595d80d6e07e03d4674febd5ab45fa938 # v4.37.9
+        uses: github/codeql-action/upload-sarif@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee # v4.39.0
         with:
           sarif_file: 'testflinger-agent-host-trivy-results.sarif'
           category: ${{ matrix.distro }}-${{ matrix.arch }}
