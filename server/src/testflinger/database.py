@@ -24,7 +24,7 @@ from typing import Any
 
 from flask_pymongo import PyMongo
 from gridfs import GridFS, errors
-from pymongo import ASCENDING, ReturnDocument
+from pymongo import ASCENDING, DESCENDING, ReturnDocument
 from pymongo.errors import DuplicateKeyError, PyMongoError
 from testflinger_common.enums import ServerRoles
 
@@ -223,7 +223,17 @@ def create_indexes():
     mongo.db.agents.create_index("name", unique=True)
     mongo.db.client_permissions.create_index("client_id", unique=True)
     mongo.db.client_permissions.create_index("sub", sparse=True)
+    mongo.db.client_permissions.create_index(
+        [("client_id", ASCENDING), ("allowed_queues", ASCENDING)]
+    )
     mongo.db.jobs.create_index("job_id")
+    mongo.db.jobs.create_index(
+        [
+            ("result_data.job_state", ASCENDING),
+            ("job_data.job_queue", ASCENDING),
+            ("job_priority", DESCENDING),
+        ]
+    )
     mongo.db.jobs_events.create_index("job_id", unique=True)
     mongo.db.job_statistics.create_index("job_id", unique=True)
     mongo.db.job_statistics.create_index(
@@ -232,7 +242,6 @@ def create_indexes():
     mongo.db.job_statistics.create_index(
         [("submitted_by", ASCENDING), ("created_at", ASCENDING)]
     )
-    mongo.db.jobs.create_index(["result_data.job_state", "job_data.job_queue"])
     mongo.db.agents.create_index("queues")
 
     # Faster lookups for logs
