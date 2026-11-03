@@ -702,7 +702,7 @@ def test_submit_attachment_without_job(mongo_app, tmp_path):
     assert 422 == output.status_code
 
 
-def test_submit_attachment_payload_too_large(mongo_app, tmp_path, monkeypatch):
+def test_submit_attachment_payload_too_large(mongo_app, tmp_path):
     """Test that oversized attachment uploads are rejected."""
     job_data = {
         "job_queue": "test",
@@ -715,12 +715,12 @@ def test_submit_attachment_payload_too_large(mongo_app, tmp_path, monkeypatch):
     job_id = output.json.get("job_id")
 
     # Patch the app config to set a small max content length for testing
-    app.application.config["MAX_CONTENT_LENGTH"] = 1024
+    app.application.config["MAX_CONTENT_LENGTH"] = 1024 * 1024
 
     # create a mock attachments archive larger than the configured limit
     filename = tmp_path / "attachments.tar.gz"
     with open(filename, "wb") as attachments:
-        attachments.write(os.urandom(2048))
+        attachments.write(os.urandom(2 * 1024 * 1024))
 
     # submit the attachments archive for the job
     attachments_endpoint = f"/v1/job/{job_id}/attachments"
@@ -732,6 +732,7 @@ def test_submit_attachment_payload_too_large(mongo_app, tmp_path, monkeypatch):
             content_type="multipart/form-data",
         )
     assert HTTPStatus.REQUEST_ENTITY_TOO_LARGE == output.status_code
+    assert "maximum allowed size is 1 MB" in output.text
 
 
 def test_retrieve_attachments_nonexistent_job(mongo_app, agent_auth_header):
