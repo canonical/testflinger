@@ -8,7 +8,7 @@ line and displayed in several formats. When collecting the list of agents for
 display, a variety of filters may also be applied. Aside from the filter for
 status, the filters all support use of regular expressions.
 
-The ``list-agents`` subcommand can provide output in three different modes:
+The ``list-agents`` subcommand can provide output in four different modes:
 
 - Table output (default)
 
@@ -17,6 +17,12 @@ The ``list-agents`` subcommand can provide output in three different modes:
 - Status summary (``--summary``)
 
 - Single-column list of agent names (``-1``)
+
+- Failed provision report (``--failed-provision``)
+
+Use ``--output FILE`` (or ``-o FILE``) with any mode to write the results to a
+UTF-8 plain-text file instead of the terminal. An existing file is overwritten.
+Saved output does not include terminal color codes.
 
 In all cases, filtering can be applied to various fields, e.g:
 
@@ -59,8 +65,8 @@ If neither ``-1`` nor ``--summary`` are specified, the default is to output a
 table of agents matching the specified filters. The table fields can be selected
 by specifying a comma-separated list of fields via ``--fields``, including any
 of: name, status, location, provision_type, comment, job_id, submitted_by,
-queues, provision_streak. By default name, status, location, provision_type,
-and comment are displayed.
+queues, provision_streak, provision_streak_count. By default name, status,
+location, provision_type, and comment are displayed.
 
 .. code-block:: shell
 
@@ -70,6 +76,33 @@ and comment are displayed.
   audino   waiting  TXR3-DH1  maas2
   multi-3  waiting            multi
   petilil  waiting  TXR3-DH1  maas2
+
+Failed provision report (--failed-provision)
+-------------------------------------------
+
+To see agents whose current provision streak is failing, use
+``--failed-provision``. The report shows each agent's name, location, and
+number of consecutive provision failures. Successful streaks and agents
+without streak data are excluded. The server calls the failed streak type
+``fail``.
+
+.. code-block:: shell
+
+  $ testflinger list-agents --failed-provision
+  NAME     LOCATION  STREAK COUNT
+  audino   TXR3-DH1   5
+  petilil  TXR3-DH1   3
+
+Save the report to a file:
+
+.. code-block:: shell
+
+  $ testflinger list-agents --failed-provision --output failed-agents.txt
+
+Other filters can narrow the report, for example ``--filter-fail-streak 3``
+to include only streaks of at least three failures, or ``--filter-location``
+to select a location. This report mode cannot be combined with ``--fields``,
+``--summary``, or ``-1``.
 
 Summary mode (--summary)
 ----------------------------

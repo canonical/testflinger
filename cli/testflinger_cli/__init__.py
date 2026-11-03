@@ -102,6 +102,7 @@ FIELDS_CHOICES = (
     "submitted_by",
     "queues",
     "provision_streak",
+    "provision_streak_count",
 )
 
 
@@ -450,6 +451,12 @@ class TestflingerCli:
             help="Show summary of online/offline agent counts",
         )
         subgroup.add_argument(
+            "--failed-provision",
+            action="store_true",
+            help="Show name, location, and consecutive provision failure "
+            "count for agents with a current failed provision streak",
+        )
+        subgroup.add_argument(
             "--fields",
             type=helpers.parse_comma_list(choices=FIELDS_CHOICES),
             default=[
@@ -464,6 +471,14 @@ class TestflingerCli:
                 f" Available fields: {', '.join(FIELDS_CHOICES)}."
                 " Default: name,status,location,provision_type,comment"
             ),
+        )
+        parser.add_argument(
+            "-o",
+            "--output",
+            type=helpers.parse_filename,
+            metavar="FILE",
+            help="Write results to a plain-text file instead of stdout "
+            "(overwrites an existing file)",
         )
         parser.add_argument(
             "--filter-status",
@@ -739,16 +754,24 @@ class TestflingerCli:
         # Filter agents based on arguments
         filtered_agents = self._filter_agents(agents)
 
-        # Display output based on flags
-        if self.args.summary:
-            # just a summary of counts per status
-            self._print_agent_summary(filtered_agents)
-        elif self.args.single_column:
-            # single-column flag: machine names only
-            self._print_agent_names(filtered_agents)
-        else:
-            # table with details, supporting --fields
-            self._print_agent_table(filtered_agents)
+        if self.args.failed_provision:
+            self.args.fields = ["name", "location", "provision_streak_count"]
+
+        try:
+            with contextlib.ExitStack() as stack:
+                if self.args.output:
+                    output = stack.enter_context(
+                        self.args.output.open("w", encoding="utf-8")
+                    )
+                    stack.enter_context(contextlib.redirect_stdout(output))
+                if self.args.summary:
+                    self._print_agent_summary(filtered_agents)
+                elif self.args.single_column:
+                    self._print_agent_names(filtered_agents)
+                else:
+                    self._print_agent_table(filtered_agents)
+        except OSError as exc:
+            sys.exit(f"Error writing agent results: {exc}")
 
     def _filter_agents(self, agents: list[dict]) -> list[dict]:
         """Filter agents based on command line arguments.
@@ -813,6 +836,11 @@ class TestflingerCli:
 
         # Filter by minimum length of a "fail" provision streak
         def fail_streak_filter(agent: dict) -> bool:
+            if (
+                self.args.failed_provision
+                and agent.get("provision_streak_type") != "fail"
+            ):
+                return False
             if self.args.filter_fail_streak is None:
                 return True
             return (
@@ -870,9 +898,11 @@ class TestflingerCli:
         )
 
         # Print header
+        bold = "" if self.args.output else STYLE_BOLD
+        reset = "" if self.args.output else STYLE_RESET_ALL
         print(
             "  ".join(
-                f"{STYLE_BOLD}{h.upper():<{w}}{STYLE_RESET_ALL}"
+                f"{bold}{h.upper():<{w}}{reset}"
                 for h, w in zip(
                     ["State", "Count", "Total"], (16, 6, 6), strict=True
                 )
@@ -930,6 +960,7 @@ class TestflingerCli:
             "submitted_by": "Submitted By",
             "queues": "Queues",
             "provision_streak": "Provision Streak",
+            "provision_streak_count": "Streak Count",
         }
         headers = [header_map[f] for f in self.args.fields]
 
@@ -943,9 +974,11 @@ class TestflingerCli:
         ]
 
         # Print header
+        bold = "" if self.args.output else STYLE_BOLD
+        reset = "" if self.args.output else STYLE_RESET_ALL
         print(
             "  ".join(
-                f"{STYLE_BOLD}{h.upper():<{w}}{STYLE_RESET_ALL}"
+                f"{bold}{h.upper():<{w}}{reset}"
                 for h, w in zip(headers, col_widths, strict=True)
             )
         )

@@ -1864,6 +1864,155 @@ def test_agent_list_filter_fail_streak_exact_threshold(capsys, requests_mock):
     assert "agent1" in std.out
 
 
+@pytest.mark.parametrize(
+    ("filters", "expected_rows"),
+    [
+        ([], [["agent1", "lab-a", "5"], ["agent2", "lab-b", "2"]]),
+        (["--filter-fail-streak", "5"], [["agent1", "lab-a", "5"]]),
+        (["--filter-location", "lab-b"], [["agent2", "lab-b", "2"]]),
+        (["--filter-status", "offline"], [["agent2", "lab-b", "2"]]),
+        (["--filter-fail-streak", "6"], []),
+    ],
+)
+def test_agent_list_failed_provision(
+    capsys, requests_mock, filters, expected_rows
+):
+    """Report only current failures with name, location, and exact count."""
+    fake_agents = [
+        {
+            "name": "agent1",
+            "location": "lab-a",
+            "state": "waiting",
+            "provision_streak_type": "fail",
+            "provision_streak_count": 5,
+        },
+        {
+            "name": "agent2",
+            "location": "lab-b",
+            "state": "offline",
+            "provision_streak_type": "fail",
+            "provision_streak_count": 2,
+        },
+        {
+            "name": "agent3",
+            "provision_streak_type": "pass",
+            "provision_streak_count": 10,
+        },
+        {"name": "agent4"},
+        {"name": "agent5", "provision_streak_type": None},
+    ]
+    requests_mock.get(f"{URL}/v1/agents/data", json=fake_agents)
+    sys.argv = ["", "list-agents", "--failed-provision", *filters]
+    testflinger_cli.TestflingerCli().run()
+    output = re.sub(r"\x1b\[[0-9;]*m", "", capsys.readouterr().out)
+    if expected_rows:
+        lines = output.splitlines()
+        assert lines[0].split() == ["NAME", "LOCATION", "STREAK", "COUNT"]
+        assert [line.split() for line in lines[1:]] == expected_rows
+    else:
+        assert output == "No agents found matching the filter criteria.\n"
+
+
+@pytest.mark.parametrize(
+    "mode",
+    [[], ["--failed-provision"], ["--summary"], ["-1"]],
+)
+@pytest.mark.parametrize("output_flag", ["--output", "-o"])
+def test_agent_list_output_file(
+    capsys, requests_mock, tmp_path, mode, output_flag
+):
+    """Save each output mode without ANSI codes or terminal output."""
+    requests_mock.get(
+        f"{URL}/v1/agents/data",
+        json=[
+            {
+                "name": "agent1",
+                "location": "lab-a",
+                "state": "waiting",
+                "provision_streak_type": "fail",
+                "provision_streak_count": 5,
+            }
+        ],
+    )
+    sys.argv = ["", "list-agents", *mode]
+    testflinger_cli.TestflingerCli().run()
+    expected = re.sub(r"\x1b\[[0-9;]*m", "", capsys.readouterr().out)
+    output = tmp_path / "agents.txt"
+    output.write_text("Old report\n", encoding="utf-8")
+    sys.argv += [output_flag, str(output)]
+    testflinger_cli.TestflingerCli().run()
+    assert output.read_text(encoding="utf-8") == expected
+    assert capsys.readouterr().out == ""
+
+
+def test_agent_list_failed_provision_missing_location(capsys, requests_mock):
+    """Keep failing agents even when no location was reported."""
+    requests_mock.get(
+        f"{URL}/v1/agents/data",
+        json=[
+            {
+                "name": "agent1",
+                "provision_streak_type": "fail",
+                "provision_streak_count": 1,
+            }
+        ],
+    )
+    sys.argv = ["", "list-agents", "--failed-provision"]
+    testflinger_cli.TestflingerCli().run()
+    assert capsys.readouterr().out.splitlines()[1].split() == [
+        "agent1",
+        "-",
+        "1",
+    ]
+
+
+@pytest.mark.parametrize("agents", [[], [{"name": "passing"}]])
+def test_agent_list_failed_provision_empty_file(
+    capsys, requests_mock, tmp_path, agents
+):
+    """Save an explicit no-matches result when no agents are failing."""
+    requests_mock.get(f"{URL}/v1/agents/data", json=agents)
+    output = tmp_path / "empty.txt"
+    sys.argv = [
+        "",
+        "list-agents",
+        "--failed-provision",
+        "--output",
+        str(output),
+    ]
+    testflinger_cli.TestflingerCli().run()
+    assert output.read_text() == (
+        "No agents found matching the filter criteria.\n"
+    )
+    assert capsys.readouterr().out == ""
+
+
+@pytest.mark.parametrize("failure", ["open", "write"])
+def test_agent_list_output_error(requests_mock, tmp_path, failure):
+    """Surface file open and write errors as command failures."""
+    requests_mock.get(f"{URL}/v1/agents/data", json=[{"name": "agent1"}])
+    sys.argv = ["", "list-agents", "-1", "-o", str(tmp_path / "agents.txt")]
+    tfcli = testflinger_cli.TestflingerCli()
+    with patch.object(Path, "open") as mock_open:
+        if failure == "open":
+            mock_open.side_effect = PermissionError("Permission denied")
+        else:
+            mock_open.return_value.__enter__.return_value.write.side_effect = (
+                OSError("Disk full")
+            )
+        with pytest.raises(SystemExit, match="Error writing agent results:"):
+            tfcli.run()
+
+
+@pytest.mark.parametrize("mode", [["-1"], ["--summary"], ["--fields", "name"]])
+def test_agent_list_failed_provision_exclusive(mode):
+    """Reject output modes that conflict with the failed provision report."""
+    sys.argv = ["", "list-agents", "--failed-provision", *mode]
+    with pytest.raises(SystemExit) as exc:
+        testflinger_cli.TestflingerCli()
+    assert exc.value.code == 2
+
+
 def test_agent_list_combined_filters(capsys, requests_mock):
     """Validate list-agents with multiple filters combined."""
     fake_agents = [
