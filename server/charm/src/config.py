@@ -9,6 +9,7 @@ from urllib.parse import urlparse
 import pydantic
 
 MONGO_CSFLE_KEY_LENGTH = 96  # bytes
+MAX_CONTENT_LENGTH = 500 * 1024 * 1024  # 500 MB
 
 
 class TestflingerServerConfig(pydantic.BaseModel):
@@ -30,6 +31,7 @@ class TestflingerServerConfig(pydantic.BaseModel):
     oidc_client_id: str = ""
     oidc_client_secret: str = ""
     oidc_provider_issuer: str = ""
+    max_content_length: int = MAX_CONTENT_LENGTH
 
     @pydantic.field_validator("external_hostname")
     @classmethod
