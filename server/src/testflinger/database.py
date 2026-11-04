@@ -664,7 +664,7 @@ def get_restricted_queues() -> set[str]:
 def get_restricted_queues_owners() -> dict[str, list[str]]:
     """Return a mapping of restricted queues and its permitted client IDs."""
     docs = mongo.db.client_permissions.find(
-        {}, {"allowed_queues": 1, "client_id": 1}
+        {}, {"_id": False, "allowed_queues": True, "client_id": True}
     )
     queue_to_clients = {}
     for doc in docs:
