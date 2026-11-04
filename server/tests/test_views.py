@@ -755,14 +755,6 @@ def test_statistics_jobs_invalid_group_by_defaults_to_submitter(mongo_app):
     assert "<th>Client ID</th>" in response.data.decode()
 
 
-def test_statistics_jobs_invalid_dates_default_to_last_week(mongo_app):
-    """Test malformed start/stop query params fall back to defaults."""
-    app, _ = mongo_app
-    response = app.get("/statistics/jobs?start=not-a-date&stop=also-bad")
-
-    assert response.status_code == HTTPStatus.OK
-
-
 def test_statistics_jobs_invalid_dates_render_default_range(mongo_app):
     """Test malformed dates fall back to actually querying the last 7 days."""
     app, mongo = mongo_app
