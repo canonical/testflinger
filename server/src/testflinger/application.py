@@ -42,7 +42,7 @@ except ImportError:
     pass
 
 VANILLA_FRAMEWORK_VERSION = "4.59.0"  # renovate: vanilla-framework-latest
-MAX_CONTENT_LENGTH = 500 * 1024 * 1024  # 500 MB
+MAX_BODY_SIZE = 500  # MB
 
 
 def create_flask_app(config=None, secrets_store=None):
@@ -64,10 +64,9 @@ def create_flask_app(config=None, secrets_store=None):
     tf_app.owasp_logger = logger
 
     tf_app.config["PROPAGATE_EXCEPTIONS"] = True
-    # The maximum size of the request body in bytes applied to all requests.
-    tf_app.config["MAX_CONTENT_LENGTH"] = int(
-        os.environ.get("MAX_CONTENT_LENGTH", MAX_CONTENT_LENGTH)
-    )
+    # Maximum request body size, configured in MB, applied to all requests.
+    max_body_size_mb = int(os.environ.get("MAX_BODY_SIZE", MAX_BODY_SIZE))
+    tf_app.config["MAX_CONTENT_LENGTH"] = max_body_size_mb * 1024 * 1024
 
     if os.environ.get("TEMPLATES_AUTO_RELOAD", "false").lower() == "true":
         tf_app.config["TEMPLATES_AUTO_RELOAD"] = True
