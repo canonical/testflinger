@@ -12,6 +12,7 @@ Read the top-level `.kb/agents.md` file before continuing below.
 # Directory
 
 - `src/testflinger/` - Server source: `application.py` (Flask app), `api/` and `views.py` (routes), `database.py` (MongoDB), `oidc/` (SSO), `secrets/`, `owasp/` (security utilities)
+- `src/testflinger/jira/` - Jira integration: REST client and ticket creation helpers (project taken from the agent's `jira_project` config) (credentials from `JIRA_BASE_URL`, `JIRA_USER_EMAIL`, `JIRA_TOKEN`)
 - `tests/` - Unit tests
 - `schemas/` - OpenAPI specification
 - `charm/` - Kubernetes charm for production deployment
