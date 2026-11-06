@@ -163,7 +163,6 @@ class TestStatusLineCountdown:
 class TestStatusLineStateChanges:
     """Tests for state transitions."""
 
-    @freeze_time("2026-03-26 12:00:00")
     @mock.patch("testflinger_cli.status_line._original_print")
     def test_state_change_prints_duration(self, mock_print, mock_tty):
         """State transition should print duration of previous state."""
@@ -189,7 +188,6 @@ class TestStatusLineStateChanges:
 
         StatusLine.stop()
 
-    @freeze_time("2026-03-26 12:00:00")
     def test_multiple_state_transitions(self, mock_tty):
         """Multiple state transitions should track elapsed time in each."""
         StatusLine.init()
@@ -259,7 +257,6 @@ class TestStatusLineElapsedThenCountdown:
 
         StatusLine.stop()
 
-    @freeze_time("2026-03-26 12:00:00")
     def test_countdown_with_state_change(self, mock_tty):
         """Countdown should work correctly across state changes."""
         StatusLine.init()

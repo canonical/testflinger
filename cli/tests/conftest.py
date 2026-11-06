@@ -35,6 +35,27 @@ OIDC_USER = "user@example.com"
 
 
 @pytest.fixture(autouse=True)
+def mock_sleep_globally(monkeypatch):
+    """Mock time.sleep and time.monotonic to be instant.
+
+    Prevents real delays from sleep() and busy-loop conditions
+    while allowing freeze_time to control time.time() independently.
+    """
+    # Mock sleep to be instant
+    monkeypatch.setattr("time.sleep", lambda seconds: None)
+    # Mock monotonic to return a fixed value (prevents busy loops)
+    # This allows polling loops to exit immediately
+    fake_monotonic = 0.0
+
+    def mock_monotonic():
+        nonlocal fake_monotonic
+        fake_monotonic += 0.001  # Tiny advance each call
+        return fake_monotonic
+
+    monkeypatch.setattr("time.monotonic", mock_monotonic)
+
+
+@pytest.fixture(autouse=True)
 def set_default_server(monkeypatch):
     """Set the default server URL for all tests to match mock registrations."""
     monkeypatch.setenv("TESTFLINGER_SERVER", URL)
