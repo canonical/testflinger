@@ -21,8 +21,10 @@ from testflinger.jira.exceptions import (
     JiraError,
     JiraRequestError,
 )
-from testflinger.jira.projects import get_project_key
-from testflinger.jira.tickets import create_agent_ticket
+from testflinger.jira.tickets import (
+    create_agent_ticket,
+    get_agent_project_key,
+)
 
 __all__ = [
     "JiraClient",
@@ -30,5 +32,5 @@ __all__ = [
     "JiraError",
     "JiraRequestError",
     "create_agent_ticket",
-    "get_project_key",
+    "get_agent_project_key",
 ]

@@ -15,17 +15,18 @@
 
 """Tests for the Jira integration."""
 
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 import requests
 
+from testflinger import database
 from testflinger.jira import (
     JiraClient,
     JiraConfigError,
     JiraRequestError,
     create_agent_ticket,
-    get_project_key,
+    get_agent_project_key,
 )
 
 BASE_URL = "https://jira.example.com"
@@ -36,22 +37,6 @@ ISSUE_URL = f"{BASE_URL}/rest/api/3/issue"
 def client():
     """Provide a Jira client pointing to a fake server."""
     return JiraClient(BASE_URL, "user@example.com", "token")
-
-
-@pytest.mark.parametrize(
-    ("location", "project"),
-    [
-        ("TEL-L3", "TELOPS"),
-        ("tel-l10", "TELOPS"),
-        ("TOR-L1", "TORLABS"),
-        ("XYZ-L1", None),
-        ("", None),
-        (None, None),
-    ],
-)
-def test_get_project_key(location, project):
-    """Locations map to their Jira project, unknown ones to None."""
-    assert get_project_key(location) == project
 
 
 def test_from_env_missing(monkeypatch):
@@ -103,11 +88,29 @@ def test_create_issue_connection_error(client, requests_mock):
         client.create_issue("TELOPS", "title", "desc", "Task")
 
 
+def test_get_agent_project_key():
+    """The project is read from the agent's stored config."""
+    with patch.object(
+        database, "get_agent_info", return_value={"jira_project": "TELOPS"}
+    ):
+        assert get_agent_project_key("agent1") == "TELOPS"
+
+
+@pytest.mark.parametrize("agent", [None, {}, {"jira_project": ""}])
+def test_get_agent_project_key_missing(agent):
+    """Agents without a configured project (or unknown ones) give None."""
+    with patch.object(database, "get_agent_info", return_value=agent):
+        assert get_agent_project_key("agent1") is None
+
+
 def test_create_agent_ticket():
-    """The ticket is created in the project of the agent location."""
+    """The ticket is created in the project configured for the agent."""
     client = MagicMock()
     client.create_issue.return_value = "TORLABS-7"
-    key = create_agent_ticket("TOR-L1", "title", "desc", client=client)
+    with patch.object(
+        database, "get_agent_info", return_value={"jira_project": "TORLABS"}
+    ):
+        key = create_agent_ticket("agent1", "title", "desc", client=client)
     assert key == "TORLABS-7"
     client.create_issue.assert_called_once_with(
         project_key="TORLABS",
@@ -118,8 +121,9 @@ def test_create_agent_ticket():
     )
 
 
-def test_create_agent_ticket_unmapped_location():
-    """No ticket is created when the location has no Jira project."""
+def test_create_agent_ticket_no_project():
+    """No ticket is created when the agent has no Jira project."""
     client = MagicMock()
-    assert create_agent_ticket("XYZ-L1", "t", "d", client=client) is None
+    with patch.object(database, "get_agent_info", return_value={}):
+        assert create_agent_ticket("agent1", "t", "d", client=client) is None
     client.create_issue.assert_not_called()
