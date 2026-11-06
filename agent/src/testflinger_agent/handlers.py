@@ -16,7 +16,7 @@ import logging
 from abc import ABC, abstractmethod
 from datetime import datetime, timezone
 
-from testflinger_common.enums import LogType
+from testflinger_common.enums import AgentMode, LogType
 
 from .client import LogEndpointInput, TestflingerClient
 
@@ -45,57 +45,6 @@ class FileLogHandler(LogHandler):
             log.write(data)
 
 
-class AgentStatusHandler:
-    """Handler to determine if restart is needed at any stage of the agent."""
-
-    def __init__(self):
-        """Initialize handler with default values."""
-        self._needs_restart = False
-        self._needs_offline = False
-        self._comment = ""
-
-    def update(
-        self,
-        comment: str,
-        restart: bool = False,
-        offline: bool = False,
-    ) -> None:
-        """Update the attributes of the class if needed.
-
-        :param restart: Flag to set if agent needs restarting.
-        :param offline: Flag to set if agent needs offlining.
-        :param comment: Reason for requesting agent status change.
-        """
-        # Update restart flag and comment if not already marked for restart.
-        if restart and not self._needs_restart:
-            self._needs_restart = True
-            if not self._needs_offline:
-                self._comment = comment
-        # Update offline flag and comment if not already marked for offline.
-        if offline and not self._needs_offline:
-            self._needs_offline = True
-            self._comment = comment
-        # Clear the flag and comment if received an offline False
-        elif not offline and self._needs_offline:
-            self._needs_offline = False
-            self._comment = ""
-
-    @property
-    def needs_restart(self) -> bool:
-        """Indicate the current restart state."""
-        return self._needs_restart
-
-    @property
-    def needs_offline(self) -> bool:
-        """Indicate the current offline state."""
-        return self._needs_offline
-
-    @property
-    def comment(self) -> str:
-        """Retrieve the comment on the state."""
-        return self._comment
-
-
 class AgentHeartbeatHandler:
     """Handler to determine if agent needs to send a heartbeat signal."""
 
@@ -111,15 +60,21 @@ class AgentHeartbeatHandler:
         # Agent sent heartbeat upon initialization or restart
         self._last_heartbeat = datetime.now(timezone.utc)
 
-    def update(self, agent_data: dict):
-        """Update agent_data retrieved from server.
+    def update(self, mode: AgentMode, comment: str, updated_at: dict | str):
+        """Update the server with the latest state of the agent.
 
-        :param agent_data: Agent information retrieved from server.
+        :param updated_at: Time at which the server reported last hearing from
+            this agent.
+        :param mode: Agent mode in use by this agent.
+        :param comment: Comment in use by this agent.
         """
-        if agent_data:
-            self._agent_data = agent_data
-            self._refresh_last_heartbeat()
-            self._send_heartbeat()
+        self._agent_data = {
+            "mode": mode,
+            "comment": comment,
+            "updated_at": updated_at,
+        }
+        self._refresh_last_heartbeat()
+        self._send_heartbeat()
 
     def _refresh_last_heartbeat(self) -> None:
         """Update heartbeat from agent_data.
@@ -143,16 +98,19 @@ class AgentHeartbeatHandler:
     def _send_heartbeat(self) -> None:
         """Send a heartbeat to the server if needed.
 
-        Heartbeat signal is current agent status and comment.
+        Heartbeat signal is current agent mode and comment.
         """
         if self.is_heartbeat_required():
-            comment = self._agent_data.get("comment", "")
-            if "state" in self._agent_data:
-                logger.info("Sending heartbeat to Testflinger server")
-                agent_state = self._agent_data["state"]
-                self.client.post_agent_data(
-                    {"state": agent_state, "comment": comment}
+            agent_data = {}
+            if "mode" in self._agent_data:
+                agent_data.update(
+                    {
+                        "mode": self._agent_data["mode"],
+                        "comment": self._agent_data.get("comment", ""),
+                    }
                 )
+            logger.info("Sending heartbeat to Testflinger server")
+            self.client.post_agent_data(agent_data)
 
     def is_heartbeat_required(self) -> bool:
         """Determine if heartbeat is required to send to server.

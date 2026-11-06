@@ -14,7 +14,6 @@
 
 import json
 import logging
-import os
 import shutil
 import tempfile
 import time
@@ -26,12 +25,10 @@ from typing import Dict, List
 from urllib.parse import urljoin
 
 import requests
-from influxdb import InfluxDBClient
-from influxdb.exceptions import InfluxDBClientError
 from requests import HTTPError
 from requests.adapters import HTTPAdapter
 from requests.auth import AuthBase
-from testflinger_common.enums import LogType
+from testflinger_common.enums import AgentMode, LogType
 from urllib3.util import Retry
 
 from testflinger_agent.errors import TFServerError
@@ -88,8 +85,6 @@ class TestflingerClient:
         self.session = self._requests_retry(retries=5)
         self.session.auth = ClientAuth(self)
         self.session.hooks["response"].append(self._handle_token_refresh)
-        self.influx_agent_db = "agent_jobs"
-        self.influx_client = self._configure_influx()
 
     def _requests_retry(self, retries=3):
         session = requests.Session()
@@ -105,30 +100,6 @@ class TestflingerClient:
         session.mount("http://", adapter)
         session.mount("https://", adapter)
         return session
-
-    def _configure_influx(self):
-        """Configure InfluxDB client using environment variables.
-
-        :return: influxdb object or None
-        """
-        host = os.environ.get("INFLUX_HOST")
-        if not host:
-            logger.error("InfluxDB host undefined")
-            return None
-        port = int(os.environ.get("INFLUX_PORT", "8086"))
-        user = os.environ.get("INFLUX_USER", "")
-        password = os.environ.get("INFLUX_PW", "")
-
-        influx_client = InfluxDBClient(
-            host, port, user, password, self.influx_agent_db
-        )
-        # ensure we can connect to influxdb
-        try:
-            influx_client.create_database(self.influx_agent_db)
-        except requests.exceptions.ConnectionError as exc:
-            logger.error(exc)
-        else:
-            return influx_client
 
     def _handle_token_refresh(
         self, response: requests.Response, **kwargs
@@ -163,23 +134,26 @@ class TestflingerClient:
 
         return response
 
-    def check_jobs(self) -> dict | None:
+    def check_jobs(
+        self, restricted_to, mode: AgentMode = AgentMode.ONLINE
+    ) -> dict | None:
         """Check for new jobs for on the Testflinger server.
 
-        If the agent has restricted queues, only accept jobs from those queues.
+        Maintenance mode only accepts jobs from the agent maintenance queue.
+        Online mode uses restricted queues when present, then configured
+        queues.
 
         :return: Dict with job data, or None if no job found
         """
-        agent_id = self.config.get("agent_id")
-        agent_data = self.get_agent_data(agent_id)
+        if mode == AgentMode.MAINTENANCE:
+            queue_list = [self.maintenance_queue]
+        else:
+            all_queues = self.config.get("job_queues", [])
+            restricted_queues = [
+                queue for queue, owners in restricted_to.items() if owners
+            ]
 
-        all_queues = self.config.get("job_queues", [])
-        restricted_to = agent_data.get("restricted_to", {})
-        restricted_queues = [
-            queue for queue, owners in restricted_to.items() if owners
-        ]
-
-        queue_list = restricted_queues or all_queues
+            queue_list = restricted_queues or all_queues
 
         job_uri = urljoin(self.server, "/v1/job")
         logger.debug("Requesting a job")
@@ -203,6 +177,11 @@ class TestflingerClient:
             time.sleep(60)
 
         return None
+
+    @property
+    def maintenance_queue(self) -> str:
+        """Return the queue reserved for this agent's maintenance work."""
+        return f"{self.config.get('agent_id')}_maintenance"
 
     def get_attachments(self, job_id: str, path: Path):
         """Download the attachment archive associated with a job.
@@ -308,7 +287,7 @@ class TestflingerClient:
 
     def get_agent_data(self, agent_id: str) -> dict:
         """Fetch data for the given agent."""
-        url = urljoin(self.server, f"/v1/agents/data/{agent_id}")
+        url = urljoin(self.server, f"/v2/agents/{agent_id}/data")
         try:
             response = self.session.get(url, timeout=30)
             response.raise_for_status()
@@ -350,9 +329,6 @@ class TestflingerClient:
             with outcome_file.open() as f:
                 data = json.load(f)
                 # Only include status in posted results
-                # TODO: Remove pop once backward compatibility is not needed
-                data.pop("output", None)
-                data.pop("serial", None)
                 data["job_state"] = "complete"
                 self.post_result(job_id, data)
             # Remove the outcome file so we don't retransmit
@@ -451,45 +427,12 @@ class TestflingerClient:
         :param data:
             dict of various agent data points to send to the api server
         """
-        agent_data_uri = urljoin(self.server, "/v1/agents/data/")
-        agent_data_url = urljoin(agent_data_uri, self.config.get("agent_id"))
+        agent_data_url = urljoin(
+            self.server, f"/v2/agents/{self.config.get('agent_id')}/data"
+        )
         try:
             self.session.post(agent_data_url, json=data, timeout=30)
         except requests.exceptions.RequestException as exc:
-            logger.error(exc)
-
-    def post_influx(self, phase, result=None):
-        """Post the relevant data points to testflinger server.
-
-        :param data:
-            dict of various agent data points to send to the api server
-        """
-        if not self.influx_client:
-            return
-
-        fields = {"phase": phase}
-
-        if result is not None:
-            fields["result"] = result
-
-        data = [
-            {
-                "measurement": "phase result",
-                "tags": {
-                    "agent": self.config.get("agent_id"),
-                },
-                "fields": fields,
-                "time": time.time_ns(),
-            }
-        ]
-
-        try:
-            self.influx_client.write_points(
-                data,
-                database=self.influx_agent_db,
-                protocol="json",
-            )
-        except InfluxDBClientError as exc:
             logger.error(exc)
 
     def post_provision_log(self, job_id: str, exit_code: int, detail: str):
