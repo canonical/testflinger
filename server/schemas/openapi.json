@@ -25,6 +25,9 @@
           "identifier": {
             "type": "string"
           },
+          "jira_project": {
+            "type": "string"
+          },
           "job_id": {
             "type": "string"
           },

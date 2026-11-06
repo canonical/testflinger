@@ -17,37 +17,50 @@
 
 import logging
 
+from testflinger import database
 from testflinger.jira.client import JiraClient
-from testflinger.jira.projects import get_project_key
 
 logger = logging.getLogger(__name__)
 
 DEFAULT_ISSUE_TYPE = "Task"
 
 
+def get_agent_project_key(agent_name: str) -> str | None:
+    """Return the Jira project configured for an agent, if any.
+
+    The project comes from the ``jira_project`` key of the agent config.
+    """
+    agent = database.get_agent_info(agent_name) or {}
+    return agent.get("jira_project") or None
+
+
 def create_agent_ticket(
-    location: str | None,
+    agent_name: str,
     summary: str,
     description: str,
     issue_type: str = DEFAULT_ISSUE_TYPE,
     labels: list[str] | None = None,
     client: JiraClient | None = None,
 ) -> str | None:
-    """Create a ticket in the Jira project of the agent's location.
+    """Create a ticket in the Jira project configured for the agent.
 
-    :param location: Agent location, used to pick the Jira project
+    :param agent_name: Agent the ticket is about
     :param summary: Ticket title
     :param description: Plain text ticket description
     :param issue_type: Name of the Jira issue type
     :param labels: Optional labels to set on the ticket
     :param client: Jira client, built from the environment if not given
-    :return: The new ticket key, or None if no project maps to the location
+    :return: The new ticket key, or None if the agent has no Jira project
     :raises JiraConfigError: If the Jira credentials are not configured
     :raises JiraRequestError: If Jira rejects or fails the request
     """
-    project_key = get_project_key(location)
+    project_key = get_agent_project_key(agent_name)
     if project_key is None:
-        logger.warning("Skipping Jira ticket creation: %s", summary)
+        logger.warning(
+            "Agent %s has no jira_project, skipping Jira ticket: %s",
+            agent_name,
+            summary,
+        )
         return None
     client = client or JiraClient.from_env()
     issue_key = client.create_issue(
@@ -57,5 +70,5 @@ def create_agent_ticket(
         issue_type=issue_type,
         labels=labels,
     )
-    logger.info("Created Jira ticket %s", issue_key)
+    logger.info("Created Jira ticket %s for agent %s", issue_key, agent_name)
     return issue_key

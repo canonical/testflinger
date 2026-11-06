@@ -69,6 +69,7 @@ class TestClient:
                 "links": [
                     {"url": "https://testurl.com", "label": "Test Label"}
                 ],
+                "jira_project": "TESTOPS",
             }
         )
         testflinger_agent.configure_logging(self.config)
@@ -519,6 +520,7 @@ class TestClient:
                     "location": self.config["location"],
                     "provision_type": self.config["provision_type"],
                     "links": self.config["links"],
+                    "jira_project": self.config["jira_project"],
                 }
             )
 
