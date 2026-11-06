@@ -26,7 +26,7 @@ from flask_pymongo import PyMongo
 from gridfs import GridFS, errors
 from pymongo import ASCENDING, ReturnDocument
 from pymongo.errors import DuplicateKeyError, PyMongoError
-from testflinger_common.enums import ServerRoles
+from testflinger_common.enums import AgentMode, AgentState, ServerRoles
 
 # Field that should be allowed for grouping in the job_statistics collection.
 _STATS_GROUP_FIELDS = frozenset({"queue", "submitted_by"})
@@ -593,6 +593,149 @@ def _active_job_pipeline_stages() -> list[dict]:
     ]
 
 
+# TODO: once support for v1 endpoints is no longer needed, the
+#  _promote_v1_to_v2 function can be removed.
+def _promote_v1_to_v2(agent: dict) -> list[str]:
+    """Normalize legacy v1-shaped agent records to v2 canonical format.
+
+    V1 Client (v1 format) --[_promote]--> (v2 format) ----+
+                                                           |
+    V1 Database (v1 format) --[_promote]--> (v2 format) --+
+                                                           |
+    All data written to database in V2 format <-----------+
+
+    Converts from flat structure (state only) to v2 nested format (mode/state).
+    Also handles v2 agents sending the flat wire schema with mode and/or state
+    strings and nests them.
+
+    Uses _is_v2_format() to detect if agent is already in v2 format (no-op).
+
+    :param agent: Agent record; modified in place with normalized structures.
+    :return: List of field names that were removed and must be ``$unset``
+        in the database.
+    """
+    # If already in v2 format, nothing to do
+    if _is_v2_format(agent):
+        return []
+
+    now = _now()
+    fields_to_unset = []
+
+    # We are only dealing with V1 data structures at this point:
+    state_value = agent.get("state")
+    comment = agent.pop("comment", None)
+
+    # Determine mode value and whether to create a state sub-structure
+    mode_value = None
+    state_nested = None
+
+    if state_value in (AgentMode.OFFLINE, AgentMode.RESTART):
+        mode_value = state_value
+        agent.pop("state", None)
+        fields_to_unset.append("state")
+    elif state_value == AgentMode.MAINTENANCE:
+        mode_value = AgentMode.MAINTENANCE
+        state_nested = AgentState.WAITING
+    elif state_value == AgentState.UNKNOWN:
+        mode_value = AgentMode.ONLINE
+        state_nested = AgentState.WAITING
+    elif state_value:
+        # A v1 agent reporting a sub-state implicitly means online.
+        mode_value = AgentMode.ONLINE
+        state_nested = state_value
+    else:
+        # No state_value, restore comment to top level if present
+        if comment:
+            agent["comment"] = comment
+        return fields_to_unset
+
+    # Create mode dict with comment if present
+    agent["mode"] = {
+        "value": mode_value,
+        "changed_at": now,
+    }
+    if comment:
+        agent["mode"]["comment"] = comment
+
+    # Create state dict if needed
+    if state_nested:
+        agent["state"] = {
+            "value": state_nested,
+            "changed_at": now,
+        }
+
+    return fields_to_unset
+
+
+def _is_v2_format(agent: dict) -> bool:
+    """Check if an agent record is in v2 nested format or v1 flat format.
+
+    v2 format: mode/state/commanded_mode fields contain dicts with 'value' key
+    v1 format: state field is a string (or mode is a string)
+
+    :param agent: Agent dict from database
+    :return: True if v2 format, False if v1 format
+    """
+    # Check if mode is a dict (v2 nested format)
+    if isinstance(agent.get("mode"), dict):
+        return True
+    # Check if state is a dict (v2 nested format)
+    if isinstance(agent.get("state"), dict):
+        return True
+    # Otherwise it's v1 flat format (state/mode are strings or absent)
+    return False
+
+
+def _reconstruct_v1_from_v2(agent: dict) -> None:
+    """Transform v2 nested database format to v1 flat format for output.
+
+    Converts the nested v2 format stored in MongoDB back to the flat v1
+    format expected by v1 API clients. Modifies the agent dict in place.
+
+    :param agent: Agent dict in modified in place to flatten if necessary
+    """
+    # Extract state value from nested structure
+    # Only process if data is confirmed to be v2 format
+    if _is_v2_format(agent):
+        # Extract mode value from nested structure
+        mode_value = None
+        mode_comment = None
+        if "mode" in agent and isinstance(agent["mode"], dict):
+            mode_value = agent["mode"].get("value")
+            mode_comment = agent["mode"].get("comment")
+        agent.pop("mode", None)
+
+        # Check for commanded_mode (admin override)
+        commanded_mode_value = None
+        commanded_mode_comment = None
+        if "commanded_mode" in agent and isinstance(
+            agent["commanded_mode"], dict
+        ):
+            commanded_mode_value = agent["commanded_mode"].get("value")
+            commanded_mode_comment = agent["commanded_mode"].get("comment")
+        agent.pop("commanded_mode", None)
+
+        # Extract state value from nested structure if present
+        # 1. If commanded_mode exists, use it (admin override)
+        # 2. Else if mode is not online, send state = mode
+        # 3. Else (ONLINE), send state = state (sub-state)
+        state_value = None
+        if "state" in agent and isinstance(agent["state"], dict):
+            state_value = agent["state"].get("value")
+
+        if commanded_mode_value:
+            agent["state"] = commanded_mode_value
+        elif mode_value != AgentMode.ONLINE.value:
+            agent["state"] = mode_value
+        else:
+            agent["state"] = state_value
+
+        # Extract comment from commanded_mode or mode (both optional)
+        agent["comment"] = commanded_mode_comment or mode_comment or ""
+
+
+# TODO: when `views.py` is updated to use the v2 data format this function
+#  can be switched over to the v2 footprint.
 def get_agent_info(agent: str) -> dict | None:
     """Return the information for a specified agent, with active job attached.
 
@@ -600,6 +743,9 @@ def get_agent_info(agent: str) -> dict | None:
     job document (if any), populating a nested ``job`` object with
     lightweight job data (``job_id``, ``submitted_by``, ``job_queue``,
     ``job_state``, ``job_priority``, ``tags``).
+
+    :param agent: Agent name
+    :return: Agent dict, or None if not found
     """
     pipeline = [
         {"$match": {"name": agent}},
@@ -607,7 +753,47 @@ def get_agent_info(agent: str) -> dict | None:
         *_active_job_pipeline_stages(),
     ]
     results = list(mongo.db.agents.aggregate(pipeline))
-    return results[0] if results else None
+    if not results:
+        return None
+
+    agent_data = results[0]
+
+    # Promote any v1 flat format data to v2 nested format
+    _promote_v1_to_v2(agent_data)
+
+    # TODO: Remove this once v1 web ui is gone, still used by ui (v1)
+    _reconstruct_v1_from_v2(agent_data)
+
+    return agent_data
+
+
+def get_agent_info_v2(agent: str) -> dict | None:
+    """Return agent information in v2 nested format for v2 API clients.
+
+    Uses a single aggregation pipeline to join the agent with its current
+    job document (if any), populating a nested ``job`` object with
+    lightweight job data (``job_id``, ``submitted_by``, ``job_queue``,
+    ``job_state``, ``job_priority``, ``tags``).
+
+    :param agent: Agent name
+    :return: Agent dict in v2 nested format, or None if not found
+    """
+    pipeline = [
+        {"$match": {"name": agent}},
+        {"$project": {"_id": False, "log": False}},
+        *_active_job_pipeline_stages(),
+    ]
+    results = list(mongo.db.agents.aggregate(pipeline))
+    if not results:
+        return None
+
+    agent_data = results[0]
+
+    # TODO: since we are avoiding write-on-get, we may encounter v1 data for
+    #  up to 7 days or until every agent with existing data has written v2 data
+    _promote_v1_to_v2(agent_data)
+
+    return agent_data
 
 
 def set_agent_job(agent_name: str, job_id: str) -> None:
@@ -619,6 +805,64 @@ def set_agent_job(agent_name: str, job_id: str) -> None:
     mongo.db.agents.update_one(
         {"name": agent_name},
         {"$set": {"job_id": job_id}},
+    )
+
+
+def set_agent_commanded_mode(
+    agent_name: str, mode: str, comment: str, changed_by: str | None
+) -> None:
+    """Command an agent to change its operating mode.
+
+    Sets ``commanded_mode`` (the server-to-agent instruction) as a nested
+    document with value, timestamps, attribution, and optional comment.
+    An empty comment clears any existing comment.
+
+    :param agent_name: Name of the agent.
+    :param mode: The commanded mode value.
+    :param comment: The admin's comment (empty string to clear).
+    :param changed_by: Identity of the admin commanding the mode.
+    """
+    updated_at = _now()
+
+    # TODO: Remove this once v1 is gone, upgrade any old v1 data first.
+    _upgrade_db_agent_v1_to_v2(agent_name)
+
+    # Pre-fetch to determine if mode is actually changing
+    existing_doc = mongo.db.agents.find_one({"name": agent_name})
+    mode_is_changing = (
+        not existing_doc
+        or existing_doc.get("commanded_mode", {}).get("value") != mode
+    )
+
+    # Build commanded_mode dict with timestamps only if mode is changing
+    commanded_mode = {
+        "value": mode,
+        "comment": comment,
+    }
+
+    if mode_is_changing:
+        commanded_mode["changed_at"] = updated_at
+        commanded_mode["changed_by"] = changed_by
+    elif existing_doc:
+        # Preserve existing timestamps if mode unchanged
+        if "changed_at" in existing_doc.get("commanded_mode", {}):
+            commanded_mode["changed_at"] = existing_doc["commanded_mode"][
+                "changed_at"
+            ]
+        if "changed_by" in existing_doc.get("commanded_mode", {}):
+            commanded_mode["changed_by"] = existing_doc["commanded_mode"][
+                "changed_by"
+            ]
+
+    mongo.db.agents.update_one(
+        {"name": agent_name},
+        {
+            "$set": {
+                "commanded_mode": commanded_mode,
+                "updated_at": updated_at,
+            }
+        },
+        upsert=True,
     )
 
 
@@ -665,8 +909,13 @@ def get_restricted_queues_owners() -> dict[str, list[str]]:
     return queue_to_clients
 
 
+# TODO: when `views.py` is updated to use the v2 data format this function
+#  can be switched over to the v2 footprint.
 def get_agents(queue: str | None = None) -> list[dict]:
-    """Return a list of agents with active job info attached.
+    """Return a list of agents in v1 flat format for v1 API clients.
+
+    Retrieves all agents and applies appropriate transformation based on
+    whether each agent's data is in v1 flat format or v2 nested format.
 
     Uses a single aggregation pipeline to join each agent with its
     current job document (if any), populating a nested ``job`` object
@@ -675,8 +924,9 @@ def get_agents(queue: str | None = None) -> list[dict]:
 
     :param queue: If provided, filter agents to those listening on this
         queue.
-    :returns: List of agent dicts, each with a ``job`` field (or ``None``
-        when the agent has no active job).
+
+    :returns: List of agent dicts in v1 flat format, each with a ``job``
+        field (or ``None`` when the agent has no active job).
     """
     match_stage = (
         {"$match": {"queues": {"$in": [queue]}}} if queue else {"$match": {}}
@@ -686,7 +936,47 @@ def get_agents(queue: str | None = None) -> list[dict]:
         {"$project": {"_id": False, "log": False}},
         *_active_job_pipeline_stages(),
     ]
-    return list(mongo.db.agents.aggregate(pipeline))
+    agents = list(mongo.db.agents.aggregate(pipeline))
+
+    # TODO: Remove this once the web views are updated to support v2
+    for agent in agents:
+        _reconstruct_v1_from_v2(agent)
+
+    return agents
+
+
+def get_agents_v2(queue: str | None = None) -> list[dict]:
+    """Return a list of agents in v2 nested format for v2 API clients.
+
+    Retrieves all agents and applies appropriate transformation based on
+    whether each agent's data is in v1 flat format or v2 nested format.
+
+    Uses a single aggregation pipeline to join each agent with its
+    current job document (if any), populating a nested ``job`` object
+    with lightweight job data (``job_id``, ``submitted_by``,
+    ``job_queue``, ``job_state``, ``job_priority``, ``tags``).
+
+    :param queue: If provided, filter agents to those listening on this
+        queue.
+    :returns: List of agent dicts in v2 nested format, each with a ``job``
+        field (or ``None`` when the agent has no active job).
+    """
+    match_stage = (
+        {"$match": {"queues": {"$in": [queue]}}} if queue else {"$match": {}}
+    )
+    pipeline = [
+        match_stage,
+        {"$project": {"_id": False, "log": False}},
+        *_active_job_pipeline_stages(),
+    ]
+    agents = list(mongo.db.agents.aggregate(pipeline))
+
+    # TODO: remove this when v1 data no longer needs to be supported
+    for agent in agents:
+        # Normalize legacy v1 format to v2 if needed (no-op if already v2 fmt)
+        _promote_v1_to_v2(agent)
+
+    return agents
 
 
 def add_restricted_queue(queue: str, client_id: str):
@@ -923,18 +1213,180 @@ def set_queue_images(queue: str, image_data: dict) -> None:
     )
 
 
-def upsert_agent_document(agent_name: str, data: dict, log: list[str]) -> None:
+def _upgrade_db_agent_v1_to_v2(agent_name):
+    agent_data = get_agent_info_v2(agent_name)
+    if agent_data and not _is_v2_format(agent_data):
+        fields_to_unset = _promote_v1_to_v2(agent_data)
+        update = {"$set": agent_data}
+        if fields_to_unset:
+            update["$unset"] = dict.fromkeys(fields_to_unset, "")
+        mongo.db.agents.update_one(
+            {"name": agent_name},
+            update,
+            upsert=False,
+        )
+
+
+def upsert_agent_document(
+    agent_name: str,
+    data: dict,
+    log: list[str],
+    *,
+    upsert: bool = True,
+    unset: list[str] | None = None,
+    changed_by: str | None = None,
+) -> None:
     """Insert or update an agent record.
 
+    Accepts both:
+    - v2 database format (nested mode/state dicts)
+    - v1 flat format (state string only)
+
+    Uses aggregation pipeline with $cond to atomically update mode/state
+    timestamps only when their values actually change.
+
+    For v2 callers from API: Already converted to nested dicts by API layer.
+    For v1 callers from API: Flat state string; v1->v2 promotion is automatic.
+    For tests: Can call with either format.
+
     :param agent_name: Name of the agent.
-    :param data: Agent data fields to set.
+    :param data: Agent data - v2 nested format (mode/state dicts) or v1
+        flat format (state string).
     :param log: Log lines to push (kept to last 100).
+    :param upsert: Whether to create the record when it does not exist.
+    :param unset: Fields to unset in database.
+    :param changed_by: Identity of the admin for commanded_mode
+        operations (v2 only).
     """
+    # Ensure unset is a list
+    if unset is None:
+        unset = []
+
+    # TODO: remove the v1 reshaping once it's no longer needed
+    #  Promote incoming v1 data to v2 format as necessary
+    incoming_unset = _promote_v1_to_v2(data)
+    if incoming_unset:
+        unset = unset + incoming_unset
+
+    # TODO: remove the latent db data upgrade from v1 once no longer needed.
+    #  Read and if necessary re-write v1 data as v2 before continuing edits.
+    _upgrade_db_agent_v1_to_v2(agent_name)
+
+    updated_at = data.get("updated_at") or _now()
+
+    reported_mode = None
+    if "mode" in data:
+        reported_mode = data["mode"]["value"]
+
+    # Extract values for mode/commanded_mode logic
+    current_mode = None
+    commanded_mode = None
+    if existing_agent := (mongo.db.agents.find_one({"name": agent_name})):
+        current_mode = existing_agent.get("mode", {}).get("value")
+        # The next prescribed mode value will be exactly what it is unless
+        # other conditions exist to change that.
+        commanded_mode = existing_agent.get("commanded_mode", {}).get("value")
+
+    # Considerations:
+    #  - If the commanded mode equals the reported mode, clear the commanded
+    #    mode (agent acked the command).
+    #  - If the agent is reporting mode=RESTART, preserve the current
+    #    mode as the restoration target (unless a command is pending).
+    #  - Otherwise, retain any pending commanded mode for next cycle.
+
+    # Agent adopted the commanded mode; clear the command
+    if (
+        reported_mode
+        and commanded_mode
+        and reported_mode == commanded_mode
+        and commanded_mode != AgentMode.RESTART.value
+    ):
+        unset.append("commanded_mode")
+
+    # Agent is restarting; preserve restoration target, favor exiting command
+    # if the command has not yet been ack'ed.
+    if (
+        reported_mode == AgentMode.RESTART.value
+        and current_mode
+        and commanded_mode in (None, AgentMode.RESTART.value)
+    ):
+        data["commanded_mode"] = {
+            "value": current_mode,
+            "changed_at": updated_at,
+            "changed_by": changed_by,
+        }
+
+    # Build set_fields for the aggregation pipeline, handling mode and state
+    # specially for conditional timestamp updates.
+    set_fields = {}
+
+    for key, value in data.items():
+        if key not in {"mode", "state"}:
+            set_fields[key] = value
+
+    # Handle mode with conditional changed_at timestamp
+    if "mode" in data and isinstance(data["mode"], dict):
+        mode_is_changing = {"$ne": ["$mode.value", data["mode"].get("value")]}
+        set_fields["mode"] = {
+            "value": data["mode"]["value"],
+            "changed_at": {
+                "$cond": [
+                    mode_is_changing,
+                    updated_at,
+                    {"$ifNull": ["$mode.changed_at", updated_at]},
+                ]
+            },
+            "changed_by": {
+                "$cond": [
+                    mode_is_changing,
+                    changed_by,
+                    {"$ifNull": ["$mode.changed_by", changed_by]},
+                ]
+            },
+        }
+        # Preserve other fields that may exist (comment, changed_by, etc)
+        for key in {"comment"}:
+            if key in data["mode"]:
+                set_fields["mode"][key] = data["mode"][key]
+
+    # Handle state with conditional changed_at timestamp
+    if "state" in data and isinstance(data["state"], dict):
+        state_is_changing = {
+            "$ne": ["$state.value", data["state"].get("value")]
+        }
+        set_fields["state"] = {
+            "value": data["state"]["value"],
+            "changed_at": {
+                "$cond": [
+                    state_is_changing,
+                    updated_at,
+                    {"$ifNull": ["$state.changed_at", updated_at]},
+                ]
+            },
+        }
+
+    # Build aggregation pipeline for mode/state conditional updates
+    pipeline = [{"$set": set_fields}]
+
     mongo.db.agents.update_one(
         {"name": agent_name},
-        {"$set": data, "$push": {"log": {"$each": log, "$slice": -100}}},
-        upsert=True,
+        pipeline,
+        upsert=upsert,
     )
+
+    # Handle unset separately (mongomock doesn't support $unset in pipelines)
+    if unset:
+        mongo.db.agents.update_one(
+            {"name": agent_name},
+            {"$unset": dict.fromkeys(unset, "")},
+        )
+
+    # Handle log separately using dict-based $push (not pipeline-compatible)
+    if log:
+        mongo.db.agents.update_one(
+            {"name": agent_name},
+            {"$push": {"log": {"$each": log, "$slice": -100}}},
+        )
 
 
 def get_waiting_jobs_in_queue(queue: str) -> list[dict]:

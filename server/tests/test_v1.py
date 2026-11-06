@@ -1069,7 +1069,16 @@ def test_agents_post(mongo_app, agent_auth_header):
 
     # Test that the expected data was stored
     agent_record = mongo.agents.find_one({"name": agent_name})
-    assert agent_data.items() <= agent_record.items()
+    # Database stores state in nested v2 format, so we check fields
+    # individually
+    assert agent_record["queues"] == agent_data["queues"]
+    assert agent_record["location"] == agent_data["location"]
+    # State is stored in nested format in database
+    assert agent_record["state"]["value"] == agent_data["state"]
+    assert (
+        agent_record["mode"]["value"] == "online"
+    )  # provision implies online mode
+    assert agent_record["log"] == agent_data["log"]
 
     # Update the agent data again
     output = app.post(
@@ -1611,7 +1620,7 @@ def test_search_jobs_datetime_iso8601(mongo_app):
     )
     output = app.get("/v1/job/search?tags=foo")
     assert 200 == output.status_code
-    assert output.json[0]["created_at"] == "2020-01-01T00:00:00Z"
+    assert output.json[0]["created_at"] == "2020-01-01T00:00:00+00:00"
 
 
 def test_get_queue_wait_times(mongo_app):

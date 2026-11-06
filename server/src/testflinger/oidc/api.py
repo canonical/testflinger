@@ -21,6 +21,7 @@ from http import HTTPStatus
 
 import requests
 from apiflask import APIBlueprint, abort
+from apiflask.exceptions import HTTPError
 from flask import current_app, jsonify, request
 from testflinger_common.enums import ServerRoles
 
@@ -201,7 +202,15 @@ def oidc_auth_poll(request_id: str) -> dict:
     :param request_id: unique request ID generated during auth initiation
     :return: dict containing authentication result and user info if successful
     """
-    device_code = database.get_oidc_device_code(request_id)
+    try:
+        device_code = database.get_oidc_device_code(request_id)
+    except Exception:  # pylint: disable=broad-except
+        logger.exception("Failed to retrieve device code from database")
+        abort(
+            HTTPStatus.INTERNAL_SERVER_ERROR,
+            message="Failed to retrieve authentication state from database",
+        )
+
     if not device_code:
         abort(
             HTTPStatus.BAD_REQUEST,
@@ -235,4 +244,16 @@ def oidc_auth_poll(request_id: str) -> dict:
             message="Failed to retrieve user information from OIDC provider",
         )
 
-    return _register_and_issue_tokens(userinfo, request_id)
+    try:
+        tokens = _register_and_issue_tokens(userinfo, request_id)
+    except HTTPError:
+        # Re-raise HTTP exceptions (from abort() calls)
+        raise
+    except Exception:  # pylint: disable=broad-except
+        logger.exception("Failed to register user and issue tokens")
+        abort(
+            HTTPStatus.INTERNAL_SERVER_ERROR,
+            message="Failed to complete authentication",
+        )
+
+    return jsonify(tokens)
