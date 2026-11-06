@@ -373,7 +373,13 @@ class TestflingerCliAuth:
                     self.store_refresh_token(auth_data["refresh_token"])
                 return auth_data["access_token"]
             except requests.exceptions.HTTPError as exc:
-                error_data = exc.response.json()
+                try:
+                    error_data = exc.response.json()
+                except requests.exceptions.JSONDecodeError:
+                    raise OidcError(
+                        "Unexpected JSON decode error during OIDC "
+                        f"authentication: {exc}"
+                    ) from exc
                 match error_data.get("error"):
                     case "authorization_pending":
                         pass

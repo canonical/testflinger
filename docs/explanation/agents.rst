@@ -62,9 +62,9 @@ agent host charms, see :ref:`howto-manage-agent-host`.
 Agent Administration
 --------------------
 
-To manage a running agent a Testflinger administrative user can communicate with
-the Testflinger server to tell the Agent to go ``offline``, ``online``, or into
-``maintenance`` mode. See :ref:`howto-manage-agent`
+To manage a running agent, a Testflinger administrative user can communicate
+with the Testflinger server to command the agent to ``offline``, ``online``,
+``maintenance``, or ``restart`` mode. See :ref:`howto-manage-agent`
 
 
 Agent Operating Modes
@@ -72,15 +72,22 @@ Agent Operating Modes
 
 The agent starts up as ``online`` and will stay ``online`` unless there is a
 recurring problem while trying to bring the target machine up. If an agent puts
-itself ``offline`` the status comment will look like this:
+itself ``offline``, the comment will look like this:
 
-- Set to offline by agent. Recovery failed during job '<job_id>' execution."
+- "Set to offline by agent. Recovery failed during job '<job_id>' execution."
 
-Testflinger administrators can also change the status of running agents via the
-command line to either ``offline`` or ``maintenance``. See :ref:`howto-manage-agent`
+Testflinger administrators can also command running agents to ``offline``,
+``maintenance``, or ``restart`` via the CLI. See :ref:`howto-manage-agent`
 for more details.
 
-        Agent states follow the job execution phase order:
-        - waiting: idle, ready for jobs
-        - setup, provision, firmware_update, test, allocate, reserve: running job phases
-        - offline, maintenance: offline states
+The server stores the instruction in ``commanded_mode``; the agent adopts it
+on its next poll after any active job completes, then reports its new
+``mode`` back to the server. During the transition the agent record will show
+both fields — for example ``online:test->maintenance`` — indicating the
+current mode and state alongside the pending commanded mode.
+
+Agent sub-states follow the job execution phase order:
+
+- ``waiting``: idle, ready for jobs
+- ``setup``, ``provision``, ``firmware_update``, ``test``, ``allocate``,
+  ``reserve``, ``cleanup``: running job phases
