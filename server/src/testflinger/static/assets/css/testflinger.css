@@ -11,6 +11,13 @@ main {
     width: 95%;
 }
 
+.row,
+.p-navigation__row {
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    max-width: none !important;
+}
+
 .general-info table {
     text-align: left;
 }
@@ -97,6 +104,106 @@ main {
     overflow: visible !important;
 }
 
+/* Agent-state chips – colours come from Vanilla's semantic chip classes:
+   p-chip--positive (green), p-chip--caution (amber), p-chip--negative (red).
+   Vanilla defaults: lead 1rem, value 0.875rem. We shrink both to 9pt. */
+.agent-state-chip { margin: 0 !important; }
+button.agent-state-chip { cursor: pointer; display: inline-flex; align-items: center; border: none; padding: 0; margin: 0; }
+.agent-state-chip .p-chip__lead,
+.agent-state-chip .p-chip__value { font-size: 9pt; }
+.agent-state-chip.p-tooltip--right { position: relative; }
+.agent-state-chip .p-tooltip__message {
+    display: none;
+}
+.agent-state-chip.p-tooltip--right:hover .p-tooltip__message,
+.agent-state-chip.p-tooltip--right:focus .p-tooltip__message {
+    display: block;
+    position: absolute;
+    top: 0;
+    left: 100%;
+    margin-left: 0.5rem;
+    max-width: 600px;
+    width: max-content;
+}
+
+/* Pending-mode transition pair: current chip on line 1,
+   arrow + commanded chip on line 2 — stacks vertically to save row width. */
+.agent-mode-transition {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.1rem;
+    background: none;
+    border: none;
+    margin-bottom: 0;
+    padding: 0;
+    cursor: pointer;
+    font: inherit;
+    color: inherit;
+    text-decoration: none;
+}
+.agent-mode-transition.p-tooltip--right { position: relative; }
+.agent-mode-pending-row {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.2rem;
+}
+
+/* Vendored additional icon: arrow-right (→).
+   Not included in the Vanilla CDN bundle. */
+.p-icon--arrow-right {
+    background-image: url("data:image/svg+xml,%3Csvg width='16' height='16' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M3 7h8.586L9.293 5.707l1.414-1.414L14.414 8l-3.707 3.707-1.414-1.414L11.586 9H3V7z' fill='%23000'/%3E%3C/svg%3E");
+    background-size: contain;
+    background-position: center;
+    background-repeat: no-repeat;
+    display: inline-block;
+    height: 1rem;
+    width: 1rem;
+    margin: 0;
+    padding: 0;
+}
+
+[class*="--dark"] .p-icon--arrow-right,
+body.is-dark .p-icon--arrow-right,
+.p-icon--arrow-right.is-light {
+    background-image: url("data:image/svg+xml,%3Csvg width='16' height='16' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M3 7h8.586L9.293 5.707l1.414-1.414L14.414 8l-3.707 3.707-1.414-1.414L11.586 9H3V7z' fill='hsl(0%2C0%25%2C100%25)'/%3E%3C/svg%3E");
+}
+
+/* Vendored additional icon: revisions (clock/history — used for pending commanded mode).
+   Not included in the Vanilla CDN bundle. */
+.p-icon--revisions {
+    background-image: url("data:image/svg+xml,%3Csvg width='16' height='16' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M2.583 3.566l1.019 1.131a5.5 5.5 0 109.847 4.056h1.51A7.001 7.001 0 112.584 3.567zM5.748 4.74l2.221 2.51L12 7.25v1.5H7.294l-2.67-3.018 1.124-.993zm8.014-.714c.493.712.856 1.52 1.058 2.39h-1.552a5.47 5.47 0 00-.56-1.26l1.054-1.13zM9.504 1.162a6.967 6.967 0 012.626 1.186l-1.033 1.106a5.475 5.475 0 00-1.594-.746V1.162zm-2.34-.113l.001 1.514a5.462 5.462 0 00-1.795.605L4.344 2.03a6.956 6.956 0 012.82-.98z' fill='%23000' fill-rule='nonzero'/%3E%3C/svg%3E");
+}
+
+[class*="--dark"] .p-icon--revisions,
+body.is-dark .p-icon--revisions,
+.p-icon--revisions.is-light {
+    background-image: url("data:image/svg+xml,%3Csvg width='16' height='16' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M2.583 3.566l1.019 1.131a5.5 5.5 0 109.847 4.056h1.51A7.001 7.001 0 112.584 3.567zM5.748 4.74l2.221 2.51L12 7.25v1.5H7.294l-2.67-3.018 1.124-.993zm8.014-.714c.493.712.856 1.52 1.058 2.39h-1.552a5.47 5.47 0 00-.56-1.26l1.054-1.13zM9.504 1.162a6.967 6.967 0 012.626 1.186l-1.033 1.106a5.475 5.475 0 00-1.594-.746V1.162zm-2.34-.113l.001 1.514a5.462 5.462 0 00-1.795.605L4.344 2.03a6.956 6.956 0 012.82-.98z' fill='hsl(0%2C0%25%2C100%25)' fill-rule='nonzero'/%3E%3C/svg%3E");
+}
+
+/* Vanilla's edit icon is an additional icon, not part of the CDN bundle. */
+.p-icon--edit {
+    background-image: url("data:image/svg+xml,%3Csvg width='16' height='16' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M14 13.25v1.5H2v-1.5h12zM11.907 1.676l.58.58a2 2 0 010 2.829l-5.133 5.133c-.038.038-.079.073-.122.104l.01.008a3.77 3.77 0 01-1.718.983l-3.52.914.863-3.583c.138-.57.41-1.099.795-1.54l.17-.183.01.01c.03-.043.065-.084.103-.122l5.133-5.133a2 2 0 012.829 0zm-3.309 2.6L5.036 7.84l-.593.82 1.062 1.063.814-.591 3.567-3.568-1.288-1.288zm1.61-1.597l-.07.057-.479.48 1.288 1.288.48-.48a.5.5 0 00.057-.638l-.057-.069-.581-.58a.5.5 0 00-.638-.058z' fill='%23000' fill-rule='nonzero'/%3E%3C/svg%3E");
+}
+
+[class*="--dark"] .p-icon--edit,
+body.is-dark .p-icon--edit,
+.p-icon--edit.is-light,
+.p-icon--edit.is-dark {
+    background-image: url("data:image/svg+xml,%3Csvg width='16' height='16' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M14 13.25v1.5H2v-1.5h12zM11.907 1.676l.58.58a2 2 0 010 2.829l-5.133 5.133c-.038.038-.079.073-.122.104l.01.008a3.77 3.77 0 01-1.718.983l-3.52.914.863-3.583c.138-.57.41-1.099.795-1.54l.17-.183.01.01c.03-.043.065-.084.103-.122l5.133-5.133a2 2 0 012.829 0zm-3.309 2.6L5.036 7.84l-.593.82 1.062 1.063.814-.591 3.567-3.568-1.288-1.288zm1.61-1.597l-.07.057-.479.48 1.288 1.288.48-.48a.5.5 0 00.057-.638l-.057-.069-.581-.58a.5.5 0 00-.638-.058z' fill='hsl(0%2C0%%2C100%)' fill-rule='nonzero'/%3E%3C/svg%3E");
+}
+
+/* Job-state chips – colours come from Vanilla's semantic chip classes:
+   p-chip (neutral grey), p-chip--information (blue), p-chip--positive (green),
+   p-chip--caution (amber), p-chip--negative (red).
+   Vanilla defaults: lead 1rem, value 0.875rem. We shrink to lead 11px / value 10px. */
+.job-state-chip { margin: 0 !important; }
+.job-state-chip.is-read-only { border: 0; }
+/* "waiting" jobs use p-chip (default), which is near-white; nudge to light grey. */
+.job-state-chip.p-chip { background-color: #d9d9d9; }
+.job-state-chip .p-chip__lead { font-size: 0.6875rem; }
+.job-state-chip .p-chip__value { font-size: 0.625rem; }
+
 /* Heading row with a trailing action button (e.g. copy job YAML) */
 .section-heading-bar {
     display: flex;
@@ -126,4 +233,52 @@ main {
 [class*="p-code-snippet__block"] {
     max-height: 600px;
     scroll-behavior: auto;
+}
+
+/* Agents table column widths */
+#agentsTable th:nth-child(1),
+#agentsTable td:nth-child(1) {
+    width: 5%;
+    min-width: 60px;
+}
+#agentsTable th:nth-child(2),
+#agentsTable td:nth-child(2) {
+    width: 15%;
+    min-width: 120px;
+}
+#agentsTable th:nth-child(3),
+#agentsTable td:nth-child(3) {
+    width: 10%;
+    min-width: 100px;
+}
+#agentsTable th:nth-child(4),
+#agentsTable td:nth-child(4) {
+    width: 20%;
+    min-width: 150px;
+}
+#agentsTable th:nth-child(5),
+#agentsTable td:nth-child(5) {
+    width: 15%;
+    min-width: 140px;
+}
+#agentsTable th:nth-child(6),
+#agentsTable td:nth-child(6) {
+    width: 25%;
+    min-width: 250px;
+}
+#agentsTable th:nth-child(7),
+#agentsTable td:nth-child(7) {
+    width: 10%;
+    min-width: 100px;
+}
+
+/* Prevent overflow in Mode:State column */
+#agentsTable td:nth-child(4) {
+    overflow: visible;
+    white-space: normal;
+}
+
+/* Ensure tooltips are not clipped in table cells */
+#agentsTable td {
+    overflow: visible;
 }
