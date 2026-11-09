@@ -57,4 +57,9 @@ check: lint format test
 [doc('Remove tox environments (forces full reinstall on next run).')]
 [group('venv')]
 clean:
+
+[doc('Run all fixes.')]
+[group('test')]
+fix: format
+    @echo 'All done!'
     @rm -rf .tox
