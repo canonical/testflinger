@@ -41,17 +41,22 @@ def mock_sleep_globally(monkeypatch):
     Prevents real delays from sleep() and busy-loop conditions
     while allowing freeze_time to control time.time() independently.
     """
-    # Mock sleep to be instant
-    monkeypatch.setattr("time.sleep", lambda seconds: None)
-    # Mock monotonic to return a fixed value (prevents busy loops)
-    # This allows polling loops to exit immediately
+    # The timer thread is not under test here. Avoid starting its redraw loop
+    # when mock_tty enables TTY behavior in tests.
+    monkeypatch.setattr(StatusLine, "_timer_loop", lambda: None)
+
+    # Keep a virtual monotonic clock: sleeping advances test time without
+    # waiting on wall time, while clock reads themselves do not advance it.
     fake_monotonic = 0.0
 
     def mock_monotonic():
-        nonlocal fake_monotonic
-        fake_monotonic += 0.001  # Tiny advance each call
         return fake_monotonic
 
+    def mock_sleep(seconds):
+        nonlocal fake_monotonic
+        fake_monotonic += seconds
+
+    monkeypatch.setattr("time.sleep", mock_sleep)
     monkeypatch.setattr("time.monotonic", mock_monotonic)
 
 
