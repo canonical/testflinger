@@ -59,3 +59,8 @@ check: lint format test
 [group('venv')]
 clean:
     @rm -rf .tox
+
+[doc('Run all fixes.')]
+[group('test')]
+fix: format
+    @echo 'All done!'
