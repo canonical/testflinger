@@ -214,6 +214,43 @@ def test_submit_bad_data(tmp_path, requests_mock, auth_fixture):
     )
 
 
+def test_submit_attachment_payload_too_large(
+    tmp_path, requests_mock, auth_fixture
+):
+    """Ensure a 413 response from an oversized attachment is shown to user."""
+    auth_fixture("user")
+    jobid = str(uuid.uuid1())
+    attachment_path = tmp_path / "attachments"
+    attachment_path.mkdir()
+    (attachment_path / "file_0.bin").write_bytes(os.urandom(128))
+
+    job_data = {
+        "job_queue": "fake",
+        "test_data": {"attachments": [{"local": "file_0.bin"}]},
+    }
+    testfile = attachment_path / "job.yaml"
+    testfile.write_text(json.dumps(job_data))
+
+    requests_mock.post(f"{URL}/v1/job", json={"job_id": jobid})
+    requests_mock.get(
+        f"{URL}/v1/queues/fake/agents",
+        json=[{"name": "fake_agent", "state": "waiting"}],
+    )
+    requests_mock.post(
+        f"{URL}/v1/job/{jobid}/attachments",
+        status_code=HTTPStatus.REQUEST_ENTITY_TOO_LARGE,
+        text="Payload too large: maximum allowed size is 1 MB\n",
+    )
+    requests_mock.post(f"{URL}/v1/job/{jobid}/action")
+
+    sys.argv = ["", "submit", str(testfile)]
+    tfcli = testflinger_cli.TestflingerCli()
+    with pytest.raises(SystemExit) as err:
+        tfcli.submit()
+    assert f"Job {jobid} submitted and cancelled" in err.value.code
+    assert "maximum allowed size is 1 MB" in err.value.code
+
+
 def test_pack_attachments(tmp_path):
     """Make sure attachments are packed correctly."""
     attachments = [
