@@ -121,6 +121,29 @@ def test_create_agent_ticket():
     )
 
 
+@pytest.mark.parametrize(
+    "error", [JiraRequestError(500, ["boom"]), JiraConfigError("missing")]
+)
+def test_create_agent_ticket_failure(error, caplog):
+    """Jira failures are logged and swallowed instead of raised."""
+    client = MagicMock()
+    client.create_issue.side_effect = error
+    with patch.object(
+        database, "get_agent_info", return_value={"jira_project": "TELOPS"}
+    ):
+        assert create_agent_ticket("agent1", "t", "d", client=client) is None
+    assert "Failed to create Jira ticket for agent agent1" in caplog.text
+
+
+def test_create_agent_ticket_missing_credentials(monkeypatch):
+    """Missing credentials don't raise when no client is given."""
+    monkeypatch.delenv("JIRA_BASE_URL", raising=False)
+    with patch.object(
+        database, "get_agent_info", return_value={"jira_project": "TELOPS"}
+    ):
+        assert create_agent_ticket("agent1", "t", "d") is None
+
+
 def test_create_agent_ticket_no_project():
     """No ticket is created when the agent has no Jira project."""
     client = MagicMock()

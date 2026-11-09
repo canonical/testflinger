@@ -455,6 +455,9 @@ class TestflingerCharm(ops.CharmBase):
             "OIDC_CLIENT_ID": self.typed_config.oidc_client_id,
             "OIDC_CLIENT_SECRET": self.typed_config.oidc_client_secret,
             "OIDC_PROVIDER_ISSUER": self.typed_config.oidc_provider_issuer,
+            "JIRA_BASE_URL": self.typed_config.jira_base_url,
+            "JIRA_USER_EMAIL": self.typed_config.jira_user_email,
+            "JIRA_TOKEN": self.typed_config.jira_token,
         }
         return env
 

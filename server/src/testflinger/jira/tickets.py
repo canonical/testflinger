@@ -19,6 +19,7 @@ import logging
 
 from testflinger import database
 from testflinger.jira.client import JiraClient
+from testflinger.jira.exceptions import JiraError
 
 logger = logging.getLogger(__name__)
 
@@ -51,8 +52,8 @@ def create_agent_ticket(
     :param labels: Optional labels to set on the ticket
     :param client: Jira client, built from the environment if not given
     :return: The new ticket key, or None if the agent has no Jira project
-    :raises JiraConfigError: If the Jira credentials are not configured
-    :raises JiraRequestError: If Jira rejects or fails the request
+        or the ticket could not be created. Jira failures are logged and
+        never raised, so callers' workflows are not interrupted.
     """
     project_key = get_agent_project_key(agent_name)
     if project_key is None:
@@ -62,13 +63,21 @@ def create_agent_ticket(
             summary,
         )
         return None
-    client = client or JiraClient.from_env()
-    issue_key = client.create_issue(
-        project_key=project_key,
-        summary=summary,
-        description=description,
-        issue_type=issue_type,
-        labels=labels,
-    )
+    try:
+        client = client or JiraClient.from_env()
+        issue_key = client.create_issue(
+            project_key=project_key,
+            summary=summary,
+            description=description,
+            issue_type=issue_type,
+            labels=labels,
+        )
+    except JiraError:
+        logger.exception(
+            "Failed to create Jira ticket for agent %s: %s",
+            agent_name,
+            summary,
+        )
+        return None
     logger.info("Created Jira ticket %s for agent %s", issue_key, agent_name)
     return issue_key
