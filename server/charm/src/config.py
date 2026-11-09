@@ -80,14 +80,14 @@ class TestflingerServerConfig(pydantic.BaseModel):
     @pydantic.field_validator("jira_base_url")
     @classmethod
     def validate_jira_base_url(cls, value):
-        """Validate jira_base_url includes a scheme and host."""
+        """Validate jira_base_url is an HTTPS URL with a host."""
         if not value:
             return value
 
         parsed_jira = urlparse(value)
-        if parsed_jira.scheme not in {"http", "https"}:
+        if parsed_jira.scheme != "https":
             raise ValueError(
-                "jira_base_url must include protocol (http:// or https://)"
+                "jira_base_url must use https:// to protect the API token"
             )
         if not parsed_jira.netloc:
             raise ValueError("jira_base_url must include a host")

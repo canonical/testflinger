@@ -56,6 +56,13 @@ def test_from_env(monkeypatch):
     assert JiraClient.from_env().base_url == BASE_URL
 
 
+@pytest.mark.parametrize("url", ["http://jira.example.com", "jira.example"])
+def test_non_https_url_rejected(url):
+    """The API token is never sent over a non-HTTPS connection."""
+    with pytest.raises(JiraConfigError, match="https"):
+        JiraClient(url, "user@example.com", "token")
+
+
 def test_create_issue(client, requests_mock):
     """Issues are created with an ADF description and return their key."""
     requests_mock.post(ISSUE_URL, json={"key": "TELOPS-1"}, status_code=201)

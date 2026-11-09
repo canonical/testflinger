@@ -72,8 +72,12 @@ def test_jira_configuration():
     with pytest.raises(ValueError):
         TestflingerServerConfig(jira_user_email="bot@example.com")
 
-    # The URL needs a protocol and host
-    for url in ("example.atlassian.net", "https:///"):
+    # The URL needs to be https and have a host
+    for url in (
+        "example.atlassian.net",
+        "http://example.atlassian.net",
+        "https:///",
+    ):
         with pytest.raises(ValueError):
             TestflingerServerConfig(
                 jira_base_url=url,

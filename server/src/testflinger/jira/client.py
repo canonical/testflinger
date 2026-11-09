@@ -21,6 +21,7 @@ Ref: https://developer.atlassian.com/cloud/jira/platform/rest/v3/intro/
 import logging
 import os
 from functools import cached_property
+from urllib.parse import urlparse
 
 import requests
 from requests.adapters import HTTPAdapter
@@ -54,7 +55,12 @@ class JiraClient:
     """Client for the Jira REST API."""
 
     def __init__(self, base_url: str, email: str, token: str):
-        """Set up the client with basic (email + API token) auth."""
+        """Set up the client with basic (email + API token) auth.
+
+        :raises JiraConfigError: If base_url is not an HTTPS URL
+        """
+        if urlparse(base_url).scheme != "https":
+            raise JiraConfigError("Jira base URL must use https://")
         self.base_url = base_url.rstrip("/")
         self.auth = HTTPBasicAuth(email, token)
 
