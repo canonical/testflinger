@@ -88,6 +88,15 @@ def test_create_issue_error(client, requests_mock):
     assert exc.value.status == 400
 
 
+@pytest.mark.parametrize("body", [[], "oops", {"errors": ["bad"]}])
+def test_create_issue_unexpected_error_body(client, requests_mock, body):
+    """Error bodies that aren't Jira's usual object still give a JiraError."""
+    requests_mock.post(ISSUE_URL, json=body, status_code=502)
+    with pytest.raises(JiraRequestError) as exc:
+        client.create_issue("TELOPS", "title", "desc", "Task")
+    assert exc.value.status == 502
+
+
 def test_create_issue_connection_error(client, requests_mock):
     """Connection failures are wrapped in a JiraRequestError."""
     requests_mock.post(ISSUE_URL, exc=requests.ConnectionError("down"))

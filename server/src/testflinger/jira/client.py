@@ -110,11 +110,14 @@ class JiraClient:
         """Build an error from a failed Jira response."""
         try:
             body = response.json()
+            if not isinstance(body, dict):
+                raise ValueError
             messages = list(body.get("errorMessages", []))
-            messages.extend(
-                f"{field}: {message}"
-                for field, message in body.get("errors", {}).items()
-            )
+            errors = body.get("errors", {})
+            if isinstance(errors, dict):
+                messages.extend(
+                    f"{field}: {message}" for field, message in errors.items()
+                )
         except ValueError:
             messages = [response.reason or "Unknown error"]
         return JiraRequestError(response.status_code, messages)
