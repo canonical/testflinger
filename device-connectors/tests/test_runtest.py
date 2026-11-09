@@ -46,6 +46,34 @@ def test_runtest_no_secrets(mocker):
     assert config["env"]
 
 
+def test_runtest_exports_control_host_reboot_script(mocker):
+    """Test that runtest exposes the control host reboot script to tests."""
+    config_data = {
+        "control_host_reboot_script": ["ipmitool power cycle", "sleep 30"],
+        "env": {"EXISTING_VARIABLE": "preserved"},
+    }
+    job_data = {"test_data": {"test_cmds": "echo 'test'"}}
+    args = mocker.Mock()
+
+    mocker.patch("builtins.open", mocker.mock_open())
+    mocker.patch("yaml.safe_load", return_value=config_data)
+    mocker.patch(
+        "testflinger_device_connectors.get_test_opportunity",
+        return_value=job_data,
+    )
+    mock_run_test_cmds = mocker.patch(
+        "testflinger_device_connectors.run_test_cmds", return_value=0
+    )
+
+    DefaultDevice({}).runtest(args)
+
+    config = mock_run_test_cmds.call_args[0][1]
+    assert config["env"]["CONTROL_HOST_REBOOT_SCRIPT"] == (
+        "ipmitool power cycle;sleep 30"
+    )
+    assert config["env"]["EXISTING_VARIABLE"] == "preserved"
+
+
 def test_runtest_injects_secrets(mocker):
     """Test that runtest injects secrets from test_data into env."""
     config_data = {}
