@@ -93,3 +93,8 @@ pack-host:
     else
         charmcraft pack --platform "$PLATFORM"
     fi
+
+[doc('Run all fixes.')]
+[group('test')]
+fix: format
+    @echo 'All done!'

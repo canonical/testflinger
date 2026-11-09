@@ -63,3 +63,8 @@ clean:
 [group('package')]
 snap:
     @snapcraft pack
+
+[doc('Run all fixes.')]
+[group('test')]
+fix: format
+    @echo 'All done!'

@@ -9,6 +9,7 @@ from urllib.parse import urlparse
 import pydantic
 
 MONGO_CSFLE_KEY_LENGTH = 96  # bytes
+MAX_BODY_SIZE = 500  # MB
 
 
 class TestflingerServerConfig(pydantic.BaseModel):
@@ -33,6 +34,7 @@ class TestflingerServerConfig(pydantic.BaseModel):
     jira_base_url: str = ""
     jira_user_email: str = ""
     jira_token: str = ""
+    max_body_size: int = pydantic.Field(default=MAX_BODY_SIZE, gt=0)
 
     @pydantic.field_validator("external_hostname")
     @classmethod

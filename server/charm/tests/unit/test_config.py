@@ -208,3 +208,24 @@ def test_invalid_csfle_master_key(caplog):
         ),
     ):
         TestflingerServerConfig(testflinger_secrets_master_key=invalid_key_b64)
+
+
+def test_non_default_max_body_size():
+    """Test that non-default max_body_size is accepted."""
+    config = TestflingerServerConfig(max_body_size=1024)  # 1 KB
+    assert config.max_body_size == 1024
+
+
+def test_invalid_max_body_size():
+    """Test that invalid max_body_size raises validation error."""
+    with pytest.raises(
+        ValueError,
+        match="Input should be greater than 0",
+    ):
+        TestflingerServerConfig(max_body_size=0)
+
+    with pytest.raises(
+        ValueError,
+        match="Input should be greater than 0",
+    ):
+        TestflingerServerConfig(max_body_size=-1)
