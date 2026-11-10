@@ -73,6 +73,45 @@ def test_agents_post_without_state_preserves_mode(
     assert agent["location"] == "lab-a"
 
 
+def test_metadata_heartbeat_promotes_legacy_agent(
+    mongo_app, agent_auth_header
+):
+    """A metadata-only heartbeat persists promotion of a legacy record."""
+    app, mongo = mongo_app
+    mongo.agents.insert_one({"name": "legacy-agent", "state": "provision"})
+
+    output = app.post(
+        "/v1/agents/data/legacy-agent",
+        json={"location": "lab-a"},
+        headers=agent_auth_header,
+    )
+
+    assert output.status_code == HTTPStatus.OK
+    record = mongo.agents.find_one({"name": "legacy-agent"})
+    assert record["mode"]["value"] == "online"
+    assert record["state"]["value"] == "provision"
+    assert record["location"] == "lab-a"
+
+
+def test_admin_command_promotes_legacy_agent(mongo_app):
+    """An admin command persists promotion of a legacy agent record."""
+    app, mongo = mongo_app
+    admin_header = get_access_token_header("admin-id", ServerRoles.ADMIN)
+    mongo.agents.insert_one({"name": "legacy-agent", "state": "offline"})
+
+    output = app.patch(
+        "/v2/agents/legacy-agent/commanded_mode",
+        json={"commanded_mode": "maintenance"},
+        headers=admin_header,
+    )
+
+    assert output.status_code == HTTPStatus.NO_CONTENT
+    record = mongo.agents.find_one({"name": "legacy-agent"})
+    assert record["mode"]["value"] == "offline"
+    assert "state" not in record
+    assert record["commanded_mode"]["value"] == "maintenance"
+
+
 def test_agents_post_state_does_not_override_commanded_mode(
     mongo_app, agent_auth_header
 ):

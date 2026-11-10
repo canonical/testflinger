@@ -1232,7 +1232,7 @@ def set_queue_images(queue: str, image_data: dict) -> None:
 
 
 def _upgrade_db_agent_v1_to_v2(agent_name):
-    agent_data = get_agent_info(agent_name)
+    agent_data = mongo.db.agents.find_one({"name": agent_name}, {"_id": False})
     if agent_data and not _is_v2_format(agent_data):
         fields_to_unset = _promote_v1_to_v2(agent_data)
         update = {"$set": agent_data}
