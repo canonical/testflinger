@@ -44,7 +44,7 @@ lint: agent::lint agent::charm::lint cli::lint common::lint device-connectors::l
 
 [doc('Run unit tests for all projects.')]
 [group('test')]
-test: agent::test agent::charm::test cli::test common::test device-connectors::test server::test server::charm::test integration::test
+test: agent::test agent::charm::test cli::test common::test device-connectors::test server::test server::charm::test
     @echo 'All done!'
 
 [doc('Remove tox environments for all projects (forces full reinstall on next run).')]
