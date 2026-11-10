@@ -25,7 +25,8 @@ RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
     expect build-essential curl jq gettext git openssh-client pipx python3-dev \
     python3-pip python3-psutil python3-requests python3-setuptools python3-venv \
     software-properties-common sudo sshpass virtualenv wget lsb-release
-RUN pipx install uv && ln -s /root/.local/bin/uv /usr/local/bin/uv
+# System-wide uv: usable by `ubuntu` and via `sudo uv`
+RUN PIPX_HOME=/opt/pipx PIPX_BIN_DIR=/usr/local/bin pipx install uv
 
 RUN adduser -u 1000 --disabled-password ubuntu || /bin/true
 RUN echo "ubuntu ALL=(root) NOPASSWD:ALL" > /etc/sudoers.d/ubuntu && \
@@ -34,8 +35,12 @@ RUN echo "ubuntu ALL=(root) NOPASSWD:ALL" > /etc/sudoers.d/ubuntu && \
 #Avoid sudo rlimit error
 RUN echo "Set disable_coredump false" >> /etc/sudo.conf
 
-# Prebuilt wheels so pip/pipx don't need a Rust toolchain in this image
-ENV PIP_FIND_LINKS=/wheels
+# Prebuilt wheels so pip/uv don't need a Rust toolchain in this image.
+# Only use the system Python so the wheel tags always match.
+ENV PIP_FIND_LINKS=/wheels \
+    UV_FIND_LINKS=/wheels \
+    UV_PYTHON_DOWNLOADS=never \
+    UV_PYTHON_PREFERENCE=only-system
 COPY --from=wheel-builder /wheels /wheels
 
 # Everything below this line is run as the ubuntu user
@@ -53,11 +58,11 @@ RUN git init -q ${TOOLS_PATH} && \
     rm -rf ${TOOLS_PATH}/.git
 LABEL com.canonical.testflinger.tools-commit="${COMMIT_HASH}"
 
-# Install cert-tools packages via pipx
-RUN pipx install ${TOOLS_PATH}/cert-tools/launcher && \
-    pipx install ${TOOLS_PATH}/cert-tools/toolbox && \
-    pipx install ${TOOLS_PATH}/cert-tools/snapstore && \
-    pipx inject toolbox ${TOOLS_PATH}/cert-tools/snapstore
+# Install cert-tools packages via uv
+RUN uv tool install ${TOOLS_PATH}/cert-tools/launcher && \
+    uv tool install ${TOOLS_PATH}/cert-tools/snapstore && \
+    uv tool install ${TOOLS_PATH}/cert-tools/toolbox \
+        --with ${TOOLS_PATH}/cert-tools/snapstore
 
 # Append scriptlets and ~/.local/bin to PATH
 ARG SCRIPTLETS_PATH="${TOOLS_PATH}/scriptlets"
