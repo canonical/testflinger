@@ -62,6 +62,11 @@ check: lint format test
 clean:
     @rm -rf .tox
 
+[doc('Run all fixes.')]
+[group('test')]
+fix: format
+    @echo 'All done!'
+
 [doc('Start a device connector agent (fake_connector runs on the host; other connectors run in `dev`).')]
 [group('deploy')]
 start connector='fake_connector' agent_name='' server_url='http://localhost:5000':
@@ -89,4 +94,3 @@ start connector='fake_connector' agent_name='' server_url='http://localhost:5000
         echo "Agent process ended, sleeping for 3 seconds."
         sleep 3
     done
-

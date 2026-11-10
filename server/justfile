@@ -148,3 +148,8 @@ set-up-hosts-file:
        ! grep -Eq '(^|[[:space:]])testflinger-metrics($|[[:space:]])' /etc/hosts; then
         echo "$LINE" | tee -a /etc/hosts >/dev/null
     fi
+
+[doc('Run all fixes.')]
+[group('test')]
+fix: format schema roles-docs permissions
+    @echo 'All done!'

@@ -110,3 +110,8 @@ stop-dut:
 [group('test')]
 test:
     python3 test_workshop_actions.py
+
+[doc('Populate the server with accounts and data.')]
+[group('server')]
+populate:
+    workshop exec dev -- just server::populate
