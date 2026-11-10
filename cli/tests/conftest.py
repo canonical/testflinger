@@ -35,6 +35,32 @@ OIDC_USER = "user@example.com"
 
 
 @pytest.fixture(autouse=True)
+def mock_sleep_globally(monkeypatch):
+    """Mock time.sleep and time.monotonic to be instant.
+
+    Prevents real delays from sleep() and busy-loop conditions
+    while allowing freeze_time to control time.time() independently.
+    """
+    # The timer thread is not under test here. Avoid starting its redraw loop
+    # when mock_tty enables TTY behavior in tests.
+    monkeypatch.setattr(StatusLine, "_timer_loop", lambda: None)
+
+    # Keep a virtual monotonic clock: sleeping advances test time without
+    # waiting on wall time, while clock reads themselves do not advance it.
+    fake_monotonic = 0.0
+
+    def mock_monotonic():
+        return fake_monotonic
+
+    def mock_sleep(seconds):
+        nonlocal fake_monotonic
+        fake_monotonic += seconds
+
+    monkeypatch.setattr("time.sleep", mock_sleep)
+    monkeypatch.setattr("time.monotonic", mock_monotonic)
+
+
+@pytest.fixture(autouse=True)
 def set_default_server(monkeypatch):
     """Set the default server URL for all tests to match mock registrations."""
     monkeypatch.setenv("TESTFLINGER_SERVER", URL)
