@@ -17,14 +17,16 @@
 
 import logging
 import os
+from http import HTTPStatus
 
 from apiflask import APIFlask
 from flask import request
 from pymongo.errors import ConnectionFailure
-from werkzeug.exceptions import NotFound
+from werkzeug.exceptions import NotFound, RequestEntityTooLarge
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 from testflinger.api.v1 import LogTypeConverter, v1
+from testflinger.api.v2 import v2
 from testflinger.database import setup_mongodb
 from testflinger.extensions import metrics
 from testflinger.oidc import app_register_oidc
@@ -41,6 +43,7 @@ except ImportError:
     pass
 
 VANILLA_FRAMEWORK_VERSION = "4.59.0"  # renovate: vanilla-framework-latest
+MAX_BODY_SIZE = 500  # MB
 
 
 def create_flask_app(config=None, secrets_store=None):
@@ -62,6 +65,9 @@ def create_flask_app(config=None, secrets_store=None):
     tf_app.owasp_logger = logger
 
     tf_app.config["PROPAGATE_EXCEPTIONS"] = True
+    # Maximum request body size, configured in MB, applied to all requests.
+    max_body_size_mb = int(os.environ.get("MAX_BODY_SIZE", MAX_BODY_SIZE))
+    tf_app.config["MAX_CONTENT_LENGTH"] = max_body_size_mb * 1024 * 1024
 
     if os.environ.get("TEMPLATES_AUTO_RELOAD", "false").lower() == "true":
         tf_app.config["TEMPLATES_AUTO_RELOAD"] = True
@@ -95,6 +101,15 @@ def create_flask_app(config=None, secrets_store=None):
         tf_app.owasp_logger.error("[404] Not found: %s", request.url)
         return f"Not found: {exc}\n", 404
 
+    @tf_app.errorhandler(RequestEntityTooLarge)
+    def handle_413(exc):
+        limit_mb = tf_app.config["MAX_CONTENT_LENGTH"] / (1024 * 1024)
+        message = (
+            f"Payload too large: maximum allowed size is {limit_mb:.0f} MB"
+        )
+        tf_app.owasp_logger.error("[413] %s: %s", message, request.url)
+        return f"{message}\n", HTTPStatus.REQUEST_ENTITY_TOO_LARGE
+
     @tf_app.errorhandler(ConnectionFailure)
     def handle_timeout(exc):
         tf_app.owasp_logger.exception("pymongo connection failure: %s", exc)  # noqa: LOG004
@@ -125,6 +140,7 @@ def create_flask_app(config=None, secrets_store=None):
 
     tf_app.register_blueprint(views)
     tf_app.register_blueprint(v1, url_prefix="/v1")
+    tf_app.register_blueprint(v2, url_prefix="/v2")
     if tf_app.oauth:
         tf_app.register_blueprint(oidc_views, url_prefix="/auth")
         tf_app.register_blueprint(oidc_api, url_prefix="/oidc")

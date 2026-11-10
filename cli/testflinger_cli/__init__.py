@@ -1310,11 +1310,11 @@ class TestflingerCli:
                 try:
                     logger.info("Submitting attachments for %s", job_id)
                     self.submit_job_attachments(job_id, path=archive_path)
-                except AttachmentError:
+                except AttachmentError as error:
                     self.cancel(job_id)
                     sys.exit(
                         f"Job {job_id} submitted and cancelled: "
-                        "failed to submit attachments"
+                        f"failed to submit attachments ({error})"
                     )
 
         self.history.new(job_id, queue)
@@ -1460,7 +1460,10 @@ class TestflingerCli:
                 ) from error
             except requests.HTTPError as error:
                 # we can't recover from these errors, give up without retrying
-                if error.response.status_code == HTTPStatus.BAD_REQUEST:
+                if error.response.status_code in (
+                    HTTPStatus.BAD_REQUEST,
+                    HTTPStatus.REQUEST_ENTITY_TOO_LARGE,
+                ):
                     raise AttachmentError(
                         f"Unable to submit attachment archive for {job_id}: "
                         f"{error.response.text}"
