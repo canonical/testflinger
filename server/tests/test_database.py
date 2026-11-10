@@ -589,20 +589,24 @@ def test_agent_restart_preserves_current_mode_when_no_command_pending(
 
 
 @patch("testflinger.database.mongo", new_callable=mongomock.MongoClient)
-def test_agent_restart_preserves_pending_command(mock_mongo):
-    """When agent reports restart with pending command, preserve it.
+def test_agent_restart_sets_commanded_mode_to_restoration_target(mock_mongo):
+    """An acknowledged restart command becomes the mode to restore.
 
     Scenario:
     1. Admin commanded agent to restart
     2. Agent reports mode=restart
-    3. Server should preserve the commanded_mode=restart (don't overwrite)
+    3. Server should replace the restart command with the previous mode
     """
     timestamp = datetime.datetime(2026, 1, 1, tzinfo=datetime.timezone.utc)
     mock_mongo.db.agents.insert_one(
         {
             "name": "agent1",
             "mode": {"value": "online"},
-            "commanded_mode": {"value": "restart"},
+            "commanded_mode": {
+                "value": "restart",
+                "changed_at": timestamp,
+                "changed_by": "admin@example.com",
+            },
         }
     )
 
@@ -617,8 +621,9 @@ def test_agent_restart_preserves_pending_command(mock_mongo):
     record = mock_mongo.db.agents.find_one({"name": "agent1"})
     # Mode should be restart
     assert record["mode"]["value"] == "restart"
-    # commanded_mode should still be restart (not overwritten)
-    assert record["commanded_mode"]["value"] == "restart"
+    # The next startup should restore the mode that was active before restart.
+    assert record["commanded_mode"]["value"] == "online"
+    assert record["commanded_mode"]["changed_by"] == "agent1"
 
 
 @patch("testflinger.database.mongo", new_callable=mongomock.MongoClient)
