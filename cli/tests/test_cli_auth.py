@@ -322,9 +322,8 @@ def test_cli_login_defaults_credentials(auth_fixture, capsys):
     assert f"Successfully authenticated as '{TEST_CLIENT_ID}'" in std.out
 
 
-@patch("testflinger_cli.auth.time.sleep")
 @patch("testflinger_cli.auth.webbrowser.open")
-def test_login_with_oidc(mock_open, mock_sleep, oidc_auth_fixture, capsys):
+def test_login_with_oidc(mock_open, oidc_auth_fixture, capsys):
     """Test login with OIDC method."""
     oidc_auth_fixture(oidc_auth_fixture.success_response)
 
@@ -389,10 +388,9 @@ def test_login_initiate_oidc_failure(requests_mock):
         ),
     ],
 )
-@patch("testflinger_cli.auth.time.sleep")
 @patch("testflinger_cli.auth.webbrowser.open")
 def test_login_oidc_poll_terminal_errors(
-    mock_open, mock_sleep, oidc_auth_fixture, poll_response, expected_message
+    mock_open, oidc_auth_fixture, poll_response, expected_message
 ):
     """Test OIDC polling exits on RFC 8628 terminal error codes."""
     oidc_auth_fixture(poll_response)
@@ -500,11 +498,8 @@ def test_oidc_init_timeout_raises_network_error(requests_mock):
         auth._authenticate_with_oidc()
 
 
-@patch("testflinger_cli.auth.time.sleep")
 @patch("testflinger_cli.auth.webbrowser.open")
-def test_oidc_poll_timeout_raises_network_error(
-    mock_open, mock_sleep, oidc_auth_fixture
-):
+def test_oidc_poll_timeout_raises_network_error(mock_open, oidc_auth_fixture):
     """Test that a timeout during OIDC polling raises NetworkError."""
     oidc_auth_fixture({"exc": requests.exceptions.Timeout})
     auth = TestflingerCliAuth(URL)
