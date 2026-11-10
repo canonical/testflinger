@@ -45,7 +45,7 @@ SCHEMA_V1 = {
     voluptuous.Optional("output_timeout"): int,
     voluptuous.Optional("advertised_queues"): dict,
     voluptuous.Optional("advertised_images"): dict,
-    voluptuous.Optional("jira_project"): str,
+    voluptuous.Optional("jira_space"): str,
     voluptuous.Optional("links"): [
         {
             voluptuous.Required("label"): str,

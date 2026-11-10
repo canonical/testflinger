@@ -56,8 +56,8 @@ The following configuration options are supported by the Testflinger Agent:
       - (Optional) type of device connector used. This is sometimes useful when templating the call to the external device-agent command, but is not required. For the list of supported provision types, see :doc:`device-connector-types`.
     * - ``links``
       - (Optional) List of links related to this agent, such as dashboards, documentation or lab pages. Each entry must have a ``label`` (the text to display) and a ``url`` (a valid ``http`` or ``https`` URL). Links are shown on the agent's page in the Testflinger web UI.
-    * - ``jira_project``
-      - (Optional) Key of the Jira project (e.g. ``TELOPS``) where tickets for this agent are created, such as when the agent is set to maintenance.
+    * - ``jira_space``
+      - (Optional) Key of the Jira space (e.g. ``TELOPS``) where tickets for this agent are created, such as when the agent is set to maintenance.
 
 Example configuration
 ^^^^^^^^^^^^^^^^^^^^^^

@@ -124,7 +124,7 @@ class TestflingerAgent:
         provision_type = self.client.config.get("provision_type", "")
         queues = self.client.config.get("job_queues", [])
         links = self.client.config.get("links", [])
-        jira_project = self.client.config.get("jira_project")
+        jira_space = self.client.config.get("jira_space")
 
         agent_data = {
             "location": location,
@@ -137,8 +137,8 @@ class TestflingerAgent:
         if links:
             agent_data["links"] = links
 
-        if jira_project:
-            agent_data["jira_project"] = jira_project
+        if jira_space:
+            agent_data["jira_space"] = jira_space
 
         self.client.post_agent_data(agent_data)
 

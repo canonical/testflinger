@@ -23,7 +23,7 @@ from testflinger.jira.exceptions import (
 )
 from testflinger.jira.tickets import (
     create_agent_ticket,
-    get_agent_project_key,
+    get_agent_space_key,
 )
 
 __all__ = [
@@ -32,5 +32,5 @@ __all__ = [
     "JiraError",
     "JiraRequestError",
     "create_agent_ticket",
-    "get_agent_project_key",
+    "get_agent_space_key",
 ]

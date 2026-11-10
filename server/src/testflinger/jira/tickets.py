@@ -26,13 +26,13 @@ logger = logging.getLogger(__name__)
 DEFAULT_ISSUE_TYPE = "Task"
 
 
-def get_agent_project_key(agent_name: str) -> str | None:
-    """Return the Jira project configured for an agent, if any.
+def get_agent_space_key(agent_name: str) -> str | None:
+    """Return the Jira space configured for an agent, if any.
 
-    The project comes from the ``jira_project`` key of the agent config.
+    The space comes from the ``jira_space`` key of the agent config.
     """
     agent = database.get_agent_info(agent_name) or {}
-    return agent.get("jira_project") or None
+    return agent.get("jira_space") or None
 
 
 def create_agent_ticket(
@@ -43,7 +43,7 @@ def create_agent_ticket(
     labels: list[str] | None = None,
     client: JiraClient | None = None,
 ) -> str | None:
-    """Create a ticket in the Jira project configured for the agent.
+    """Create a ticket in the Jira space configured for the agent.
 
     :param agent_name: Agent the ticket is about
     :param summary: Ticket title
@@ -51,14 +51,14 @@ def create_agent_ticket(
     :param issue_type: Name of the Jira issue type
     :param labels: Optional labels to set on the ticket
     :param client: Jira client, built from the environment if not given
-    :return: The new ticket key, or None if the agent has no Jira project
+    :return: The new ticket key, or None if the agent has no Jira space
         or the ticket could not be created. Jira failures are logged and
         never raised, so callers' workflows are not interrupted.
     """
-    project_key = get_agent_project_key(agent_name)
-    if project_key is None:
+    space_key = get_agent_space_key(agent_name)
+    if space_key is None:
         logger.warning(
-            "Agent %s has no jira_project, skipping Jira ticket: %s",
+            "Agent %s has no jira_space, skipping Jira ticket: %s",
             agent_name,
             summary,
         )
@@ -66,7 +66,7 @@ def create_agent_ticket(
     try:
         client = client or JiraClient.from_env()
         issue_key = client.create_issue(
-            project_key=project_key,
+            space_key=space_key,
             summary=summary,
             description=description,
             issue_type=issue_type,

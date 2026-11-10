@@ -124,7 +124,7 @@ class JiraClient:
 
     def create_issue(
         self,
-        project_key: str,
+        space_key: str,
         summary: str,
         description: str,
         issue_type: str,
@@ -132,7 +132,7 @@ class JiraClient:
     ) -> str:
         """Create a Jira issue and return its key (e.g. TELOPS-123)."""
         fields = {
-            "project": {"key": project_key},
+            "project": {"key": space_key},
             "issuetype": {"name": issue_type},
             "summary": summary,
             "description": text_to_adf(description),

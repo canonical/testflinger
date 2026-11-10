@@ -26,7 +26,7 @@ from testflinger.jira import (
     JiraConfigError,
     JiraRequestError,
     create_agent_ticket,
-    get_agent_project_key,
+    get_agent_space_key,
 )
 
 BASE_URL = "https://jira.example.com"
@@ -104,32 +104,32 @@ def test_create_issue_connection_error(client, requests_mock):
         client.create_issue("TELOPS", "title", "desc", "Task")
 
 
-def test_get_agent_project_key():
-    """The project is read from the agent's stored config."""
+def test_get_agent_space_key():
+    """The space is read from the agent's stored config."""
     with patch.object(
-        database, "get_agent_info", return_value={"jira_project": "TELOPS"}
+        database, "get_agent_info", return_value={"jira_space": "TELOPS"}
     ):
-        assert get_agent_project_key("agent1") == "TELOPS"
+        assert get_agent_space_key("agent1") == "TELOPS"
 
 
-@pytest.mark.parametrize("agent", [None, {}, {"jira_project": ""}])
-def test_get_agent_project_key_missing(agent):
-    """Agents without a configured project (or unknown ones) give None."""
+@pytest.mark.parametrize("agent", [None, {}, {"jira_space": ""}])
+def test_get_agent_space_key_missing(agent):
+    """Agents without a configured space (or unknown ones) give None."""
     with patch.object(database, "get_agent_info", return_value=agent):
-        assert get_agent_project_key("agent1") is None
+        assert get_agent_space_key("agent1") is None
 
 
 def test_create_agent_ticket():
-    """The ticket is created in the project configured for the agent."""
+    """The ticket is created in the space configured for the agent."""
     client = MagicMock()
     client.create_issue.return_value = "TORLABS-7"
     with patch.object(
-        database, "get_agent_info", return_value={"jira_project": "TORLABS"}
+        database, "get_agent_info", return_value={"jira_space": "TORLABS"}
     ):
         key = create_agent_ticket("agent1", "title", "desc", client=client)
     assert key == "TORLABS-7"
     client.create_issue.assert_called_once_with(
-        project_key="TORLABS",
+        space_key="TORLABS",
         summary="title",
         description="desc",
         issue_type="Task",
@@ -145,7 +145,7 @@ def test_create_agent_ticket_failure(error, caplog):
     client = MagicMock()
     client.create_issue.side_effect = error
     with patch.object(
-        database, "get_agent_info", return_value={"jira_project": "TELOPS"}
+        database, "get_agent_info", return_value={"jira_space": "TELOPS"}
     ):
         assert create_agent_ticket("agent1", "t", "d", client=client) is None
     assert "Failed to create Jira ticket for agent agent1" in caplog.text
@@ -155,13 +155,13 @@ def test_create_agent_ticket_missing_credentials(monkeypatch):
     """Missing credentials don't raise when no client is given."""
     monkeypatch.delenv("JIRA_BASE_URL", raising=False)
     with patch.object(
-        database, "get_agent_info", return_value={"jira_project": "TELOPS"}
+        database, "get_agent_info", return_value={"jira_space": "TELOPS"}
     ):
         assert create_agent_ticket("agent1", "t", "d") is None
 
 
-def test_create_agent_ticket_no_project():
-    """No ticket is created when the agent has no Jira project."""
+def test_create_agent_ticket_no_space():
+    """No ticket is created when the agent has no Jira space."""
     client = MagicMock()
     with patch.object(database, "get_agent_info", return_value={}):
         assert create_agent_ticket("agent1", "t", "d", client=client) is None
