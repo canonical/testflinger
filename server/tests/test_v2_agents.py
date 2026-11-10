@@ -353,6 +353,22 @@ def test_agents_get_one_exposes_the_canonical_shape(
     assert output.json["state"]["value"] == "waiting"
 
 
+def test_agents_post_and_get_keep_jira_space(mongo_app, agent_auth_header):
+    """jira_space is accepted on post and returned on get."""
+    app, mongo = mongo_app
+
+    output = app.post(
+        "/v2/agents/agent1/data",
+        json={"mode": "online", "jira_space": "TELOPS"},
+        headers=agent_auth_header,
+    )
+
+    assert output.status_code == HTTPStatus.OK
+    assert mongo.agents.find_one({"name": "agent1"})["jira_space"] == "TELOPS"
+    output = app.get("/v2/agents/agent1/data", headers=agent_auth_header)
+    assert output.json["jira_space"] == "TELOPS"
+
+
 def test_agents_get_one_missing_agent(mongo_app, agent_auth_header):
     """An unknown agent is reported as not found."""
     app, _ = mongo_app

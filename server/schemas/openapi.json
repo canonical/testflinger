@@ -70,6 +70,9 @@
           "identifier": {
             "type": "string"
           },
+          "jira_space": {
+            "type": "string"
+          },
           "job_id": {
             "type": "string"
           },
@@ -238,6 +241,9 @@
         "properties": {
           "commanded_mode": {
             "$ref": "#/components/schemas/CommandedModeOut"
+          },
+          "jira_space": {
+            "type": "string"
           },
           "job": {
             "anyOf": [

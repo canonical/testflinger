@@ -69,6 +69,7 @@ class AgentInV2(Schema):
         required=False, validate=OneOf(ValidAgentInputStates)
     )
     links = fields.List(fields.Nested(AgentLink), required=False)
+    jira_space = fields.String(required=False)
 
 
 class CommandedModeIn(Schema):
@@ -130,3 +131,4 @@ class AgentOutV2(Schema):
     restricted_to = fields.Dict(required=False)
     job = fields.Nested(AgentJob, required=False, allow_none=True)
     links = fields.List(fields.Nested(AgentLink), required=False)
+    jira_space = fields.String(required=False)
