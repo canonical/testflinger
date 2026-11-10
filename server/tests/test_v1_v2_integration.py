@@ -713,9 +713,9 @@ def test_v1_agent_restart_loop_prevention(mongo_app, agent_auth_header):
     2. Admin commands restart via v2 API (sets commanded_mode="restart")
     3. V1 agent polls and detects restart (sees it via GET)
     4. V1 agent acknowledges restart (POSTs state="restart")
-    5. Server clears commanded_mode when agent acknowledges
+    5. Server changes commanded_mode to the prior mode for restoration
     6. Agent posts waiting to come back online
-    7. Verify no restart loop: subsequent GETs return waiting
+    7. Verify restoration command clears and subsequent GETs return waiting
     """
     app, mongo = mongo_app
     agent_name = "agent-v1-restart-test"
@@ -774,19 +774,16 @@ def test_v1_agent_restart_loop_prevention(mongo_app, agent_auth_header):
     )
     assert response.status_code == HTTPStatus.OK
 
-    # === Phase 5: Verify commanded_mode is cleared after acknowledgment ===
-    # THE FIX: When agent POSTs state matching commanded_mode, server clears it
+    # === Phase 5: Verify restart switches to the restoration target ===
     record = mongo.agents.find_one({"name": agent_name})
-    assert "commanded_mode" not in record, (
-        "commanded_mode should be cleared when agent acknowledges it"
-    )
+    assert record["commanded_mode"]["value"] == "online"
     # Database has mode="restart" from promotion of agent's POST
     assert isinstance(record["mode"], dict)
     assert _get_mode_value(record["mode"]) == "restart"
 
     # === Phase 6: Agent posts waiting from startup ===
     # After supervisor restarts agent, agent calls _set_startup_state()
-    # and posts waiting to come back online
+    # and posts waiting to come back online, acknowledging the target mode.
     response = app.post(
         f"/v1/agents/data/{agent_name}",
         json={"state": "waiting"},
@@ -800,7 +797,7 @@ def test_v1_agent_restart_loop_prevention(mongo_app, agent_auth_header):
     assert _get_mode_value(record["mode"]) == "online"
     assert isinstance(record["state"], dict)
     assert record["state"]["value"] == "waiting"
-    # commanded_mode should still be gone
+    # The restoration command is cleared after the agent returns online.
     assert "commanded_mode" not in record
 
     # === Phase 7: Verify no restart loop ===

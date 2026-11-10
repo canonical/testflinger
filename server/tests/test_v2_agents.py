@@ -29,9 +29,9 @@ from tests.utilities import get_access_token_header
 
 
 def test_agents_post_mode_change_is_timestamped(mongo_app, agent_auth_header):
-    """Posting a mode change stamps mode.changed_at (no attribution for agent
-    reports). Mode is stored as nested document: {value, changed_at,
-    changed_by}.
+    """Posting a mode change records its timestamp and reporting agent.
+
+    Mode is stored as a nested document with value, changed_at, and changed_by.
     """
     app, mongo = mongo_app
     agent_name = "agent1"
@@ -46,8 +46,7 @@ def test_agents_post_mode_change_is_timestamped(mongo_app, agent_auth_header):
     record = mongo.agents.find_one({"name": agent_name})
     assert record["mode"]["value"] == "offline"
     assert record["mode"]["changed_at"] is not None
-    # Agent reports do not set changed_by (only admin commands do)
-    assert "changed_by" not in record["mode"]
+    assert record["mode"]["changed_by"] == "agent-id"
 
 
 def test_agents_post_uses_upsert_agent_document(
@@ -485,26 +484,22 @@ def test_agents_post_patch_post_sequence_preserves_commanded_mode(
     assert data["state"]["value"] == "provision"
 
 
-def test_agents_post_matching_mode_clears_commanded_mode(
+def test_agents_post_restart_restores_previous_mode(
     mongo_app, agent_auth_header
 ):
-    """When agent reports mode matching commanded_mode, clear commanded_mode.
+    """A restart report preserves the previous mode for the next startup.
 
-    Scenario: Agent initiated a restart, posted mode="restart" and exited.
-    Server has commanded_mode="restart" (never cleared). Agent restarts and
-    on next poll reads commanded_mode="restart" again, causing an infinite
-    restart loop.
-
-    This test verifies that when agent POSTs a mode matching the existing
-    commanded_mode, the server clears the commanded_mode to prevent
-    re-execution.
+    The restart report changes commanded_mode from the restart instruction to
+    the previous mode. Once the agent reports that restored mode, the
+    restoration command is cleared.
 
     Sequence:
     1. Agent POSTs initial heartbeat to create record
     2. Admin PATCHes commanded_mode='restart'
-    3. Agent POSTs mode='restart' (agent acts on the command)
-    4. Verify commanded_mode is cleared from the database
-    5. Next agent restart won't see the stale commanded_mode
+    3. Agent POSTs mode='restart' and exits
+    4. Verify commanded_mode now contains the previous mode
+    5. Agent reports the previous mode after startup
+    6. Verify the restoration command is cleared
     """
     app, mongo = mongo_app
     agent_name = "agent1"
@@ -536,15 +531,26 @@ def test_agents_post_matching_mode_clears_commanded_mode(
     )
     assert response.status_code == HTTPStatus.OK
 
-    # Step 4: Verify commanded_mode is cleared
+    # Step 4: The restart request becomes the restoration target.
     record = mongo.agents.find_one({"name": agent_name})
     assert record["mode"]["value"] == "restart"
-    assert "commanded_mode" not in record, (
-        "commanded_mode should be cleared when agent POSTs matching mode "
-        "to prevent re-execution after restart"
-    )
+    assert record["commanded_mode"]["value"] == "online"
 
-    # Step 5: Verify GET response does not include stale commanded_mode
+    # Step 5: Agent reports its restored mode after startup.
+    response = app.post(
+        f"/v2/agents/{agent_name}/data",
+        json={"mode": "online", "state": "waiting"},
+        headers=agent_auth_header,
+    )
+    assert response.status_code == HTTPStatus.OK
+
+    # Step 6: The restoration command is now acknowledged and cleared.
+    record = mongo.agents.find_one({"name": agent_name})
+    assert record["mode"]["value"] == "online"
+    assert record["state"]["value"] == "waiting"
+    assert "commanded_mode" not in record
+
+    # Verify GET response does not include a stale commanded_mode.
     response = app.get(
         f"/v2/agents/{agent_name}/data",
         headers=agent_auth_header,
