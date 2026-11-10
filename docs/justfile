@@ -61,3 +61,8 @@ vale:
 [doc('Build PDF documentation.')]
 pdf:
     make pdf
+
+[doc('Run all fixes.')]
+[group('test')]
+fix: spelling woke pa11y vale check-lfs lint-md
+    @echo 'All done!'

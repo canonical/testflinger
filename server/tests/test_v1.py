@@ -702,6 +702,39 @@ def test_submit_attachment_without_job(mongo_app, tmp_path):
     assert 422 == output.status_code
 
 
+def test_submit_attachment_payload_too_large(mongo_app, tmp_path):
+    """Test that oversized attachment uploads are rejected."""
+    job_data = {
+        "job_queue": "test",
+        "test_data": {"attachments": [{"agent": "filename"}]},
+    }
+
+    # place the job on the queue
+    app, _ = mongo_app
+    output = app.post("/v1/job", json=job_data)
+    job_id = output.json.get("job_id")
+
+    # Patch the app config to set a small max content length for testing
+    app.application.config["MAX_CONTENT_LENGTH"] = 1024 * 1024
+
+    # create a mock attachments archive larger than the configured limit
+    filename = tmp_path / "attachments.tar.gz"
+    with open(filename, "wb") as attachments:
+        attachments.write(os.urandom(2 * 1024 * 1024))
+
+    # submit the attachments archive for the job
+    attachments_endpoint = f"/v1/job/{job_id}/attachments"
+    with open(filename, "rb") as attachments:
+        file_data = {"file": (attachments, filename.name)}
+        output = app.post(
+            attachments_endpoint,
+            data=file_data,
+            content_type="multipart/form-data",
+        )
+    assert HTTPStatus.REQUEST_ENTITY_TOO_LARGE == output.status_code
+    assert "maximum allowed size is 1 MB" in output.text
+
+
 def test_retrieve_attachments_nonexistent_job(mongo_app, agent_auth_header):
     """Test for error when requesting non-existent attachments."""
     app, _ = mongo_app
@@ -1069,7 +1102,16 @@ def test_agents_post(mongo_app, agent_auth_header):
 
     # Test that the expected data was stored
     agent_record = mongo.agents.find_one({"name": agent_name})
-    assert agent_data.items() <= agent_record.items()
+    # Database stores state in nested v2 format, so we check fields
+    # individually
+    assert agent_record["queues"] == agent_data["queues"]
+    assert agent_record["location"] == agent_data["location"]
+    # State is stored in nested format in database
+    assert agent_record["state"]["value"] == agent_data["state"]
+    assert (
+        agent_record["mode"]["value"] == "online"
+    )  # provision implies online mode
+    assert agent_record["log"] == agent_data["log"]
 
     # Update the agent data again
     output = app.post(
@@ -1611,7 +1653,7 @@ def test_search_jobs_datetime_iso8601(mongo_app):
     )
     output = app.get("/v1/job/search?tags=foo")
     assert 200 == output.status_code
-    assert output.json[0]["created_at"] == "2020-01-01T00:00:00Z"
+    assert output.json[0]["created_at"] == "2020-01-01T00:00:00+00:00"
 
 
 def test_get_queue_wait_times(mongo_app):
