@@ -44,8 +44,8 @@ jobs:
       - run: sudo snap install --classic just
       - run: sudo snap install --classic lxd
       - run: sudo snap install --classic workshop
-      - run: ust workshop serve
-      - run: just workshop populate
-      - run: workshop exec dev -- just agent start fake_connector test_agent &
-      - run: workshop exec dev -- just integration test
+      - run: just workshop::serve
+      - run: just workshop::populate
+      - run: workshop exec dev -- just agent::start fake_connector test_agent &
+      - run: workshop exec dev -- just integration::test
 
