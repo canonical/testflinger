@@ -389,6 +389,19 @@ class TestflingerCliAuth:
                         raise OidcError(
                             "Authentication timed out. Please try again."
                         ) from exc
+                    case None if (
+                        exc.response.status_code == HTTPStatus.BAD_REQUEST
+                    ):
+                        # Server rejected the request_id, either because
+                        # it expired or because a previous poll already
+                        # completed the login and the response was lost
+                        reason = error_data.get("message", "invalid request")
+                        raise OidcError(
+                            f"OIDC login request is no longer valid "
+                            f"({reason}). If you completed the login in "
+                            "the browser it may have succeeded but the "
+                            "response was lost, try logging in again."
+                        ) from exc
                     case _:
                         raise OidcError(
                             "Unexpected error during OIDC "

@@ -380,6 +380,13 @@ def test_login_initiate_oidc_failure(requests_mock):
             },
             "Unexpected error during OIDC authentication",
         ),
+        (
+            {
+                "status_code": HTTPStatus.BAD_REQUEST,
+                "json": {"message": "Invalid or expired request_id"},
+            },
+            "OIDC login request is no longer valid",
+        ),
     ],
 )
 @patch("testflinger_cli.auth.time.sleep")
