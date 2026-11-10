@@ -28,8 +28,17 @@ ValidAgentModes = [mode.value for mode in AgentMode]
 # UNKNOWN is excluded because v2 agents should report determinate states.
 # V1 agents can send "unknown" (the v1 API has no validation), but the
 # server translates it to ONLINE mode with no sub-state when stored.
+# TODO: remove unsupported states when V1 is no longer supported.
 ValidAgentInputStates = [
-    state.value for state in AgentState if state != AgentState.UNKNOWN
+    state.value
+    for state in AgentState
+    if state
+    not in {
+        AgentState.UNKNOWN,
+        AgentState.OFFLINE,
+        AgentState.MAINTENANCE,
+        AgentState.RESTART,
+    }
 ]
 
 
