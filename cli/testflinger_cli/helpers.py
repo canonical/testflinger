@@ -2,23 +2,107 @@
 """Helpers for the Testflinger CLI."""
 
 import argparse
+import logging
 import re
+import time
+from collections.abc import Callable
 from datetime import datetime
 from os import getenv
 from pathlib import Path
 from typing import Optional
 
+import requests
 import yaml
 from rich.console import Console
 from rich.table import Table
 
-from testflinger_cli.consts import SNAP_NAME, SNAP_PRIVATE_DIRS
-from testflinger_cli.errors import SnapPrivateFileError
+from testflinger_cli.consts import (
+    DEFAULT_BACKOFF_BASE,
+    DEFAULT_BACKOFF_MAX,
+    DEFAULT_MAX_RETRIES,
+    RETRYABLE_STATUS_CODES,
+    SNAP_NAME,
+    SNAP_PRIVATE_DIRS,
+)
+from testflinger_cli.errors import NetworkError, SnapPrivateFileError
+
+logger = logging.getLogger(__name__)
 
 # Only accept paths that are separated by forward slashes
 # Expected format should not start or end with a slash
 # Examples of valid paths: "path", "my/secret/path"
 PATH_PATTERN = re.compile(r"^[a-zA-Z0-9_-]+(?:\/[a-zA-Z0-9_-]+)*$")
+
+
+def retry_request(
+    request: Callable[[], requests.Response],
+    description: str,
+    max_retries: int = DEFAULT_MAX_RETRIES,
+    base_delay: float = DEFAULT_BACKOFF_BASE,
+    max_delay: float = DEFAULT_BACKOFF_MAX,
+    retry_statuses: tuple[int, ...] = RETRYABLE_STATUS_CODES,
+    deadline: float | None = None,
+) -> requests.Response:
+    """Perform a request, retrying transient failures with backoff.
+
+    Timeouts, connection errors and responses with a status in
+    `retry_statuses` are retried with an exponential backoff
+    (capped at max_delay) between attempts. Any other response is returned
+    as is so callers can apply their own error handling.
+
+    :param request: zero-argument callable that performs the request
+    :param description: what the request does, used in log messages
+    :param max_retries: number of retries after the initial attempt
+    :param base_delay: initial delay in seconds
+    :param max_delay: maximum delay in seconds between attempts
+    :param retry_statuses: HTTP status codes considered transient
+    :param deadline: optional time.monotonic() value after which no more
+        retries are attempted
+    :return: the response of the first non-transient attempt
+    :raises NetworkError: if all attempts failed with transient errors
+    """
+    attempt = 0
+    while True:
+        error: Exception | None = None
+        try:
+            response = request()
+        except (
+            requests.exceptions.Timeout,
+            requests.exceptions.ConnectionError,
+        ) as exc:
+            error = exc
+            reason = f"{type(exc).__name__}: {exc}"
+        else:
+            if response.status_code not in retry_statuses:
+                return response
+            reason = f"HTTP {response.status_code}"
+
+        delay = min(base_delay * 2**attempt, max_delay)
+        out_of_time = (
+            deadline is not None and time.monotonic() + delay >= deadline
+        )
+        if attempt >= max_retries or out_of_time:
+            logger.error(
+                "Giving up on %s after %d attempt(s): %s",
+                description,
+                attempt + 1,
+                reason,
+            )
+            raise NetworkError(
+                f"Failed to {description} after {attempt + 1} "
+                f"attempt(s): {reason}"
+            ) from error
+
+        logger.warning(
+            "Failed to %s (%s), retrying in %s seconds (retry %d/%d)",
+            description,
+            reason,
+            delay,
+            attempt + 1,
+            max_retries,
+        )
+        time.sleep(delay)
+        attempt += 1
 
 
 def is_snap() -> bool:

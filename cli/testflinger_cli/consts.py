@@ -14,6 +14,12 @@ LOG_DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
 TESTFLINGER_SERVER = "https://testflinger.canonical.com"
 TESTFLINGER_ERROR_THRESHOLD = 3
 
+# Retry settings for requests that fail due to transient errors
+DEFAULT_MAX_RETRIES = 5
+DEFAULT_BACKOFF_BASE = 5  # seconds
+DEFAULT_BACKOFF_MAX = 60  # seconds
+RETRYABLE_STATUS_CODES = (502, 503, 504)
+
 DEFAULT_RESERVE_TIMEOUT = 3600
 DEFAULT_SECRET_EXPIRATION = 60 * 60 * 24 * 365  # year in seconds
 
