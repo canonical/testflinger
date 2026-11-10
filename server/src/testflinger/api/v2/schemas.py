@@ -29,7 +29,15 @@ ValidAgentModes = [mode.value for mode in AgentMode]
 # V1 agents can send "unknown" (the v1 API has no validation), but the
 # server translates it to ONLINE mode with no sub-state when stored.
 ValidAgentInputStates = [
-    state.value for state in AgentState if state != AgentState.UNKNOWN
+    state.value
+    for state in AgentState
+    if state
+    not in {
+        AgentState.UNKNOWN,
+        AgentState.OFFLINE,
+        AgentState.MAINTENANCE,
+        AgentState.RESTART,
+    }
 ]
 
 
