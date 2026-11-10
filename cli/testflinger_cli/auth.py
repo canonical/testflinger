@@ -138,7 +138,10 @@ class TestflingerCliAuth:
                 lambda: requests.post(
                     url, {}, headers=headers, timeout=DEFAULT_AUTH_TIMEOUT
                 ),
-                "authenticate with client_id+secret_key credentials",
+                (
+                    "authenticate with basic testflinger "
+                    "client_id+secret_key credentials"
+                ),
             )
             response.raise_for_status()
             response_data = response.json()
