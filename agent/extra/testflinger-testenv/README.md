@@ -39,11 +39,13 @@ docker run --rm -it ghcr.io/canonical/testflinger/testflinger-testenv:jammy
 
 The tools live in `/home/ubuntu/tools`, which is also the default `tools`
 path relative to the home directory. To override them with another branch,
-run `install_tools.sh` from the home directory (add `--skip-device` if the
-scriptlets should not be copied to the device):
+download `install_tools.sh` to the home directory and run it from there (add
+`--skip-device` if the scriptlets should not be copied to the device).
 
 ```shell
-./install_tools.sh tools --branch <branch> --skip-device
+cd /home/ubuntu
+curl -Ls -o install_tools.sh https://raw.githubusercontent.com/canonical/certification-lab-ci-tools/main/install_tools.sh
+source install_tools.sh tools --branch <branch> --skip-device
 ```
 
 Using a different path leaves the bundled scriptlets earlier in `PATH`.
