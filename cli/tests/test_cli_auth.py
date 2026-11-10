@@ -28,9 +28,16 @@ import requests
 import testflinger_cli
 from testflinger_cli.auth import TestflingerCliAuth
 from testflinger_cli.enums import ServerRoles
-from testflinger_cli.errors import NetworkError
+from testflinger_cli.errors import InvalidTokenError, NetworkError
 
 from .conftest import TEST_CLIENT_ID, URL
+
+
+@pytest.fixture(autouse=True)
+def no_retry_sleep():
+    """Avoid real waiting between auth retries."""
+    with patch("testflinger_cli.helpers.time.sleep") as mock_sleep:
+        yield mock_sleep
 
 
 def test_submit_with_priority(tmp_path, requests_mock, monkeypatch):
@@ -343,7 +350,7 @@ def test_login_initiate_oidc_failure(requests_mock):
 
     sys.argv = ["testflinger-cli", "login"]
     tfcli = testflinger_cli.TestflingerCli()
-    with pytest.raises(SystemExit) as exc:
+    with pytest.raises(NetworkError) as exc:
         tfcli.login()
 
     assert "Failed to initiate OIDC login" in str(exc.value)
@@ -368,10 +375,17 @@ def test_login_initiate_oidc_failure(requests_mock):
         ),
         (
             {
-                "status_code": HTTPStatus.BAD_GATEWAY,
-                "json": {"message": "infra error"},
+                "status_code": HTTPStatus.BAD_REQUEST,
+                "json": {"error": "invalid_request"},
             },
             "Unexpected error during OIDC authentication",
+        ),
+        (
+            {
+                "status_code": HTTPStatus.BAD_REQUEST,
+                "json": {"message": "Invalid or expired request_id"},
+            },
+            "OIDC login request is no longer valid",
         ),
     ],
 )
@@ -495,6 +509,78 @@ def test_oidc_poll_timeout_raises_network_error(
     oidc_auth_fixture({"exc": requests.exceptions.Timeout})
     auth = TestflingerCliAuth(URL)
     with pytest.raises(NetworkError):
+        auth._authenticate_with_oidc()
+
+
+def test_refresh_token_retries_transient_failure(requests_mock):
+    """Test that a 502 while refreshing is retried until it succeeds."""
+    requests_mock.post(
+        f"{URL}/v1/oauth2/refresh",
+        [
+            {"status_code": HTTPStatus.BAD_GATEWAY},
+            {"exc": requests.exceptions.Timeout},
+            {"json": {"access_token": "new_token"}},
+        ],
+    )
+    auth = TestflingerCliAuth(URL)
+
+    assert auth._authenticate_with_refresh_token("tok") == "new_token"
+    assert requests_mock.call_count == 3
+
+
+def test_refresh_token_retries_exhausted(requests_mock):
+    """Test that exhausting retries raises NetworkError."""
+    requests_mock.post(
+        f"{URL}/v1/oauth2/refresh", status_code=HTTPStatus.BAD_GATEWAY
+    )
+    auth = TestflingerCliAuth(URL)
+
+    with pytest.raises(NetworkError):
+        auth._authenticate_with_refresh_token("tok")
+    assert requests_mock.call_count == 6
+
+
+def test_refresh_token_invalid_not_retried(requests_mock):
+    """Test that an expired refresh token (400) is not retried."""
+    requests_mock.post(
+        f"{URL}/v1/oauth2/refresh", status_code=HTTPStatus.BAD_REQUEST
+    )
+    auth = TestflingerCliAuth(URL)
+
+    with pytest.raises(InvalidTokenError):
+        auth._authenticate_with_refresh_token("tok")
+    assert requests_mock.call_count == 1
+
+
+@patch("testflinger_cli.auth.TestflingerCliAuth.monitor_for_refresh_token")
+@patch("testflinger_cli.auth.webbrowser.open")
+def test_oidc_poll_survives_transient_failure(
+    mock_open, mock_monitor, oidc_auth_fixture
+):
+    """Test that a 502 during OIDC polling is retried, not fatal."""
+    mock_monitor.return_value = None
+    oidc_auth_fixture(
+        [
+            {"status_code": HTTPStatus.BAD_GATEWAY},
+            oidc_auth_fixture.success_response,
+        ]
+    )
+    auth = TestflingerCliAuth(URL)
+
+    assert auth._authenticate_with_oidc() is not None
+
+
+@patch("testflinger_cli.auth.TestflingerCliAuth.monitor_for_refresh_token")
+@patch("testflinger_cli.auth.webbrowser.open")
+def test_oidc_poll_retries_exhausted(
+    mock_open, mock_monitor, oidc_auth_fixture
+):
+    """Test that persistent 502s during OIDC polling raise NetworkError."""
+    mock_monitor.return_value = None
+    oidc_auth_fixture({"status_code": HTTPStatus.BAD_GATEWAY})
+    auth = TestflingerCliAuth(URL)
+
+    with pytest.raises(NetworkError, match="poll OIDC authentication"):
         auth._authenticate_with_oidc()
 
 
