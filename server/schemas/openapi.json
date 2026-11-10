@@ -112,10 +112,7 @@
               "allocate",
               "reserve",
               "cleanup",
-              "waiting",
-              "offline",
-              "maintenance",
-              "restart"
+              "waiting"
             ],
             "type": "string"
           }
