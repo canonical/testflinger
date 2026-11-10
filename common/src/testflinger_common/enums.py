@@ -106,8 +106,7 @@ class AgentMode(StrEnum):
         """
         return self in (AgentMode.ONLINE, AgentMode.MAINTENANCE)
 
-    # TODO: from_state can be removed once support for v1 endpoints is no
-    #  longer needed.
+    # TODO: When v1 is no longer needed, we can delete this.
     @classmethod
     def from_state(cls, state: str | None) -> "AgentMode":
         """Infer mode from a bare state value (v1 translation).
