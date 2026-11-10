@@ -17,11 +17,27 @@
 
 import time
 from http import HTTPStatus
+from unittest.mock import patch
 
+import pytest
 from testflinger_common.enums import ServerRoles
 
 from testflinger import database
+from testflinger.jira import tickets
 from tests.utilities import get_access_token_header
+
+
+@pytest.fixture(name="ticket_mock")
+def ticket_mock_fixture():
+    """Run maintenance ticket creation inline and capture the Jira call."""
+    with (
+        patch.object(tickets, "_spawn", lambda func, *args: func(*args)),
+        patch.object(
+            tickets, "create_agent_ticket", return_value="TELOPS-1"
+        ) as mock,
+    ):
+        yield mock
+
 
 # ---------------------------------------------------------------------------
 # POST /v2/agents/{name}/data  — agent heartbeat
@@ -638,3 +654,128 @@ def test_agents_post_restart_saves_current_mode_to_commanded_mode(
     data = response.get_json()
     assert data["mode"]["value"] == "restart"
     assert data["commanded_mode"]["value"] == "online"
+
+
+# ---------------------------------------------------------------------------
+# Jira tickets when an agent enters maintenance
+# ---------------------------------------------------------------------------
+
+
+def _command_mode(app, mode, comment=""):
+    admin_header = get_access_token_header("admin-id", ServerRoles.ADMIN)
+    return app.patch(
+        "/v2/agents/agent1/commanded_mode",
+        json={"commanded_mode": mode, "comment": comment},
+        headers=admin_header,
+    )
+
+
+def test_commanding_maintenance_creates_ticket(mongo_app, ticket_mock):
+    """Commanding maintenance creates one ticket with the admin's comment."""
+    app, mongo = mongo_app
+    mongo.agents.insert_one(
+        {"name": "agent1", "location": "TEL-L3", "state": "waiting"}
+    )
+
+    output = _command_mode(app, "maintenance", "bad PSU")
+
+    assert output.status_code == HTTPStatus.NO_CONTENT
+    ticket_mock.assert_called_once()
+    args, kwargs = ticket_mock.call_args
+    assert args[0] == "agent1"
+    assert kwargs["summary"] == "Agent agent1 set to maintenance"
+    for line in ("Location: TEL-L3", "Set by: admin-id", "Comment: bad PSU"):
+        assert line in kwargs["description"]
+
+
+def test_repeating_maintenance_does_not_create_another_ticket(
+    mongo_app, ticket_mock
+):
+    """Only the transition into maintenance creates a ticket."""
+    app, mongo = mongo_app
+    mongo.agents.insert_one({"name": "agent1", "state": "waiting"})
+
+    _command_mode(app, "maintenance")
+    _command_mode(app, "maintenance", "still broken")
+
+    assert ticket_mock.call_count == 1
+
+
+def test_agent_acknowledging_maintenance_does_not_duplicate_ticket(
+    mongo_app, agent_auth_header, ticket_mock
+):
+    """The agent reporting a commanded maintenance isn't a new transition."""
+    app, mongo = mongo_app
+    mongo.agents.insert_one({"name": "agent1", "state": "waiting"})
+    _command_mode(app, "maintenance")
+
+    output = app.post(
+        "/v2/agents/agent1/data",
+        json={"mode": "maintenance", "state": "waiting"},
+        headers=agent_auth_header,
+    )
+
+    assert output.status_code == HTTPStatus.OK
+    assert ticket_mock.call_count == 1
+
+
+def test_agent_reporting_maintenance_creates_ticket(
+    mongo_app, agent_auth_header, ticket_mock
+):
+    """An agent reporting a local fault as maintenance creates a ticket."""
+    app, _ = mongo_app
+
+    app.post(
+        "/v2/agents/agent1/data",
+        json={"mode": "online", "state": "waiting"},
+        headers=agent_auth_header,
+    )
+    ticket_mock.assert_not_called()
+    app.post(
+        "/v2/agents/agent1/data",
+        json={"mode": "maintenance", "state": "waiting"},
+        headers=agent_auth_header,
+    )
+
+    ticket_mock.assert_called_once()
+
+
+def test_v1_post_maintenance_creates_ticket(mongo_app, ticket_mock):
+    """Setting maintenance through the v1 endpoint also creates a ticket."""
+    app, mongo = mongo_app
+    mongo.agents.insert_one({"name": "agent1", "state": "waiting"})
+    admin_header = get_access_token_header("admin-id", ServerRoles.ADMIN)
+
+    output = app.post(
+        "/v1/agents/data/agent1",
+        json={"state": "maintenance"},
+        headers=admin_header,
+    )
+
+    assert output.status_code == HTTPStatus.OK
+    ticket_mock.assert_called_once()
+
+
+@pytest.mark.parametrize("mode", ["offline", "online"])
+def test_other_modes_do_not_create_tickets(mongo_app, ticket_mock, mode):
+    """Only maintenance creates tickets."""
+    app, mongo = mongo_app
+    mongo.agents.insert_one({"name": "agent1", "state": "waiting"})
+
+    _command_mode(app, mode)
+
+    ticket_mock.assert_not_called()
+
+
+def test_jira_failure_does_not_break_the_update(mongo_app):
+    """An unexpected Jira error never fails the API call."""
+    app, mongo = mongo_app
+    mongo.agents.insert_one({"name": "agent1", "state": "waiting"})
+
+    with (
+        patch.object(tickets, "_spawn", lambda func, *args: func(*args)),
+        patch.object(tickets, "create_agent_ticket", side_effect=KeyError),
+    ):
+        output = _command_mode(app, "maintenance")
+
+    assert output.status_code == HTTPStatus.NO_CONTENT

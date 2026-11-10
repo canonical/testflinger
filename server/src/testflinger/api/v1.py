@@ -32,7 +32,7 @@ from testflinger_common.enums import JobEvent, LogType, ServerRoles, TestPhase
 from urllib3.util.retry import Retry
 from werkzeug.routing import BaseConverter
 
-from testflinger import database, events
+from testflinger import database, events, jira
 from testflinger.api import auth, helpers, schemas
 from testflinger.api.auth import authenticate, require_role
 from testflinger.logs import LogFragment, MongoLogHandler
@@ -905,7 +905,9 @@ def agents_post(agent_name, json_data):
     # extract log from data so we can push it instead of setting it
     log = json_data.pop("log", [])
 
+    previous_mode = database.get_agent_effective_mode(agent_name)
     database.upsert_agent_document(agent_name, json_data, log)
+    jira.create_ticket_if_entered_maintenance(agent_name, previous_mode)
 
     # Set a session cookie to identify the agent for future requests
     response = jsonify({"status": "OK"})

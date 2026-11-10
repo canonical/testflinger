@@ -776,6 +776,29 @@ def get_agent_info(agent: str) -> dict | None:
     return agent_data
 
 
+def get_agent_effective_mode(agent_name: str) -> str | None:
+    """Return the mode an agent is in or has been commanded to be in.
+
+    A pending ``commanded_mode`` wins over the mode the agent last reported,
+    so an agent acknowledging a command does not change the result.
+
+    :param agent_name: Name of the agent.
+    :return: The mode value, or None if the agent or its mode is unknown.
+    """
+    agent = mongo.db.agents.find_one(
+        {"name": agent_name},
+        {"_id": False, "mode": True, "state": True, "commanded_mode": True},
+    )
+    if not agent:
+        return None
+    _promote_v1_to_v2(agent)
+    for field in ("commanded_mode", "mode"):
+        value = agent.get(field)
+        if isinstance(value, dict) and value.get("value"):
+            return value["value"]
+    return None
+
+
 def get_agent_info_v2(agent: str) -> dict | None:
     """Return agent information in v2 nested format for v2 API clients.
 

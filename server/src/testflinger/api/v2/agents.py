@@ -25,7 +25,7 @@ from apiflask import abort
 from flask import g, jsonify
 from testflinger_common.enums import AgentMode, ServerRoles
 
-from testflinger import database
+from testflinger import database, jira
 from testflinger.api.auth import authenticate, require_role
 from testflinger.api.v2 import schemas, v2
 
@@ -149,6 +149,7 @@ def agents_post(agent_name, json_data):
     # extract log from data so we can push it instead of setting it
     log = json_data.pop("log", [])
 
+    previous_mode = database.get_agent_effective_mode(agent_name)
     database.upsert_agent_document(
         agent_name,
         json_data,
@@ -157,6 +158,7 @@ def agents_post(agent_name, json_data):
         upsert=True,
         unset=unset,
     )
+    jira.create_ticket_if_entered_maintenance(agent_name, previous_mode)
 
     # Set a session cookie to identify the agent for future requests
     response = jsonify({"status": "OK"})
@@ -184,10 +186,12 @@ def agents_patch_commanded_mode(agent_name, json_data):
     if not database.get_agent_info_v2(agent_name):
         abort(HTTPStatus.NOT_FOUND, message="Agent not found")
 
+    previous_mode = database.get_agent_effective_mode(agent_name)
     database.set_agent_commanded_mode(
         agent_name,
         json_data["commanded_mode"],
         json_data.get("comment", ""),
         changed_by=g.client_id,
     )
+    jira.create_ticket_if_entered_maintenance(agent_name, previous_mode)
     return "", HTTPStatus.NO_CONTENT
