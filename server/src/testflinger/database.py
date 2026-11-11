@@ -776,27 +776,25 @@ def get_agent_info(agent: str) -> dict | None:
     return agent_data
 
 
-def get_agent_effective_mode(agent_name: str) -> str | None:
-    """Return the mode an agent is in or has been commanded to be in.
-
-    A pending ``commanded_mode`` wins over the mode the agent last reported,
-    so an agent acknowledging a command does not change the result.
+def get_agent_mode_snapshot(agent_name: str) -> tuple[str | None, str | None]:
+    """Return the mode an agent last reported and any pending command.
 
     :param agent_name: Name of the agent.
-    :return: The mode value, or None if the agent or its mode is unknown.
+    :return: ``(reported_mode, commanded_mode)``; each is None when unknown
+        or unset.
     """
     agent = mongo.db.agents.find_one(
         {"name": agent_name},
         {"_id": False, "mode": True, "state": True, "commanded_mode": True},
     )
     if not agent:
-        return None
+        return None, None
     _promote_v1_to_v2(agent)
-    for field in ("commanded_mode", "mode"):
+    values = []
+    for field in ("mode", "commanded_mode"):
         value = agent.get(field)
-        if isinstance(value, dict) and value.get("value"):
-            return value["value"]
-    return None
+        values.append(value.get("value") if isinstance(value, dict) else None)
+    return values[0], values[1]
 
 
 def get_agent_info_v2(agent: str) -> dict | None:

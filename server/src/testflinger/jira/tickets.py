@@ -17,6 +17,7 @@
 
 import logging
 import threading
+from datetime import datetime, timezone
 
 from flask import current_app
 from testflinger_common.enums import AgentMode
@@ -28,6 +29,7 @@ from testflinger.jira.exceptions import JiraError
 logger = logging.getLogger(__name__)
 
 DEFAULT_ISSUE_TYPE = "Task"
+SERVER_CLIENT_ID = "testflinger-server"
 
 
 def _spawn(func, *args) -> None:
@@ -39,53 +41,96 @@ def _spawn(func, *args) -> None:
     threading.Thread(target=func, args=args, daemon=True).start()
 
 
-def _create_maintenance_ticket(app, agent_name: str) -> None:
-    """Create the Jira ticket for an agent that entered maintenance."""
+def _ticket_description(agent_name: str, agent: dict, report: dict) -> str:
+    """Build the ticket text from the agent record and its report."""
+    lines = [
+        f"Agent: {agent_name}",
+        f"Reported by: {report['client_id'] or 'unknown'}",
+        f"Time: {report['time']}",
+        f"Location: {agent.get('location') or 'unknown'}",
+        f"Queues: {', '.join(agent.get('queues') or []) or 'none'}",
+        f"Provision type: {agent.get('provision_type') or 'unknown'}",
+        f"Identifier: {agent.get('identifier') or 'unknown'}",
+    ]
+    if report["comment"]:
+        lines.append(f"Comment: {report['comment']}")
+    links = report["links"] or agent.get("links") or []
+    lines.extend(f"Link ({link['label']}): {link['url']}" for link in links)
+    return "\n".join(lines)
+
+
+def _create_maintenance_ticket(app, agent_name: str, report: dict) -> None:
+    """Create the ticket for an agent that put itself in maintenance.
+
+    Afterwards the server commands maintenance too, so both sides agree and
+    the comment points at the ticket.
+    """
     try:
         with app.app_context():
             agent = database.get_agent_info_v2(agent_name) or {}
-            command = agent.get("commanded_mode") or {}
-            mode = agent.get("mode") or {}
-            details = [
-                f"Agent: {agent_name}",
-                f"Location: {agent.get('location') or 'unknown'}",
-            ]
-            changed_by = command.get("changed_by") or mode.get("changed_by")
-            if changed_by:
-                details.append(f"Set by: {changed_by}")
-            comment = command.get("comment") or mode.get("comment")
-            if comment:
-                details.append(f"Comment: {comment}")
-            create_agent_ticket(
+            issue_key = create_agent_ticket(
                 agent_name,
-                summary=f"Agent {agent_name} set to maintenance",
-                description="\n".join(details),
+                summary=f"Agent {agent_name} went into maintenance on its own",
+                description=_ticket_description(agent_name, agent, report),
             )
+            if issue_key:
+                comment = f"Jira ticket {issue_key}"
+            else:
+                comment = "Jira ticket could not be created, see server logs"
+            mode, commanded_mode = database.get_agent_mode_snapshot(agent_name)
+            # Don't override someone who acted while the ticket was created
+            if mode == AgentMode.MAINTENANCE and not commanded_mode:
+                database.set_agent_commanded_mode(
+                    agent_name,
+                    AgentMode.MAINTENANCE.value,
+                    comment,
+                    changed_by=SERVER_CLIENT_ID,
+                )
     except Exception:
         logger.exception(
             "Failed to create maintenance ticket for agent %s", agent_name
         )
 
 
-def create_ticket_if_entered_maintenance(
-    agent_name: str, previous_mode: str | None
+def create_ticket_if_agent_self_maintenance(
+    agent_name: str,
+    before: tuple[str | None, str | None],
+    *,
+    client_id: str | None,
+    comment: str | None = None,
+    links: list[dict] | None = None,
 ) -> None:
-    """Open a Jira ticket if the agent has just entered maintenance mode.
+    """Open a Jira ticket if an agent put itself into maintenance mode.
 
-    Call this after an agent update, passing the result of
-    ``database.get_agent_effective_mode`` taken before it. Tickets are only
-    created on the transition into maintenance, so heartbeats, and the agent
-    acknowledging a commanded maintenance, do not create duplicates.
+    Call this after an agent's report was stored, passing the result of
+    ``database.get_agent_mode_snapshot`` taken before it. A ticket is only
+    created when the reported mode changes to maintenance and no mode was
+    commanded, since a commanded mode means someone is already handling the
+    agent. Heartbeats that keep the agent in maintenance don't match.
 
-    :param agent_name: Name of the agent that was updated.
-    :param previous_mode: The agent's mode before the update.
+    :param agent_name: Name of the agent that reported.
+    :param before: ``(reported_mode, commanded_mode)`` before the report.
+    :param client_id: Client id the report was made with.
+    :param comment: Comment included in the report, if any.
+    :param links: Links included in the report, if any.
     """
-    if previous_mode == AgentMode.MAINTENANCE:
+    previous_mode, commanded_mode = before
+    if commanded_mode or previous_mode == AgentMode.MAINTENANCE:
         return
-    if database.get_agent_effective_mode(agent_name) != AgentMode.MAINTENANCE:
+    current_mode, _ = database.get_agent_mode_snapshot(agent_name)
+    if current_mode != AgentMode.MAINTENANCE:
         return
+    # Agents without a space keep their existing behaviour
+    if get_agent_space_key(agent_name) is None:
+        return
+    report = {
+        "client_id": client_id,
+        "time": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "comment": comment,
+        "links": links,
+    }
     app = current_app._get_current_object()  # noqa: SLF001
-    _spawn(_create_maintenance_ticket, app, agent_name)
+    _spawn(_create_maintenance_ticket, app, agent_name, report)
 
 
 def get_agent_space_key(agent_name: str) -> str | None:

@@ -905,9 +905,19 @@ def agents_post(agent_name, json_data):
     # extract log from data so we can push it instead of setting it
     log = json_data.pop("log", [])
 
-    previous_mode = database.get_agent_effective_mode(agent_name)
+    previous = database.get_agent_mode_snapshot(agent_name)
+    comment = json_data.get("comment")
+    links = json_data.get("links")
     database.upsert_agent_document(agent_name, json_data, log)
-    jira.create_ticket_if_entered_maintenance(agent_name, previous_mode)
+    # Admins setting maintenance by hand don't need a ticket
+    if g.role != ServerRoles.ADMIN:
+        jira.create_ticket_if_agent_self_maintenance(
+            agent_name,
+            previous,
+            client_id=g.client_id,
+            comment=comment,
+            links=links,
+        )
 
     # Set a session cookie to identify the agent for future requests
     response = jsonify({"status": "OK"})

@@ -32,6 +32,7 @@ def ticket_mock_fixture():
     """Run maintenance ticket creation inline and capture the Jira call."""
     with (
         patch.object(tickets, "_spawn", lambda func, *args: func(*args)),
+        patch.object(tickets, "get_agent_space_key", return_value="TELOPS"),
         patch.object(
             tickets, "create_agent_ticket", return_value="TELOPS-1"
         ) as mock,
@@ -657,8 +658,7 @@ def test_agents_post_restart_saves_current_mode_to_commanded_mode(
 
 
 # ---------------------------------------------------------------------------
-# Jira tickets when an agent enters maintenance
-# ---------------------------------------------------------------------------
+# Jira tickets when an agent puts itself into maintenance
 
 
 def _command_mode(app, mode, comment=""):
@@ -670,78 +670,171 @@ def _command_mode(app, mode, comment=""):
     )
 
 
-def test_commanding_maintenance_creates_ticket(mongo_app, ticket_mock):
-    """Commanding maintenance creates one ticket with the admin's comment."""
-    app, mongo = mongo_app
-    mongo.agents.insert_one(
-        {"name": "agent1", "location": "TEL-L3", "state": "waiting"}
+def _report(app, header, mode, **extra):
+    return app.post(
+        "/v2/agents/agent1/data",
+        json={"mode": mode, "state": "waiting", **extra},
+        headers=header,
     )
+
+
+def test_agent_self_maintenance_creates_ticket(
+    mongo_app, agent_auth_header, ticket_mock
+):
+    """An agent going into maintenance with no command gets a ticket."""
+    app, _ = mongo_app
+    _report(
+        app,
+        agent_auth_header,
+        "online",
+        location="TEL-L3",
+        queues=["q1", "q2"],
+        provision_type="maas",
+        identifier="C3-ID",
+    )
+    ticket_mock.assert_not_called()
+
+    output = _report(
+        app,
+        agent_auth_header,
+        "maintenance",
+        comment="provision failed 5 times",
+        links=[{"label": "C3", "url": "https://c3.example.com/1"}],
+    )
+
+    assert output.status_code == HTTPStatus.OK
+    ticket_mock.assert_called_once()
+    args, kwargs = ticket_mock.call_args
+    assert args[0] == "agent1"
+    assert "went into maintenance on its own" in kwargs["summary"]
+    for line in (
+        "Reported by: agent-id",
+        "Time: 20",
+        "Location: TEL-L3",
+        "Queues: q1, q2",
+        "Provision type: maas",
+        "Identifier: C3-ID",
+        "Comment: provision failed 5 times",
+        "Link (C3): https://c3.example.com/1",
+    ):
+        assert line in kwargs["description"]
+
+
+def test_self_maintenance_is_followed_by_commanded_maintenance(
+    mongo_app, agent_auth_header, ticket_mock
+):
+    """The server commands maintenance and points at the ticket."""
+    app, mongo = mongo_app
+    _report(app, agent_auth_header, "online")
+
+    _report(app, agent_auth_header, "maintenance")
+
+    record = mongo.agents.find_one({"name": "agent1"})
+    assert record["commanded_mode"]["value"] == "maintenance"
+    assert record["commanded_mode"]["comment"] == "Jira ticket TELOPS-1"
+    assert record["commanded_mode"]["changed_by"] == "testflinger-server"
+
+
+def test_failed_ticket_still_commands_maintenance(
+    mongo_app, agent_auth_header, ticket_mock
+):
+    """Without a ticket the command says so."""
+    app, mongo = mongo_app
+    ticket_mock.return_value = None
+
+    _report(app, agent_auth_header, "maintenance")
+
+    record = mongo.agents.find_one({"name": "agent1"})
+    assert record["commanded_mode"]["value"] == "maintenance"
+    assert "could not be created" in record["commanded_mode"]["comment"]
+
+
+def test_agent_without_jira_space_is_left_alone(
+    mongo_app, agent_auth_header, ticket_mock
+):
+    """No ticket and no commanded mode for agents with no Jira space."""
+    app, mongo = mongo_app
+    with patch.object(tickets, "get_agent_space_key", return_value=None):
+        _report(app, agent_auth_header, "maintenance")
+
+    ticket_mock.assert_not_called()
+    assert "commanded_mode" not in mongo.agents.find_one({"name": "agent1"})
+
+
+def test_commanding_maintenance_creates_no_ticket(mongo_app, ticket_mock):
+    """Someone commanding maintenance by hand is already handling it."""
+    app, mongo = mongo_app
+    mongo.agents.insert_one({"name": "agent1", "state": "waiting"})
 
     output = _command_mode(app, "maintenance", "bad PSU")
 
     assert output.status_code == HTTPStatus.NO_CONTENT
-    ticket_mock.assert_called_once()
-    args, kwargs = ticket_mock.call_args
-    assert args[0] == "agent1"
-    assert kwargs["summary"] == "Agent agent1 set to maintenance"
-    for line in ("Location: TEL-L3", "Set by: admin-id", "Comment: bad PSU"):
-        assert line in kwargs["description"]
+    ticket_mock.assert_not_called()
 
 
-def test_repeating_maintenance_does_not_create_another_ticket(
-    mongo_app, ticket_mock
+def test_agent_acknowledging_commanded_maintenance_creates_no_ticket(
+    mongo_app, agent_auth_header, ticket_mock
 ):
-    """Only the transition into maintenance creates a ticket."""
+    """The agent adopting a commanded maintenance is not an auto-off."""
     app, mongo = mongo_app
     mongo.agents.insert_one({"name": "agent1", "state": "waiting"})
-
     _command_mode(app, "maintenance")
-    _command_mode(app, "maintenance", "still broken")
+
+    output = _report(app, agent_auth_header, "maintenance")
+
+    assert output.status_code == HTTPStatus.OK
+    assert "commanded_mode" not in mongo.agents.find_one({"name": "agent1"})
+    ticket_mock.assert_not_called()
+
+
+def test_heartbeats_after_acknowledging_create_no_ticket(
+    mongo_app, agent_auth_header, ticket_mock
+):
+    """Commanded mode cleared and agent still in maintenance: no ticket."""
+    app, mongo = mongo_app
+    mongo.agents.insert_one({"name": "agent1", "state": "waiting"})
+    _command_mode(app, "maintenance")
+
+    _report(app, agent_auth_header, "maintenance")
+    _report(app, agent_auth_header, "maintenance")
+
+    ticket_mock.assert_not_called()
+
+
+def test_maintenance_heartbeats_create_one_ticket(
+    mongo_app, agent_auth_header, ticket_mock
+):
+    """Staying in maintenance doesn't create further tickets."""
+    app, _ = mongo_app
+    _report(app, agent_auth_header, "online")
+
+    _report(app, agent_auth_header, "maintenance")
+    _report(app, agent_auth_header, "maintenance")
 
     assert ticket_mock.call_count == 1
 
 
-def test_agent_acknowledging_maintenance_does_not_duplicate_ticket(
+def test_v1_agent_self_maintenance_creates_ticket(
     mongo_app, agent_auth_header, ticket_mock
 ):
-    """The agent reporting a commanded maintenance isn't a new transition."""
+    """An agent using the v1 endpoint gets a ticket as well."""
     app, mongo = mongo_app
     mongo.agents.insert_one({"name": "agent1", "state": "waiting"})
-    _command_mode(app, "maintenance")
 
     output = app.post(
-        "/v2/agents/agent1/data",
-        json={"mode": "maintenance", "state": "waiting"},
+        "/v1/agents/data/agent1",
+        json={"state": "maintenance"},
         headers=agent_auth_header,
     )
 
     assert output.status_code == HTTPStatus.OK
-    assert ticket_mock.call_count == 1
-
-
-def test_agent_reporting_maintenance_creates_ticket(
-    mongo_app, agent_auth_header, ticket_mock
-):
-    """An agent reporting a local fault as maintenance creates a ticket."""
-    app, _ = mongo_app
-
-    app.post(
-        "/v2/agents/agent1/data",
-        json={"mode": "online", "state": "waiting"},
-        headers=agent_auth_header,
-    )
-    ticket_mock.assert_not_called()
-    app.post(
-        "/v2/agents/agent1/data",
-        json={"mode": "maintenance", "state": "waiting"},
-        headers=agent_auth_header,
-    )
-
     ticket_mock.assert_called_once()
 
 
-def test_v1_post_maintenance_creates_ticket(mongo_app, ticket_mock):
-    """Setting maintenance through the v1 endpoint also creates a ticket."""
+def test_v1_admin_setting_maintenance_creates_no_ticket(
+    mongo_app, ticket_mock
+):
+    """An admin setting maintenance by hand through v1 is not an auto-off."""
     app, mongo = mongo_app
     mongo.agents.insert_one({"name": "agent1", "state": "waiting"})
     admin_header = get_access_token_header("admin-id", ServerRoles.ADMIN)
@@ -753,29 +846,18 @@ def test_v1_post_maintenance_creates_ticket(mongo_app, ticket_mock):
     )
 
     assert output.status_code == HTTPStatus.OK
-    ticket_mock.assert_called_once()
-
-
-@pytest.mark.parametrize("mode", ["offline", "online"])
-def test_other_modes_do_not_create_tickets(mongo_app, ticket_mock, mode):
-    """Only maintenance creates tickets."""
-    app, mongo = mongo_app
-    mongo.agents.insert_one({"name": "agent1", "state": "waiting"})
-
-    _command_mode(app, mode)
-
     ticket_mock.assert_not_called()
 
 
-def test_jira_failure_does_not_break_the_update(mongo_app):
+def test_jira_failure_does_not_break_the_update(mongo_app, agent_auth_header):
     """An unexpected Jira error never fails the API call."""
-    app, mongo = mongo_app
-    mongo.agents.insert_one({"name": "agent1", "state": "waiting"})
+    app, _ = mongo_app
 
     with (
         patch.object(tickets, "_spawn", lambda func, *args: func(*args)),
+        patch.object(tickets, "get_agent_space_key", return_value="TELOPS"),
         patch.object(tickets, "create_agent_ticket", side_effect=KeyError),
     ):
-        output = _command_mode(app, "maintenance")
+        output = _report(app, agent_auth_header, "maintenance")
 
-    assert output.status_code == HTTPStatus.NO_CONTENT
+    assert output.status_code == HTTPStatus.OK
