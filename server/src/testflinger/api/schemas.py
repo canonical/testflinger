@@ -20,7 +20,13 @@ from datetime import datetime, timezone
 
 from apiflask import Schema, fields, validators
 from apiflask.validators import Length, OneOf, Regexp
-from marshmallow import INCLUDE, RAISE, ValidationError, validates_schema
+from marshmallow import (
+    INCLUDE,
+    RAISE,
+    ValidationError,
+    pre_dump,
+    validates_schema,
+)
 from marshmallow_oneofschema import OneOfSchema
 from testflinger_common.duration import DurationParseError, parse_duration
 from testflinger_common.enums import ServerRoles, TestPhase
@@ -158,6 +164,24 @@ class AgentOut(Schema):
     provision_streak_count = fields.Integer(required=False)
     links = fields.List(fields.Nested(AgentLink), required=False)
     updated_at = UTCDateTime(required=False)
+
+    @pre_dump
+    def add_provision_streak(self, data, **kwargs):
+        """Derive the nested streak from the flat streak fields."""
+        status = data.get("provision_streak_type")
+        value = data.get("provision_streak_count")
+        if status not in {"pass", "fail"} or not isinstance(value, int):
+            return data
+        if value < 1:
+            return data
+        return {
+            **data,
+            "provision_streak": {
+                "status": status,
+                "value": value,
+                "signed_value": value if status == "pass" else -value,
+            },
+        }
 
 
 class ActionIn(Schema):
