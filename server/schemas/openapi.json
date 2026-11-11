@@ -182,6 +182,9 @@
           "comment": {
             "type": "string"
           },
+          "identifier": {
+            "type": "string"
+          },
           "job": {
             "anyOf": [
               {
@@ -211,6 +214,12 @@
           "provision_streak": {
             "$ref": "#/components/schemas/ProvisionStreak"
           },
+          "provision_streak_count": {
+            "type": "integer"
+          },
+          "provision_streak_type": {
+            "type": "string"
+          },
           "provision_type": {
             "type": "string"
           },
@@ -225,6 +234,10 @@
             "type": "object"
           },
           "state": {
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
             "type": "string"
           }
         },

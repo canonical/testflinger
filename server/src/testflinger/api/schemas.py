@@ -143,6 +143,7 @@ class AgentOut(Schema):
     """Agent data output schema."""
 
     name = fields.String(required=True)
+    identifier = fields.String(required=False)
     job_id = fields.String(required=False)
     state = fields.String(required=False)
     queues = fields.List(fields.String(), required=False)
@@ -151,8 +152,12 @@ class AgentOut(Schema):
     comment = fields.String(required=False)
     restricted_to = fields.Dict(required=False)
     job = fields.Nested(AgentJob, required=False, allow_none=True)
-    links = fields.List(fields.Nested(AgentLink), required=False)
     provision_streak = fields.Nested(ProvisionStreak, required=False)
+    # TODO: Remove legacy provisioning streak flat fields after deprecating V1
+    provision_streak_type = fields.String(required=False)
+    provision_streak_count = fields.Integer(required=False)
+    links = fields.List(fields.Nested(AgentLink), required=False)
+    updated_at = UTCDateTime(required=False)
 
 
 class ActionIn(Schema):
