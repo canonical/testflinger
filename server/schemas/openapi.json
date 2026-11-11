@@ -242,7 +242,8 @@
           }
         },
         "required": [
-          "name"
+          "name",
+          "updated_at"
         ],
         "type": "object"
       },

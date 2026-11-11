@@ -163,7 +163,7 @@ class AgentOut(Schema):
     provision_streak_type = fields.String(required=False)
     provision_streak_count = fields.Integer(required=False)
     links = fields.List(fields.Nested(AgentLink), required=False)
-    updated_at = UTCDateTime(required=False)
+    updated_at = UTCDateTime(required=True)
 
     @pre_dump
     def add_provision_streak(self, data, **kwargs):
