@@ -80,6 +80,11 @@ Testflinger administrators can also change the status of running agents via the
 command line to either ``offline`` or ``maintenance``. See :ref:`howto-manage-agent`
 for more details.
 
+If an agent with ``jira_space`` configured (see :doc:`../reference/testflinger-agent-conf`)
+puts itself into ``maintenance``, the server creates a Jira ticket in that space
+and keeps the agent in ``maintenance`` with a comment referencing the ticket.
+No ticket is created when an administrator sets the mode.
+
         Agent states follow the job execution phase order:
         - waiting: idle, ready for jobs
         - setup, provision, firmware_update, test, allocate, reserve: running job phases

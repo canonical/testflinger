@@ -63,6 +63,12 @@ def test_non_https_url_rejected(url):
         JiraClient(url, "user@example.com", "token")
 
 
+def test_url_without_host_rejected():
+    """A base URL must include a host."""
+    with pytest.raises(JiraConfigError, match="host"):
+        JiraClient("https:///", "user@example.com", "token")
+
+
 def test_create_issue(client, requests_mock):
     """Issues are created with an ADF description and return their key."""
     requests_mock.post(ISSUE_URL, json={"key": "TELOPS-1"}, status_code=201)
@@ -95,6 +101,17 @@ def test_create_issue_unexpected_error_body(client, requests_mock, body):
     with pytest.raises(JiraRequestError) as exc:
         client.create_issue("TELOPS", "title", "desc", "Task")
     assert exc.value.status == 502
+
+
+@pytest.mark.parametrize(
+    "kwargs", [{"text": "not json"}, {"json": {}}, {"json": ["TELOPS-1"]}]
+)
+def test_create_issue_malformed_success(client, requests_mock, kwargs):
+    """A success response without an issue key gives a JiraRequestError."""
+    requests_mock.post(ISSUE_URL, status_code=201, **kwargs)
+    with pytest.raises(JiraRequestError, match="Unexpected") as exc:
+        client.create_issue("TELOPS", "title", "desc", "Task")
+    assert exc.value.status == 201
 
 
 def test_create_issue_connection_error(client, requests_mock):
@@ -149,6 +166,15 @@ def test_create_agent_ticket_failure(error, caplog):
     ):
         assert create_agent_ticket("agent1", "t", "d", client=client) is None
     assert "Failed to create Jira ticket for agent agent1" in caplog.text
+
+
+def test_create_agent_ticket_malformed_success(client, requests_mock):
+    """A success response without an issue key is swallowed."""
+    requests_mock.post(ISSUE_URL, text="not json", status_code=201)
+    with patch.object(
+        database, "get_agent_info", return_value={"jira_space": "TELOPS"}
+    ):
+        assert create_agent_ticket("agent1", "t", "d", client=client) is None
 
 
 def test_create_agent_ticket_missing_credentials(monkeypatch):

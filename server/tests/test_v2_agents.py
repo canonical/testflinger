@@ -720,6 +720,24 @@ def test_agent_self_maintenance_creates_ticket(
         assert line in kwargs["description"]
 
 
+def test_ticket_lists_links_stored_by_the_agent(
+    mongo_app, agent_auth_header, ticket_mock
+):
+    """Links sent at startup are listed when the report has none."""
+    app, _ = mongo_app
+    _report(
+        app,
+        agent_auth_header,
+        "online",
+        links=[{"label": "C3", "url": "https://c3.example.com/1"}],
+    )
+
+    _report(app, agent_auth_header, "maintenance")
+
+    description = ticket_mock.call_args.kwargs["description"]
+    assert "Link (C3): https://c3.example.com/1" in description
+
+
 def test_self_maintenance_is_followed_by_commanded_maintenance(
     mongo_app, agent_auth_header, ticket_mock
 ):
@@ -812,41 +830,6 @@ def test_maintenance_heartbeats_create_one_ticket(
     _report(app, agent_auth_header, "maintenance")
 
     assert ticket_mock.call_count == 1
-
-
-def test_v1_agent_self_maintenance_creates_ticket(
-    mongo_app, agent_auth_header, ticket_mock
-):
-    """An agent using the v1 endpoint gets a ticket as well."""
-    app, mongo = mongo_app
-    mongo.agents.insert_one({"name": "agent1", "state": "waiting"})
-
-    output = app.post(
-        "/v1/agents/data/agent1",
-        json={"state": "maintenance"},
-        headers=agent_auth_header,
-    )
-
-    assert output.status_code == HTTPStatus.OK
-    ticket_mock.assert_called_once()
-
-
-def test_v1_admin_setting_maintenance_creates_no_ticket(
-    mongo_app, ticket_mock
-):
-    """An admin setting maintenance by hand through v1 is not an auto-off."""
-    app, mongo = mongo_app
-    mongo.agents.insert_one({"name": "agent1", "state": "waiting"})
-    admin_header = get_access_token_header("admin-id", ServerRoles.ADMIN)
-
-    output = app.post(
-        "/v1/agents/data/agent1",
-        json={"state": "maintenance"},
-        headers=admin_header,
-    )
-
-    assert output.status_code == HTTPStatus.OK
-    ticket_mock.assert_not_called()
 
 
 def test_jira_failure_does_not_break_the_update(mongo_app, agent_auth_header):

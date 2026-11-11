@@ -33,6 +33,7 @@ from testflinger.jira.exceptions import JiraConfigError, JiraRequestError
 logger = logging.getLogger(__name__)
 
 API_VERSION = 3
+ADF_VERSION = 1
 REQUEST_TIMEOUT = 30
 
 
@@ -48,7 +49,7 @@ def text_to_adf(text: str) -> dict:
         }
         for line in text.splitlines() or [""]
     ]
-    return {"type": "doc", "version": 1, "content": paragraphs}
+    return {"type": "doc", "version": ADF_VERSION, "content": paragraphs}
 
 
 class JiraClient:
@@ -57,10 +58,13 @@ class JiraClient:
     def __init__(self, base_url: str, email: str, token: str):
         """Set up the client with basic (email + API token) auth.
 
-        :raises JiraConfigError: If base_url is not an HTTPS URL
+        :raises JiraConfigError: If base_url is not an HTTPS URL with a host
         """
-        if urlparse(base_url).scheme != "https":
+        parsed = urlparse(base_url)
+        if parsed.scheme != "https":
             raise JiraConfigError("Jira base URL must use https://")
+        if not parsed.hostname:
+            raise JiraConfigError("Jira base URL must include a host")
         self.base_url = base_url.rstrip("/")
         self.auth = HTTPBasicAuth(email, token)
 
@@ -86,7 +90,6 @@ class JiraClient:
         session = requests.Session()
         adapter = HTTPAdapter(max_retries=Retry(connect=5, read=2))
         session.mount("https://", adapter)
-        session.mount("http://", adapter)
         session.auth = self.auth
         return session
 
@@ -144,4 +147,10 @@ class JiraClient:
             f"/rest/api/{API_VERSION}/issue",
             json={"fields": fields},
         )
-        return response.json()["key"]
+        try:
+            return response.json()["key"]
+        except (ValueError, KeyError, TypeError) as exc:
+            raise JiraRequestError(
+                response.status_code,
+                ["Unexpected response from Jira: missing issue key"],
+            ) from exc

@@ -17,6 +17,7 @@
 
 import logging
 import threading
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 
 from flask import current_app
@@ -32,6 +33,16 @@ DEFAULT_ISSUE_TYPE = "Task"
 SERVER_CLIENT_ID = "testflinger-server"
 
 
+@dataclass(frozen=True)
+class MaintenanceReport:
+    """What an agent reported when it put itself into maintenance."""
+
+    client_id: str | None
+    time: str
+    comment: str | None = None
+    links: list[dict] = field(default_factory=list)
+
+
 def _spawn(func, *args) -> None:
     """Run a function in a background thread.
 
@@ -41,25 +52,29 @@ def _spawn(func, *args) -> None:
     threading.Thread(target=func, args=args, daemon=True).start()
 
 
-def _ticket_description(agent_name: str, agent: dict, report: dict) -> str:
+def _ticket_description(
+    agent_name: str, agent: dict, report: MaintenanceReport
+) -> str:
     """Build the ticket text from the agent record and its report."""
     lines = [
         f"Agent: {agent_name}",
-        f"Reported by: {report['client_id'] or 'unknown'}",
-        f"Time: {report['time']}",
+        f"Reported by: {report.client_id or 'unknown'}",
+        f"Time: {report.time}",
         f"Location: {agent.get('location') or 'unknown'}",
         f"Queues: {', '.join(agent.get('queues') or []) or 'none'}",
         f"Provision type: {agent.get('provision_type') or 'unknown'}",
         f"Identifier: {agent.get('identifier') or 'unknown'}",
     ]
-    if report["comment"]:
-        lines.append(f"Comment: {report['comment']}")
-    links = report["links"] or agent.get("links") or []
+    if report.comment:
+        lines.append(f"Comment: {report.comment}")
+    links = report.links or agent.get("links") or []
     lines.extend(f"Link ({link['label']}): {link['url']}" for link in links)
     return "\n".join(lines)
 
 
-def _create_maintenance_ticket(app, agent_name: str, report: dict) -> None:
+def _create_maintenance_ticket(
+    app, agent_name: str, report: MaintenanceReport
+) -> None:
     """Create the ticket for an agent that put itself in maintenance.
 
     Afterwards the server commands maintenance too, so both sides agree and
@@ -123,12 +138,12 @@ def create_ticket_if_agent_self_maintenance(
     # Agents without a space keep their existing behaviour
     if get_agent_space_key(agent_name) is None:
         return
-    report = {
-        "client_id": client_id,
-        "time": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-        "comment": comment,
-        "links": links,
-    }
+    report = MaintenanceReport(
+        client_id=client_id,
+        time=datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        comment=comment,
+        links=links or [],
+    )
     app = current_app._get_current_object()  # noqa: SLF001
     _spawn(_create_maintenance_ticket, app, agent_name, report)
 
