@@ -303,6 +303,86 @@ def test_job_results_mongo_logs(testapp):
     assert "Exit Status:</span> 1" in html
 
 
+def test_job_results_partial_output_in_progress(testapp):
+    """Test that output is shown for a phase that has no status yet."""
+    mongo = mongomock.MongoClient()
+    job_id = str(uuid.uuid4())
+    mongo.db.jobs.insert_one(
+        {
+            "job_id": job_id,
+            "created_at": datetime.now(timezone.utc),
+            "job_data": {"job_queue": "queue1"},
+            "result_data": {"job_state": "provision"},
+        }
+    )
+    mongo.db.logs.insert_one(
+        {
+            "job_id": job_id,
+            "log_type": LogType.STANDARD_OUTPUT,
+            "phase": TestPhase.PROVISION,
+            "fragment_number": 0,
+            "timestamp": datetime.now(tz=timezone.utc),
+            "log_data": "Partial provision output",
+        }
+    )
+    with patch("testflinger.database.mongo", mongo):
+        with testapp.test_request_context():
+            response = job_detail(job_id)
+
+    html = str(response)
+    assert "Phase Results" in html
+    assert "Partial provision output" in html
+    # In progress: spinner, no exit status and no success/error styling
+    assert (
+        '<i class="p-icon--spinner u-animation--spin" '
+        'aria-label="In progress"></i>'
+    ) in html
+    assert "Exit Status:" not in html
+    assert "p-notification--positive" not in html
+    assert "p-notification--negative" not in html
+
+
+def test_job_results_finished_and_in_progress_phases(testapp):
+    """Test finished and in-progress phases are rendered side by side."""
+    mongo = mongomock.MongoClient()
+    job_id = str(uuid.uuid4())
+    mongo.db.jobs.insert_one(
+        {
+            "job_id": job_id,
+            "created_at": datetime.now(timezone.utc),
+            "job_data": {"job_queue": "queue1"},
+            "result_data": {
+                "status": {TestPhase.PROVISION: 0},
+                "job_state": "test",
+            },
+        }
+    )
+    mongo.db.logs.insert_many(
+        [
+            {
+                "job_id": job_id,
+                "log_type": LogType.STANDARD_OUTPUT,
+                "phase": phase,
+                "fragment_number": 0,
+                "timestamp": datetime.now(tz=timezone.utc),
+                "log_data": f"{phase} output",
+            }
+            for phase in (TestPhase.PROVISION, TestPhase.TEST)
+        ]
+    )
+    with patch("testflinger.database.mongo", mongo):
+        with testapp.test_request_context():
+            response = job_detail(job_id)
+
+    html = str(response)
+    assert "provision output" in html
+    assert "test output" in html
+    # Only the finished phase has a success icon and an exit status
+    assert html.count('aria-label="Success"') == 1
+    assert html.count('aria-label="In progress"') == 1
+    assert html.count("Exit Status:") == 1
+
+
 def test_job_detail_shows_activity_events(testapp):
     """Test that job_detail renders stored events in the Activity section."""
     mongo = mongomock.MongoClient()

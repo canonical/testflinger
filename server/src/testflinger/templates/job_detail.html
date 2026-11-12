@@ -129,7 +129,7 @@
       {"name": "Firmware Update", "id": "firmware-update", "status": job.result_data.get('firmware_update_status'), "output": job.result_data.get('firmware_output')},
       {"name": "Test", "id": "test", "status": job.result_data.get('test_status'), "output": job.result_data.get('test_output')}
     ] %}
-  {% set phases_with_results = phases | selectattr("output") | selectattr("status", "!=", none) | list %}
+  {% set phases_with_results = phases | selectattr("output") | list %}
   {% if phases_with_results %}
     <h2 class="p-muted-heading" id="phase-results">
       <a href="#phase-results"
@@ -147,7 +147,9 @@
                     aria-selected="{{ 'true' if loop.first else 'false' }}"
                     aria-controls="{{ phase.id }}-phase"
                     id="{{ phase.id }}-phase-tab">
-              {% if phase.status == 0 %}
+              {% if phase.status is none %}
+                <i class="p-icon--spinner u-animation--spin" aria-label="In progress"></i>
+              {% elif phase.status == 0 %}
                 <i class="p-icon--success" aria-label="Success"></i>
               {% else %}
                 <i class="p-icon--error" aria-label="Error"></i>
@@ -163,13 +165,15 @@
              id="{{ phase.id }}-phase"
              aria-labelledby="{{ phase.id }}-phase-tab"
              {% if not loop.first %}hidden{% endif %}>
-          <div class="{{ 'p-notification--positive' if phase.status == 0 else 'p-notification--negative' }}">
+          <div class="{{ '' if phase.status is none else 'p-notification--positive' if phase.status == 0 else 'p-notification--negative' }}">
             <div class="p-code-snippet">
               <pre class="p-code-snippet__block"><code>{{ phase.output }}</code></pre>
             </div>
-            <p class="p-notification__response">
-              <span class="p-notification__status">Exit Status:</span> {{ phase.status }}
-            </p>
+            {% if phase.status is not none %}
+              <p class="p-notification__response">
+                <span class="p-notification__status">Exit Status:</span> {{ phase.status }}
+              </p>
+            {% endif %}
           </div>
         </div>
       {% endfor %}
