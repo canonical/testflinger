@@ -48,6 +48,8 @@ actions:
       branch:
         type: string
         description: The name of the branch or tag to pull Testflinger agent code from
+  update-container:
+    description: Pull the latest testflinger-testenv container image for the configured container-tag
 
 assumes:
   - juju >= 3.0.0
@@ -96,6 +98,12 @@ config:
         The secret should contain the following key-value pairs:
           - client-id: The client ID for authentication
           - secret-key: The client secret for authentication
+    container-tag:
+      type: string
+      default: "jammy"
+      description: |
+        The tag of the testflinger-testenv container image used to run
+        device connectors (supported values: jammy, noble).
 
 parts:
   charm:

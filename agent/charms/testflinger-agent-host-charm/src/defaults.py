@@ -8,3 +8,5 @@ DEFAULT_BRANCH = "main"
 LOCAL_TESTFLINGER_PATH = "/srv/testflinger"
 VIRTUAL_ENV_PATH = "/srv/testflinger-venv"
 DEFAULT_TOKEN_PATH = "/var/lib/testflinger-agent/refresh_token"  # noqa S105
+DEFAULT_CONTAINER_TAG = "jammy"
+TESTENV_IMAGE = "ghcr.io/canonical/testflinger/testflinger-testenv"
