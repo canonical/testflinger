@@ -33,6 +33,25 @@ def test_setup_docker_calls_adds_group_and_adds_user_to_group(
     )
 
 
+@pytest.mark.parametrize("returncode,expected", [(0, True), (1, False)])
+@patch("charm_utils.run_with_logged_errors")
+def test_pull_container_latest_pulls_full_image_reference(
+    mock_run, returncode, expected
+):
+    """Test the full registry image reference is pulled, not just the tag."""
+    mock_run.return_value = returncode
+
+    assert charm_utils.pull_container_latest("noble") is expected
+
+    mock_run.assert_called_once_with(
+        [
+            "docker",
+            "pull",
+            "ghcr.io/canonical/testflinger/testflinger-testenv:noble",
+        ]
+    )
+
+
 @patch("charm_utils.shutil.move")
 @patch("charm_utils.shutil.rmtree")
 @patch("charm_utils.Repo.clone_from")

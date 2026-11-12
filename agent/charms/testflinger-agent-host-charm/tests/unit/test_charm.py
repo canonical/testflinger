@@ -294,6 +294,29 @@ def test_on_update_testflinger_action_with_branch(
     assert state_out.unit_status == testing.ActiveStatus()
 
 
+@patch("charm.charm_utils.pull_container_latest", return_value=True)
+def test_on_update_container_action_pulls_configured_tag(
+    mock_pull, ctx, state_in
+):
+    """Test update-container pulls the configured container tag."""
+    state_out = ctx.run(
+        ctx.on.action("update-container"),
+        state=state_in(config={"container-tag": "noble"}),
+    )
+    mock_pull.assert_called_once_with("noble")
+    assert state_out.unit_status == testing.ActiveStatus()
+
+
+@patch("charm.charm_utils.pull_container_latest", return_value=False)
+def test_on_update_container_action_fails_when_pull_fails(
+    mock_pull, ctx, state_in
+):
+    """Test update-container reports failure when the pull fails."""
+    with pytest.raises(testing.ActionFailed):
+        ctx.run(ctx.on.action("update-container"), state=state_in())
+    mock_pull.assert_called_once()
+
+
 def test_update_configs_action_blocked_on_missing_config(ctx, state_in):
     """Test update-configs action is blocked when config is missing."""
     # Pydantic validation runs in __init__ via load_config(errors="blocked"),
