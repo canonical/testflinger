@@ -838,6 +838,32 @@ def set_agent_job(agent_name: str, job_id: str) -> None:
     )
 
 
+def prefix_agent_comment(agent_name: str, text: str) -> None:
+    """Add text in front of the comment on an agent's pending command.
+
+    When the agent already acknowledged the command, the text goes on the
+    comment of its current mode instead, so it is not lost.
+
+    :param agent_name: Name of the agent.
+    :param text: Text to add, e.g. a Jira ticket key.
+    """
+    for field in ("commanded_mode", "mode"):
+        agent = mongo.db.agents.find_one(
+            {"name": agent_name, f"{field}.value": {"$exists": True}},
+            {field: True},
+        )
+        if not agent:
+            continue
+        existing = agent[field].get("comment")
+        comment = f"{text}: {existing}" if existing else text
+        result = mongo.db.agents.update_one(
+            {"name": agent_name, f"{field}.value": agent[field]["value"]},
+            {"$set": {f"{field}.comment": comment}},
+        )
+        if result.matched_count:
+            return
+
+
 def set_agent_commanded_mode(
     agent_name: str, mode: str, comment: str, changed_by: str | None
 ) -> None:

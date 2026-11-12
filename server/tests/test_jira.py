@@ -71,13 +71,13 @@ def test_url_without_host_rejected():
 
 def test_create_issue(client, requests_mock):
     """Issues are created with an ADF description and return their key."""
-    requests_mock.post(ISSUE_URL, json={"key": "TELOPS-1"}, status_code=201)
+    requests_mock.post(ISSUE_URL, json={"key": "TESTOPS-1"}, status_code=201)
     key = client.create_issue(
-        "TELOPS", "title", "line1\nline2", "Task", labels=["a"]
+        "TESTOPS", "title", "line1\nline2", "Task", labels=["a"]
     )
-    assert key == "TELOPS-1"
+    assert key == "TESTOPS-1"
     fields = requests_mock.last_request.body
-    assert b'"key": "TELOPS"' in fields
+    assert b'"key": "TESTOPS"' in fields
     assert b'"labels": ["a"]' in fields
     assert fields.count(b'"type": "paragraph"') == 2
 
@@ -99,18 +99,18 @@ def test_create_issue_unexpected_error_body(client, requests_mock, body):
     """Error bodies that aren't Jira's usual object still give a JiraError."""
     requests_mock.post(ISSUE_URL, json=body, status_code=502)
     with pytest.raises(JiraRequestError) as exc:
-        client.create_issue("TELOPS", "title", "desc", "Task")
+        client.create_issue("TESTOPS", "title", "desc", "Task")
     assert exc.value.status == 502
 
 
 @pytest.mark.parametrize(
-    "kwargs", [{"text": "not json"}, {"json": {}}, {"json": ["TELOPS-1"]}]
+    "kwargs", [{"text": "not json"}, {"json": {}}, {"json": ["TESTOPS-1"]}]
 )
 def test_create_issue_malformed_success(client, requests_mock, kwargs):
     """A success response without an issue key gives a JiraRequestError."""
     requests_mock.post(ISSUE_URL, status_code=201, **kwargs)
     with pytest.raises(JiraRequestError, match="Unexpected") as exc:
-        client.create_issue("TELOPS", "title", "desc", "Task")
+        client.create_issue("TESTOPS", "title", "desc", "Task")
     assert exc.value.status == 201
 
 
@@ -118,15 +118,15 @@ def test_create_issue_connection_error(client, requests_mock):
     """Connection failures are wrapped in a JiraRequestError."""
     requests_mock.post(ISSUE_URL, exc=requests.ConnectionError("down"))
     with pytest.raises(JiraRequestError):
-        client.create_issue("TELOPS", "title", "desc", "Task")
+        client.create_issue("TESTOPS", "title", "desc", "Task")
 
 
 def test_get_agent_space_key():
     """The space is read from the agent's stored config."""
     with patch.object(
-        database, "get_agent_info", return_value={"jira_space": "TELOPS"}
+        database, "get_agent_info", return_value={"jira_space": "TESTOPS"}
     ):
-        assert get_agent_space_key("agent1") == "TELOPS"
+        assert get_agent_space_key("agent1") == "TESTOPS"
 
 
 @pytest.mark.parametrize("agent", [None, {}, {"jira_space": ""}])
@@ -162,7 +162,7 @@ def test_create_agent_ticket_failure(error, caplog):
     client = MagicMock()
     client.create_issue.side_effect = error
     with patch.object(
-        database, "get_agent_info", return_value={"jira_space": "TELOPS"}
+        database, "get_agent_info", return_value={"jira_space": "TESTOPS"}
     ):
         assert create_agent_ticket("agent1", "t", "d", client=client) is None
     assert "Failed to create Jira ticket for agent agent1" in caplog.text
@@ -172,7 +172,7 @@ def test_create_agent_ticket_malformed_success(client, requests_mock):
     """A success response without an issue key is swallowed."""
     requests_mock.post(ISSUE_URL, text="not json", status_code=201)
     with patch.object(
-        database, "get_agent_info", return_value={"jira_space": "TELOPS"}
+        database, "get_agent_info", return_value={"jira_space": "TESTOPS"}
     ):
         assert create_agent_ticket("agent1", "t", "d", client=client) is None
 
@@ -181,7 +181,7 @@ def test_create_agent_ticket_missing_credentials(monkeypatch):
     """Missing credentials don't raise when no client is given."""
     monkeypatch.delenv("JIRA_BASE_URL", raising=False)
     with patch.object(
-        database, "get_agent_info", return_value={"jira_space": "TELOPS"}
+        database, "get_agent_info", return_value={"jira_space": "TESTOPS"}
     ):
         assert create_agent_ticket("agent1", "t", "d") is None
 

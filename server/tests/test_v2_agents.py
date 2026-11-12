@@ -32,9 +32,8 @@ def ticket_mock_fixture():
     """Run maintenance ticket creation inline and capture the Jira call."""
     with (
         patch.object(tickets, "_spawn", lambda func, *args: func(*args)),
-        patch.object(tickets, "get_agent_space_key", return_value="TELOPS"),
         patch.object(
-            tickets, "create_agent_ticket", return_value="TELOPS-1"
+            tickets, "create_agent_ticket", return_value="TESTOPS-1"
         ) as mock,
     ):
         yield mock
@@ -94,7 +93,9 @@ def test_agents_post_uses_upsert_agent_document(
 def test_agents_post_rejects_admin_credentials(mongo_app):
     """POST /v2/agents/{name}/data is agent-only; admin gets 403."""
     app, mongo = mongo_app
-    mongo.agents.insert_one({"name": "agent1", "state": "waiting"})
+    mongo.agents.insert_one(
+        {"name": "agent1", "state": "waiting", "jira_space": "TESTOPS"}
+    )
     admin_header = get_access_token_header("admin-id", ServerRoles.ADMIN)
 
     output = app.post(
@@ -109,7 +110,9 @@ def test_agents_post_rejects_admin_credentials(mongo_app):
 def test_agents_post_rejects_manager_credentials(mongo_app):
     """POST /v2/agents/{name}/data is agent-only; manager gets 403."""
     app, mongo = mongo_app
-    mongo.agents.insert_one({"name": "agent1", "state": "waiting"})
+    mongo.agents.insert_one(
+        {"name": "agent1", "state": "waiting", "jira_space": "TESTOPS"}
+    )
     manager_header = get_access_token_header("manager-id", ServerRoles.MANAGER)
 
     output = app.post(
@@ -172,7 +175,9 @@ def test_agents_patch_commanded_mode_admin(mongo_app):
     comment}.
     """
     app, mongo = mongo_app
-    mongo.agents.insert_one({"name": "agent1", "state": "waiting"})
+    mongo.agents.insert_one(
+        {"name": "agent1", "state": "waiting", "jira_space": "TESTOPS"}
+    )
     admin_header = get_access_token_header("admin-id", ServerRoles.ADMIN)
 
     output = app.patch(
@@ -191,7 +196,9 @@ def test_agents_patch_commanded_mode_admin(mongo_app):
 def test_agents_patch_commanded_mode_rejects_manager_credentials(mongo_app):
     """A manager cannot command a mode change; only admins can."""
     app, mongo = mongo_app
-    mongo.agents.insert_one({"name": "agent1", "state": "waiting"})
+    mongo.agents.insert_one(
+        {"name": "agent1", "state": "waiting", "jira_space": "TESTOPS"}
+    )
     manager_header = get_access_token_header("manager-id", ServerRoles.MANAGER)
 
     output = app.patch(
@@ -208,7 +215,9 @@ def test_agents_patch_commanded_mode_rejects_agent_credentials(
 ):
     """An agent cannot command its own mode via the PATCH endpoint."""
     app, mongo = mongo_app
-    mongo.agents.insert_one({"name": "agent1", "state": "waiting"})
+    mongo.agents.insert_one(
+        {"name": "agent1", "state": "waiting", "jira_space": "TESTOPS"}
+    )
 
     output = app.patch(
         "/v2/agents/agent1/commanded_mode",
@@ -376,14 +385,14 @@ def test_agents_post_and_get_keep_jira_space(mongo_app, agent_auth_header):
 
     output = app.post(
         "/v2/agents/agent1/data",
-        json={"mode": "online", "jira_space": "TELOPS"},
+        json={"mode": "online", "jira_space": "TESTOPS"},
         headers=agent_auth_header,
     )
 
     assert output.status_code == HTTPStatus.OK
-    assert mongo.agents.find_one({"name": "agent1"})["jira_space"] == "TELOPS"
+    assert mongo.agents.find_one({"name": "agent1"})["jira_space"] == "TESTOPS"
     output = app.get("/v2/agents/agent1/data", headers=agent_auth_header)
-    assert output.json["jira_space"] == "TELOPS"
+    assert output.json["jira_space"] == "TESTOPS"
 
 
 def test_agents_get_one_missing_agent(mongo_app, agent_auth_header):
@@ -673,7 +682,12 @@ def _command_mode(app, mode, comment=""):
 def _report(app, header, mode, **extra):
     return app.post(
         "/v2/agents/agent1/data",
-        json={"mode": mode, "state": "waiting", **extra},
+        json={
+            "mode": mode,
+            "state": "waiting",
+            "jira_space": "TESTOPS",
+            **extra,
+        },
         headers=header,
     )
 
@@ -714,6 +728,9 @@ def test_agent_self_maintenance_creates_ticket(
         "Queues: q1, q2",
         "Provision type: maas",
         "Identifier: C3-ID",
+        "Mode: maintenance",
+        "Commanded mode: none",
+        "State: waiting",
         "Comment: provision failed 5 times",
         "Link (C3): https://c3.example.com/1",
     ):
@@ -745,26 +762,67 @@ def test_self_maintenance_is_followed_by_commanded_maintenance(
     app, mongo = mongo_app
     _report(app, agent_auth_header, "online")
 
-    _report(app, agent_auth_header, "maintenance")
+    _report(app, agent_auth_header, "maintenance", comment="PSU died")
 
     record = mongo.agents.find_one({"name": "agent1"})
     assert record["commanded_mode"]["value"] == "maintenance"
-    assert record["commanded_mode"]["comment"] == "Jira ticket TELOPS-1"
+    assert record["commanded_mode"]["comment"] == (
+        "Jira ticket TESTOPS-1: PSU died"
+    )
     assert record["commanded_mode"]["changed_by"] == "testflinger-server"
+
+
+def test_maintenance_is_commanded_before_the_ticket(
+    mongo_app, agent_auth_header, ticket_mock
+):
+    """The command is in place before Jira is called."""
+    app, mongo = mongo_app
+
+    def check_commanded(*_args, **_kwargs):
+        record = mongo.agents.find_one({"name": "agent1"})
+        assert record["commanded_mode"]["value"] == "maintenance"
+        return "TESTOPS-1"
+
+    ticket_mock.side_effect = check_commanded
+    _report(app, agent_auth_header, "maintenance")
+
+    ticket_mock.assert_called_once()
+
+
+def test_ticket_key_goes_on_mode_once_command_is_acknowledged(
+    mongo_app, agent_auth_header, ticket_mock
+):
+    """A command acknowledged before Jira replies doesn't lose the key."""
+    app, mongo = mongo_app
+    spawned = []
+    with patch.object(
+        tickets, "_spawn", lambda func, *args: spawned.append((func, args))
+    ):
+        _report(app, agent_auth_header, "maintenance")
+        _report(app, agent_auth_header, "maintenance")
+
+    func, args = spawned[0]
+    func(*args)
+
+    record = mongo.agents.find_one({"name": "agent1"})
+    assert "commanded_mode" not in record
+    assert record["mode"]["comment"] == "Jira ticket TESTOPS-1"
 
 
 def test_failed_ticket_still_commands_maintenance(
     mongo_app, agent_auth_header, ticket_mock
 ):
-    """Without a ticket the command says so."""
+    """Without a ticket the comment says so and keeps the agent's reason."""
     app, mongo = mongo_app
     ticket_mock.return_value = None
 
-    _report(app, agent_auth_header, "maintenance")
+    _report(app, agent_auth_header, "maintenance", comment="PSU died")
 
     record = mongo.agents.find_one({"name": "agent1"})
     assert record["commanded_mode"]["value"] == "maintenance"
-    assert "could not be created" in record["commanded_mode"]["comment"]
+    assert record["commanded_mode"]["comment"] == (
+        "Jira ticket could not be created: PSU died"
+    )
 
 
 def test_agent_without_jira_space_is_left_alone(
@@ -772,17 +830,45 @@ def test_agent_without_jira_space_is_left_alone(
 ):
     """No ticket and no commanded mode for agents with no Jira space."""
     app, mongo = mongo_app
-    with patch.object(tickets, "get_agent_space_key", return_value=None):
-        _report(app, agent_auth_header, "maintenance")
+    app.post(
+        "/v2/agents/agent1/data",
+        json={"mode": "maintenance", "state": "waiting"},
+        headers=agent_auth_header,
+    )
 
     ticket_mock.assert_not_called()
     assert "commanded_mode" not in mongo.agents.find_one({"name": "agent1"})
 
 
+def test_open_maintenance_ticket_overrides_a_pending_command(
+    mongo_app, ticket_mock
+):
+    """Any trigger ends with the agent commanded into maintenance."""
+    app, mongo = mongo_app
+    mongo.agents.insert_one(
+        {"name": "agent1", "state": "waiting", "jira_space": "TESTOPS"}
+    )
+    _command_mode(app, "online", "back in service")
+    report = tickets.MaintenanceReport(client_id="user", time="now")
+
+    with app.application.app_context():
+        tickets.open_maintenance_ticket("agent1", "Marked broken", report)
+
+    record = mongo.agents.find_one({"name": "agent1"})
+    assert record["commanded_mode"]["value"] == "maintenance"
+    assert record["commanded_mode"]["comment"] == (
+        "Jira ticket TESTOPS-1: back in service"
+    )
+    description = ticket_mock.call_args.kwargs["description"]
+    assert "Commanded mode: online (back in service)" in description
+
+
 def test_commanding_maintenance_creates_no_ticket(mongo_app, ticket_mock):
     """Someone commanding maintenance by hand is already handling it."""
     app, mongo = mongo_app
-    mongo.agents.insert_one({"name": "agent1", "state": "waiting"})
+    mongo.agents.insert_one(
+        {"name": "agent1", "state": "waiting", "jira_space": "TESTOPS"}
+    )
 
     output = _command_mode(app, "maintenance", "bad PSU")
 
@@ -795,7 +881,9 @@ def test_agent_acknowledging_commanded_maintenance_creates_no_ticket(
 ):
     """The agent adopting a commanded maintenance is not an auto-off."""
     app, mongo = mongo_app
-    mongo.agents.insert_one({"name": "agent1", "state": "waiting"})
+    mongo.agents.insert_one(
+        {"name": "agent1", "state": "waiting", "jira_space": "TESTOPS"}
+    )
     _command_mode(app, "maintenance")
 
     output = _report(app, agent_auth_header, "maintenance")
@@ -810,7 +898,9 @@ def test_heartbeats_after_acknowledging_create_no_ticket(
 ):
     """Commanded mode cleared and agent still in maintenance: no ticket."""
     app, mongo = mongo_app
-    mongo.agents.insert_one({"name": "agent1", "state": "waiting"})
+    mongo.agents.insert_one(
+        {"name": "agent1", "state": "waiting", "jira_space": "TESTOPS"}
+    )
     _command_mode(app, "maintenance")
 
     _report(app, agent_auth_header, "maintenance")
@@ -838,7 +928,6 @@ def test_jira_failure_does_not_break_the_update(mongo_app, agent_auth_header):
 
     with (
         patch.object(tickets, "_spawn", lambda func, *args: func(*args)),
-        patch.object(tickets, "get_agent_space_key", return_value="TELOPS"),
         patch.object(tickets, "create_agent_ticket", side_effect=KeyError),
     ):
         output = _report(app, agent_auth_header, "maintenance")

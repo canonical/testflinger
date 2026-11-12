@@ -133,7 +133,7 @@ class JiraClient:
         issue_type: str,
         labels: list[str] | None = None,
     ) -> str:
-        """Create a Jira issue and return its key (e.g. TELOPS-123)."""
+        """Create a Jira issue and return its key (e.g. TESTOPS-123)."""
         fields = {
             "project": {"key": space_key},
             "issuetype": {"name": issue_type},

@@ -25,6 +25,7 @@ from testflinger.jira.tickets import (
     create_agent_ticket,
     create_ticket_if_agent_self_maintenance,
     get_agent_space_key,
+    open_maintenance_ticket,
 )
 
 __all__ = [
@@ -35,4 +36,5 @@ __all__ = [
     "create_agent_ticket",
     "create_ticket_if_agent_self_maintenance",
     "get_agent_space_key",
+    "open_maintenance_ticket",
 ]

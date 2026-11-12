@@ -57,7 +57,7 @@ The following configuration options are supported by the Testflinger Agent:
     * - ``links``
       - (Optional) List of links related to this agent, such as dashboards, documentation or lab pages. Each entry must have a ``label`` (the text to display) and a ``url`` (a valid ``http`` or ``https`` URL). Links are shown on the agent's page in the Testflinger web UI.
     * - ``jira_space``
-      - (Optional) Key of the Jira space (e.g. ``TELOPS``) where the server creates tickets for this agent, for example when the agent puts itself into maintenance.
+      - (Optional) Key of the Jira space (e.g. ``TESTOPS``) where the server creates tickets for this agent, for example when the agent puts itself into maintenance.
 
 Example configuration
 ^^^^^^^^^^^^^^^^^^^^^^
