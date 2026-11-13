@@ -92,7 +92,7 @@ convention = "pep257"
 
 [tool.djlint]
 profile = "jinja"
-ignore = "H023,H021"
+ignore = "H023,H021,H025"
 indent = 2
 
 [tool.uv.sources]
