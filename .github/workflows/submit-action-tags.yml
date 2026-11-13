@@ -30,7 +30,7 @@ jobs:
 
       - name: Generate semantic version
         id: version
-        uses: PaulHatch/semantic-version@502226b17e3e242e4befd0a45690fcbb27dd1373  # v6.0.3
+        uses: PaulHatch/semantic-version@79147b94804704a613626766998afe7b2bd0bb47  # v6.0.5
         with:
           tag_prefix: "submit/v"
           major_pattern: "breaking(submit):"
