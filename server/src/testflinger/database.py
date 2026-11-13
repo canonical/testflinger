@@ -19,6 +19,7 @@ import functools
 import logging
 import os
 import urllib
+import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -42,6 +43,8 @@ ACCOUNT_DELETE_EXPIRATION = 60 * 60 * 24 * 90  # 90 days
 
 mongo = PyMongo()
 logger = logging.getLogger(__name__)
+
+PREFIX_COMMENT_ATTEMPTS = 3
 
 
 def _now() -> datetime:
@@ -776,6 +779,27 @@ def get_agent_info(agent: str) -> dict | None:
     return agent_data
 
 
+def get_agent_mode_snapshot(agent_name: str) -> tuple[str | None, str | None]:
+    """Return the mode an agent last reported and any pending command.
+
+    :param agent_name: Name of the agent.
+    :return: ``(reported_mode, commanded_mode)``; each is None when unknown
+        or unset.
+    """
+    agent = mongo.db.agents.find_one(
+        {"name": agent_name},
+        {"_id": False, "mode": True, "state": True, "commanded_mode": True},
+    )
+    if not agent:
+        return None, None
+    _promote_v1_to_v2(agent)
+    values = []
+    for field in ("mode", "commanded_mode"):
+        value = agent.get(field)
+        values.append(value.get("value") if isinstance(value, dict) else None)
+    return values[0], values[1]
+
+
 def get_agent_info_v2(agent: str) -> dict | None:
     """Return agent information in v2 nested format for v2 API clients.
 
@@ -815,6 +839,134 @@ def set_agent_job(agent_name: str, job_id: str) -> None:
         {"name": agent_name},
         {"$set": {"job_id": job_id}},
     )
+
+
+def claim_agent_jira_ticket(agent_name: str) -> str | None:
+    """Reserve the agent's Jira ticket so only one is ever opened.
+
+    The claim is atomic, so when several requests race to open a ticket
+    for the same agent, only one of them wins. It is released when the
+    agent leaves maintenance, or if the ticket could not be created.
+
+    :param agent_name: Name of the agent.
+    :return: A token identifying this claim, or None if it was not won.
+    """
+    token = uuid.uuid4().hex
+    result = mongo.db.agents.update_one(
+        {"name": agent_name, "jira_ticket": {"$exists": False}},
+        {
+            "$set": {
+                "jira_ticket": {
+                    "key": None,
+                    "token": token,
+                    "created_at": _now(),
+                }
+            }
+        },
+    )
+    return token if result.modified_count == 1 else None
+
+
+def set_agent_jira_ticket_key(agent_name: str, token: str, key: str) -> bool:
+    """Record the key of the Jira ticket claimed for an agent.
+
+    :param agent_name: Name of the agent.
+    :param token: Token returned when the ticket was claimed.
+    :param key: Key of the created ticket.
+    :return: True if the claim was still current and the key recorded.
+    """
+    result = mongo.db.agents.update_one(
+        {"name": agent_name, "jira_ticket.token": token},
+        {"$set": {"jira_ticket.key": key}},
+    )
+    return result.matched_count == 1
+
+
+def release_agent_jira_ticket(agent_name: str, token: str) -> None:
+    """Drop an agent's Jira ticket claim so a later trigger can retry.
+
+    :param agent_name: Name of the agent.
+    :param token: Token returned when the ticket was claimed.
+    """
+    mongo.db.agents.update_one(
+        {"name": agent_name, "jira_ticket.token": token},
+        {"$unset": {"jira_ticket": ""}},
+    )
+
+
+def set_agent_commanded_mode_if_unset(
+    agent_name: str, mode: str, comment: str, changed_by: str | None
+) -> bool:
+    """Command an agent to change mode only if no command is pending.
+
+    The check and the update are atomic, so a command issued concurrently
+    by someone else is never overwritten.
+
+    :param agent_name: Name of the agent.
+    :param mode: The commanded mode value.
+    :param comment: Comment to store with the command.
+    :param changed_by: Identity of whoever commands the mode.
+    :return: True if the command was set.
+    """
+    updated_at = _now()
+    result = mongo.db.agents.update_one(
+        {"name": agent_name, "commanded_mode": {"$exists": False}},
+        {
+            "$set": {
+                "commanded_mode": {
+                    "value": mode,
+                    "comment": comment,
+                    "changed_at": updated_at,
+                    "changed_by": changed_by,
+                },
+                "updated_at": updated_at,
+            }
+        },
+    )
+    return result.modified_count == 1
+
+
+def prefix_agent_comment(
+    agent_name: str, text: str, ticket_token: str | None = None
+) -> None:
+    """Add text in front of the comment on an agent's pending command.
+
+    When the agent already acknowledged the command, the text goes on the
+    comment of its current mode instead, so it is not lost. The update only
+    applies if the comment is unchanged since it was read, so concurrent
+    edits are not overwritten.
+
+    :param agent_name: Name of the agent.
+    :param text: Text to add, e.g. a Jira ticket key.
+    :param ticket_token: If given, only update while this Jira ticket claim
+        is still current, i.e. the agent is still in the same maintenance.
+    """
+    claim = {"jira_ticket.token": ticket_token} if ticket_token else {}
+    for field in ("commanded_mode", "mode"):
+        for _ in range(PREFIX_COMMENT_ATTEMPTS):
+            agent = mongo.db.agents.find_one(
+                {
+                    "name": agent_name,
+                    f"{field}.value": {"$exists": True},
+                    **claim,
+                },
+                {field: True},
+            )
+            if not agent:
+                break
+            existing = agent[field].get("comment")
+            comment = f"{text}: {existing}" if existing else text
+            result = mongo.db.agents.update_one(
+                {
+                    "name": agent_name,
+                    f"{field}.value": agent[field]["value"],
+                    f"{field}.comment": existing,
+                    **claim,
+                },
+                {"$set": {f"{field}.comment": comment}},
+            )
+            if result.matched_count:
+                return
 
 
 def set_agent_commanded_mode(
@@ -1311,6 +1463,13 @@ def upsert_agent_document(
         and commanded_mode != AgentMode.RESTART.value
     ):
         unset.append("commanded_mode")
+
+    # The Jira ticket claim only lasts while the agent stays in maintenance
+    if reported_mode and reported_mode not in (
+        AgentMode.MAINTENANCE.value,
+        AgentMode.RESTART.value,
+    ):
+        unset.append("jira_ticket")
 
     # Agent is restarting; preserve restoration target, favor exiting command
     # if the command has not yet been ack'ed.

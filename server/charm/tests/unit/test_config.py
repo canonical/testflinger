@@ -56,6 +56,36 @@ def test_invalid_webhook_url():
         TestflingerServerConfig(webhook_url="https:///v1/test-executions/")
 
 
+def test_jira_configuration():
+    """Test that Jira configuration is validated correctly."""
+    config = TestflingerServerConfig(
+        jira_base_url="https://example.atlassian.net/",
+        jira_user_email="bot@example.com",
+        jira_token="token",  # noqa: S106
+    )
+    assert config.jira_base_url == "https://example.atlassian.net"
+
+    # Jira is optional
+    assert TestflingerServerConfig().jira_token == ""
+
+    # All three parameters are required if any is set
+    with pytest.raises(ValueError):
+        TestflingerServerConfig(jira_user_email="bot@example.com")
+
+    # The URL needs to be https and have a host
+    for url in (
+        "example.atlassian.net",
+        "http://example.atlassian.net",
+        "https:///",
+    ):
+        with pytest.raises(ValueError):
+            TestflingerServerConfig(
+                jira_base_url=url,
+                jira_user_email="bot@example.com",
+                jira_token="token",  # noqa: S106
+            )
+
+
 def test_valid_oidc_configuration():
     """Test that OIDC configuration is validated correctly."""
     # Valid OIDC config with all parameters set

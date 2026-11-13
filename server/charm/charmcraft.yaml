@@ -157,6 +157,21 @@ config:
       type: string
       default: ""
       description: The OIDC provider issuer URL for authenticating users
+    jira_base_url:
+      type: string
+      default: ""
+      description: |
+        Base URL of the Jira Cloud instance used to create agent tickets
+        (e.g. https://example.atlassian.net). Must be set together with
+        jira_user_email and jira_token.
+    jira_user_email:
+      type: string
+      default: ""
+      description: Email of the Jira user the API token belongs to
+    jira_token:
+      type: string
+      default: ""
+      description: Jira API token used for authenticating with Jira
 
 
 parts:

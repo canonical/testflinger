@@ -31,6 +31,9 @@ class TestflingerServerConfig(pydantic.BaseModel):
     oidc_client_id: str = ""
     oidc_client_secret: str = ""
     oidc_provider_issuer: str = ""
+    jira_base_url: str = ""
+    jira_user_email: str = ""
+    jira_token: str = ""
     max_body_size: int = pydantic.Field(default=MAX_BODY_SIZE, gt=0)
 
     @pydantic.field_validator("external_hostname")
@@ -76,6 +79,22 @@ class TestflingerServerConfig(pydantic.BaseModel):
             raise ValueError("oidc_provider_issuer must include a host")
         return value.rstrip("/")
 
+    @pydantic.field_validator("jira_base_url")
+    @classmethod
+    def validate_jira_base_url(cls, value):
+        """Validate jira_base_url is an HTTPS URL with a host."""
+        if not value:
+            return value
+
+        parsed_jira = urlparse(value)
+        if parsed_jira.scheme != "https":
+            raise ValueError(
+                "jira_base_url must use https:// to protect the API token"
+            )
+        if not parsed_jira.netloc:
+            raise ValueError("jira_base_url must include a host")
+        return value.rstrip("/")
+
     @pydantic.field_validator("testflinger_secrets_master_key")
     @classmethod
     def validate_csfle_master_key(cls, value):
@@ -107,5 +126,20 @@ class TestflingerServerConfig(pydantic.BaseModel):
             raise ValueError(
                 "oidc_client_id, oidc_provider_issuer, and web_secret_key"
                 " must all be set if any OIDC configuration is provided"
+            )
+        return self
+
+    @pydantic.model_validator(mode="after")
+    def validate_jira_config(self):
+        """Validate all Jira parameters are set if any are configured."""
+        jira_params = [
+            self.jira_base_url,
+            self.jira_user_email,
+            self.jira_token,
+        ]
+        if any(jira_params) and not all(jira_params):
+            raise ValueError(
+                "jira_base_url, jira_user_email, and jira_token"
+                " must all be set if any Jira configuration is provided"
             )
         return self

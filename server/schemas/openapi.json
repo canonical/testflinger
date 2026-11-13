@@ -25,6 +25,9 @@
           "identifier": {
             "type": "string"
           },
+          "jira_space": {
+            "type": "string"
+          },
           "job_id": {
             "type": "string"
           },
@@ -65,6 +68,9 @@
             "type": "string"
           },
           "identifier": {
+            "type": "string"
+          },
+          "jira_space": {
             "type": "string"
           },
           "job_id": {
@@ -235,6 +241,12 @@
         "properties": {
           "commanded_mode": {
             "$ref": "#/components/schemas/CommandedModeOut"
+          },
+          "jira_space": {
+            "type": "string"
+          },
+          "jira_ticket": {
+            "$ref": "#/components/schemas/JiraTicketOut"
           },
           "job": {
             "anyOf": [
@@ -473,6 +485,20 @@
       "ImagesIn": {
         "additionalProperties": true,
         "properties": {},
+        "type": "object"
+      },
+      "JiraTicketOut": {
+        "additionalProperties": false,
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "key": {
+            "nullable": true,
+            "type": "string"
+          }
+        },
         "type": "object"
       },
       "Job": {

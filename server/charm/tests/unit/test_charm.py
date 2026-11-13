@@ -446,6 +446,33 @@ def test_oidc_config_invalid_on_charm(ctx, make_state):
         _ = ctx.run(ctx.on.config_changed(), state_in)
 
 
+def test_jira_config_set_on_charm(ctx, make_state):
+    """Test Jira config is passed to the service environment."""
+    jira_config = {
+        "jira_base_url": "https://example.atlassian.net/",
+        "jira_user_email": "bot@example.com",
+        "jira_token": "token",
+    }
+    state_in = make_state(config=jira_config)
+    state_out = ctx.run(ctx.on.config_changed(), state_in)
+    assert state_out.unit_status == testing.ActiveStatus()
+    env = (
+        state_out.get_container(TESFLINGER_CONTAINER)
+        .plan.services["testflinger"]
+        .environment
+    )
+    assert env["JIRA_BASE_URL"] == "https://example.atlassian.net"
+    assert env["JIRA_USER_EMAIL"] == "bot@example.com"
+    assert env["JIRA_TOKEN"] == "token"  # noqa: S105
+
+
+def test_jira_config_invalid_on_charm(ctx, make_state):
+    """Test charm is blocked when Jira config is only partially set."""
+    state_in = make_state(config={"jira_token": "token"})
+    with pytest.raises(testing.errors.UncaughtCharmError):
+        _ = ctx.run(ctx.on.config_changed(), state_in)
+
+
 def test_ingress_ready_with_conflict(ctx):
     """Test ingress_ready blocks when both ingress providers are active."""
     container = testing.Container(name=TESFLINGER_CONTAINER, can_connect=True)
