@@ -12,7 +12,7 @@ Read the top-level `.kb/agents.md` file before continuing below.
 # Directory
 
 - `src/testflinger/` - Server source: `application.py` (Flask app), `api/` and `views.py` (routes), `database.py` (MongoDB), `oidc/` (SSO), `secrets/`, `owasp/` (security utilities)
-- `src/testflinger/jira/` - Jira integration: REST client and ticket helpers; on agent self-maintenance via v2 agent data, a ticket is created in the agent's `jira_space` and maintenance is then commanded (credentials from `JIRA_BASE_URL`, `JIRA_USER_EMAIL`, `JIRA_TOKEN`)
+- `src/testflinger/jira/` - Jira integration: REST client and ticket helpers; on agent self-maintenance via v2 agent data, maintenance is commanded and a single ticket is created in the background in the agent's `jira_space` (claimed via the agent's `jira_ticket` field, cleared when it leaves maintenance) (credentials from `JIRA_BASE_URL`, `JIRA_USER_EMAIL`, `JIRA_TOKEN`)
 - `tests/` - Unit tests
 - `schemas/` - OpenAPI specification
 - `charm/` - Kubernetes charm for production deployment

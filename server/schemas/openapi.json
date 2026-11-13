@@ -245,6 +245,9 @@
           "jira_space": {
             "type": "string"
           },
+          "jira_ticket": {
+            "$ref": "#/components/schemas/JiraTicketOut"
+          },
           "job": {
             "anyOf": [
               {
@@ -482,6 +485,20 @@
       "ImagesIn": {
         "additionalProperties": true,
         "properties": {},
+        "type": "object"
+      },
+      "JiraTicketOut": {
+        "additionalProperties": false,
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "key": {
+            "nullable": true,
+            "type": "string"
+          }
+        },
         "type": "object"
       },
       "Job": {

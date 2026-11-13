@@ -110,6 +110,13 @@ class StateOut(Schema):
     changed_at = fields.DateTime(required=False)
 
 
+class JiraTicketOut(Schema):
+    """Nested schema for the Jira ticket open for an agent."""
+
+    key = fields.String(required=False, allow_none=True)
+    created_at = fields.DateTime(required=False)
+
+
 class AgentOutV2(Schema):
     """Agent data output schema.
 
@@ -132,3 +139,4 @@ class AgentOutV2(Schema):
     job = fields.Nested(AgentJob, required=False, allow_none=True)
     links = fields.List(fields.Nested(AgentLink), required=False)
     jira_space = fields.String(required=False)
+    jira_ticket = fields.Nested(JiraTicketOut, required=False)

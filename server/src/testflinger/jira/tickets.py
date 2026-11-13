@@ -24,7 +24,7 @@ from flask import current_app
 from testflinger_common.enums import AgentMode
 
 from testflinger import database
-from testflinger.jira.client import JiraClient
+from testflinger.jira.client import JiraClient, is_configured
 from testflinger.jira.exceptions import JiraError
 
 logger = logging.getLogger(__name__)
@@ -85,31 +85,42 @@ def _ticket_description(
     if report.comment:
         lines.append(f"Comment: {report.comment}")
     links = report.links or agent.get("links") or []
-    lines.extend(f"Link ({link['label']}): {link['url']}" for link in links)
+    lines.extend(
+        f"Link ({link.get('label') or 'link'}): {link['url']}"
+        for link in links
+        if link.get("url")
+    )
     return "\n".join(lines)
 
 
 def _create_ticket(
     app, agent_name: str, agent: dict, summary: str, report: MaintenanceReport
 ) -> None:
-    """Create the Jira ticket and add its key to the agent's comment."""
-    try:
-        with app.app_context():
+    """Create the claimed Jira ticket and add its key to the comment."""
+    with app.app_context():
+        issue_key = None
+        try:
             issue_key = create_agent_ticket(
                 agent_name,
                 summary=summary,
                 description=_ticket_description(agent_name, agent, report),
             )
-            note = (
-                f"Jira ticket {issue_key}"
-                if issue_key
-                else "Jira ticket could not be created"
+        except Exception:
+            logger.exception(
+                "Failed to create Jira ticket for agent %s", agent_name
             )
+        try:
+            if issue_key:
+                database.set_agent_jira_ticket_key(agent_name, issue_key)
+                note = f"Jira ticket {issue_key}"
+            else:
+                database.release_agent_jira_ticket(agent_name)
+                note = "Jira ticket could not be created"
             database.prefix_agent_comment(agent_name, note)
-    except Exception:
-        logger.exception(
-            "Failed to create Jira ticket for agent %s", agent_name
-        )
+        except Exception:
+            logger.exception(
+                "Failed to record Jira ticket for agent %s", agent_name
+            )
 
 
 def open_maintenance_ticket(
@@ -122,8 +133,9 @@ def open_maintenance_ticket(
 
     Every reason to open a ticket ends with the agent in maintenance, so
     all triggers share this. Maintenance is commanded straight away, keeping
-    the existing comment. The ticket is created in the background so the
-    caller never waits on Jira, then its key is added to the comment.
+    the existing comment. Only one ticket is open per agent at a time; it
+    is created in the background so the caller never waits on Jira, then
+    its key is stored on the agent and added to the comment.
 
     :param agent_name: Agent the ticket is about.
     :param summary: Ticket title.
@@ -143,6 +155,15 @@ def open_maintenance_ticket(
         logger.warning(
             "Agent %s has no jira_space, skipping Jira ticket", agent_name
         )
+        return
+    if not is_configured():
+        logger.warning(
+            "Jira is not configured, skipping Jira ticket for agent %s",
+            agent_name,
+        )
+        return
+    if not database.claim_agent_jira_ticket(agent_name):
+        logger.info("Agent %s already has a Jira ticket", agent_name)
         return
     app = current_app._get_current_object()  # noqa: SLF001
     _spawn(_create_ticket, app, agent_name, agent, summary, report)
@@ -180,8 +201,14 @@ def create_ticket_if_agent_self_maintenance(
     ):
         return
     agent = database.get_agent_info_v2(agent_name) or {}
-    # Agents without a space keep their existing behaviour
+    # Without ticketing, agents keep their existing behaviour
     if not agent.get("jira_space"):
+        return
+    if not is_configured():
+        logger.warning(
+            "Jira is not configured, skipping Jira ticket for agent %s",
+            agent_name,
+        )
         return
     report = MaintenanceReport(
         client_id=client_id,

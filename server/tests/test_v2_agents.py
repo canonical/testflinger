@@ -32,6 +32,7 @@ def ticket_mock_fixture():
     """Run maintenance ticket creation inline and capture the Jira call."""
     with (
         patch.object(tickets, "_spawn", lambda func, *args: func(*args)),
+        patch.object(tickets, "is_configured", return_value=True),
         patch.object(
             tickets, "create_agent_ticket", return_value="TESTOPS-1"
         ) as mock,
@@ -93,9 +94,7 @@ def test_agents_post_uses_upsert_agent_document(
 def test_agents_post_rejects_admin_credentials(mongo_app):
     """POST /v2/agents/{name}/data is agent-only; admin gets 403."""
     app, mongo = mongo_app
-    mongo.agents.insert_one(
-        {"name": "agent1", "state": "waiting", "jira_space": "TESTOPS"}
-    )
+    mongo.agents.insert_one({"name": "agent1", "state": "waiting"})
     admin_header = get_access_token_header("admin-id", ServerRoles.ADMIN)
 
     output = app.post(
@@ -110,9 +109,7 @@ def test_agents_post_rejects_admin_credentials(mongo_app):
 def test_agents_post_rejects_manager_credentials(mongo_app):
     """POST /v2/agents/{name}/data is agent-only; manager gets 403."""
     app, mongo = mongo_app
-    mongo.agents.insert_one(
-        {"name": "agent1", "state": "waiting", "jira_space": "TESTOPS"}
-    )
+    mongo.agents.insert_one({"name": "agent1", "state": "waiting"})
     manager_header = get_access_token_header("manager-id", ServerRoles.MANAGER)
 
     output = app.post(
@@ -175,9 +172,7 @@ def test_agents_patch_commanded_mode_admin(mongo_app):
     comment}.
     """
     app, mongo = mongo_app
-    mongo.agents.insert_one(
-        {"name": "agent1", "state": "waiting", "jira_space": "TESTOPS"}
-    )
+    mongo.agents.insert_one({"name": "agent1", "state": "waiting"})
     admin_header = get_access_token_header("admin-id", ServerRoles.ADMIN)
 
     output = app.patch(
@@ -196,9 +191,7 @@ def test_agents_patch_commanded_mode_admin(mongo_app):
 def test_agents_patch_commanded_mode_rejects_manager_credentials(mongo_app):
     """A manager cannot command a mode change; only admins can."""
     app, mongo = mongo_app
-    mongo.agents.insert_one(
-        {"name": "agent1", "state": "waiting", "jira_space": "TESTOPS"}
-    )
+    mongo.agents.insert_one({"name": "agent1", "state": "waiting"})
     manager_header = get_access_token_header("manager-id", ServerRoles.MANAGER)
 
     output = app.patch(
@@ -215,9 +208,7 @@ def test_agents_patch_commanded_mode_rejects_agent_credentials(
 ):
     """An agent cannot command its own mode via the PATCH endpoint."""
     app, mongo = mongo_app
-    mongo.agents.insert_one(
-        {"name": "agent1", "state": "waiting", "jira_space": "TESTOPS"}
-    )
+    mongo.agents.insert_one({"name": "agent1", "state": "waiting"})
 
     output = app.patch(
         "/v2/agents/agent1/commanded_mode",
@@ -924,12 +915,87 @@ def test_maintenance_heartbeats_create_one_ticket(
 
 def test_jira_failure_does_not_break_the_update(mongo_app, agent_auth_header):
     """An unexpected Jira error never fails the API call."""
-    app, _ = mongo_app
+    app, mongo = mongo_app
 
     with (
         patch.object(tickets, "_spawn", lambda func, *args: func(*args)),
+        patch.object(tickets, "is_configured", return_value=True),
         patch.object(tickets, "create_agent_ticket", side_effect=KeyError),
     ):
         output = _report(app, agent_auth_header, "maintenance")
 
     assert output.status_code == HTTPStatus.OK
+    record = mongo.agents.find_one({"name": "agent1"})
+    assert record["commanded_mode"]["comment"] == (
+        "Jira ticket could not be created"
+    )
+    assert "jira_ticket" not in record
+
+
+def test_ticket_key_is_kept_until_the_agent_leaves_maintenance(
+    mongo_app, agent_auth_header, ticket_mock
+):
+    """The key outlives the acknowledged command, not the maintenance."""
+    app, mongo = mongo_app
+    _report(app, agent_auth_header, "maintenance")
+    _report(app, agent_auth_header, "maintenance")
+
+    output = app.get("/v2/agents/agent1/data", headers=agent_auth_header)
+    assert output.json["jira_ticket"]["key"] == "TESTOPS-1"
+
+    _report(app, agent_auth_header, "online")
+    assert "jira_ticket" not in mongo.agents.find_one({"name": "agent1"})
+
+
+def test_racing_reports_create_one_ticket(mongo_app, ticket_mock):
+    """Reports that all saw the agent online still open a single ticket."""
+    app, mongo = mongo_app
+    mongo.agents.insert_one(
+        {
+            "name": "agent1",
+            "mode": {"value": "maintenance"},
+            "jira_space": "TESTOPS",
+        }
+    )
+
+    with app.application.test_request_context():
+        for _ in range(3):
+            tickets.create_ticket_if_agent_self_maintenance(
+                "agent1", "online", None, "maintenance", client_id="agent"
+            )
+
+    assert ticket_mock.call_count == 1
+    record = mongo.agents.find_one({"name": "agent1"})
+    assert record["jira_ticket"]["key"] == "TESTOPS-1"
+
+
+def test_unconfigured_jira_leaves_agent_alone(
+    mongo_app, agent_auth_header, ticket_mock
+):
+    """Without Jira settings the server doesn't command maintenance."""
+    app, mongo = mongo_app
+
+    with patch.object(tickets, "is_configured", return_value=False):
+        _report(app, agent_auth_header, "maintenance")
+
+    ticket_mock.assert_not_called()
+    assert "commanded_mode" not in mongo.agents.find_one({"name": "agent1"})
+
+
+def test_link_without_label_still_creates_ticket(
+    mongo_app, agent_auth_header, ticket_mock
+):
+    """Links stored without a label don't break the description."""
+    app, mongo = mongo_app
+    mongo.agents.insert_one(
+        {
+            "name": "agent1",
+            "jira_space": "TESTOPS",
+            "links": [{"url": "https://example.com"}],
+        }
+    )
+
+    _report(app, agent_auth_header, "maintenance")
+
+    description = ticket_mock.call_args.kwargs["description"]
+    assert "Link (link): https://example.com" in description

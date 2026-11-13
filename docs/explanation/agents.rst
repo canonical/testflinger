@@ -81,9 +81,13 @@ command line to either ``offline`` or ``maintenance``. See :ref:`howto-manage-ag
 for more details.
 
 If an agent with ``jira_space`` configured (see :doc:`../reference/testflinger-agent-conf`)
-puts itself into ``maintenance``, the server creates a Jira ticket in that space
-and keeps the agent in ``maintenance`` with a comment referencing the ticket.
-No ticket is created when an administrator sets the mode.
+reports ``maintenance`` through the v2 agent API, and no mode was already
+commanded, the server commands the agent to stay in ``maintenance`` and creates
+a Jira ticket in that space. Once the ticket exists, its key is shown on the
+agent and added in front of the agent's comment; if it can't be created, the
+comment says so instead. Only one ticket is opened until the agent leaves
+``maintenance``. Agents without ``jira_space``, or servers without Jira
+settings, keep the existing behavior.
 
         Agent states follow the job execution phase order:
         - waiting: idle, ready for jobs

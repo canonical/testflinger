@@ -35,6 +35,12 @@ logger = logging.getLogger(__name__)
 API_VERSION = 3
 ADF_VERSION = 1
 REQUEST_TIMEOUT = 30
+ENV_SETTINGS = ("JIRA_BASE_URL", "JIRA_USER_EMAIL", "JIRA_TOKEN")
+
+
+def is_configured() -> bool:
+    """Return whether all Jira settings are set in the environment."""
+    return all(os.environ.get(name) for name in ENV_SETTINGS)
 
 
 def text_to_adf(text: str) -> dict:
@@ -71,8 +77,7 @@ class JiraClient:
     @classmethod
     def from_env(cls) -> "JiraClient":
         """Create a client from JIRA_BASE_URL, JIRA_USER_EMAIL, JIRA_TOKEN."""
-        names = ("JIRA_BASE_URL", "JIRA_USER_EMAIL", "JIRA_TOKEN")
-        values = {name: os.environ.get(name) for name in names}
+        values = {name: os.environ.get(name) for name in ENV_SETTINGS}
         missing = [name for name, value in values.items() if not value]
         if missing:
             raise JiraConfigError(

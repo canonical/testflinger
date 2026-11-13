@@ -43,6 +43,8 @@ ACCOUNT_DELETE_EXPIRATION = 60 * 60 * 24 * 90  # 90 days
 mongo = PyMongo()
 logger = logging.getLogger(__name__)
 
+PREFIX_COMMENT_ATTEMPTS = 3
+
 
 def _now() -> datetime:
     """Return the current UTC time.
@@ -838,30 +840,76 @@ def set_agent_job(agent_name: str, job_id: str) -> None:
     )
 
 
+def claim_agent_jira_ticket(agent_name: str) -> bool:
+    """Reserve the agent's Jira ticket so only one is ever opened.
+
+    The claim is atomic, so when several requests race to open a ticket
+    for the same agent, only one of them wins. It is released when the
+    agent leaves maintenance, or if the ticket could not be created.
+
+    :param agent_name: Name of the agent.
+    :return: True if this call claimed the ticket.
+    """
+    result = mongo.db.agents.update_one(
+        {"name": agent_name, "jira_ticket": {"$exists": False}},
+        {"$set": {"jira_ticket": {"key": None, "created_at": _now()}}},
+    )
+    return result.modified_count == 1
+
+
+def set_agent_jira_ticket_key(agent_name: str, key: str) -> None:
+    """Record the key of the Jira ticket claimed for an agent.
+
+    :param agent_name: Name of the agent.
+    :param key: Key of the created ticket.
+    """
+    mongo.db.agents.update_one(
+        {"name": agent_name, "jira_ticket": {"$exists": True}},
+        {"$set": {"jira_ticket.key": key}},
+    )
+
+
+def release_agent_jira_ticket(agent_name: str) -> None:
+    """Drop an agent's Jira ticket claim so a later trigger can retry.
+
+    :param agent_name: Name of the agent.
+    """
+    mongo.db.agents.update_one(
+        {"name": agent_name}, {"$unset": {"jira_ticket": ""}}
+    )
+
+
 def prefix_agent_comment(agent_name: str, text: str) -> None:
     """Add text in front of the comment on an agent's pending command.
 
     When the agent already acknowledged the command, the text goes on the
-    comment of its current mode instead, so it is not lost.
+    comment of its current mode instead, so it is not lost. The update only
+    applies if the comment is unchanged since it was read, so concurrent
+    edits are not overwritten.
 
     :param agent_name: Name of the agent.
     :param text: Text to add, e.g. a Jira ticket key.
     """
     for field in ("commanded_mode", "mode"):
-        agent = mongo.db.agents.find_one(
-            {"name": agent_name, f"{field}.value": {"$exists": True}},
-            {field: True},
-        )
-        if not agent:
-            continue
-        existing = agent[field].get("comment")
-        comment = f"{text}: {existing}" if existing else text
-        result = mongo.db.agents.update_one(
-            {"name": agent_name, f"{field}.value": agent[field]["value"]},
-            {"$set": {f"{field}.comment": comment}},
-        )
-        if result.matched_count:
-            return
+        for _ in range(PREFIX_COMMENT_ATTEMPTS):
+            agent = mongo.db.agents.find_one(
+                {"name": agent_name, f"{field}.value": {"$exists": True}},
+                {field: True},
+            )
+            if not agent:
+                break
+            existing = agent[field].get("comment")
+            comment = f"{text}: {existing}" if existing else text
+            result = mongo.db.agents.update_one(
+                {
+                    "name": agent_name,
+                    f"{field}.value": agent[field]["value"],
+                    f"{field}.comment": existing,
+                },
+                {"$set": {f"{field}.comment": comment}},
+            )
+            if result.matched_count:
+                return
 
 
 def set_agent_commanded_mode(
@@ -1358,6 +1406,13 @@ def upsert_agent_document(
         and commanded_mode != AgentMode.RESTART.value
     ):
         unset.append("commanded_mode")
+
+    # The Jira ticket claim only lasts while the agent stays in maintenance
+    if reported_mode and reported_mode not in (
+        AgentMode.MAINTENANCE.value,
+        AgentMode.RESTART.value,
+    ):
+        unset.append("jira_ticket")
 
     # Agent is restarting; preserve restoration target, favor exiting command
     # if the command has not yet been ack'ed.
