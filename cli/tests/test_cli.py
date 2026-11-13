@@ -24,6 +24,7 @@ import sys
 import tarfile
 import time
 import uuid
+from argparse import _SubParsersAction
 from http import HTTPStatus
 from pathlib import Path
 from unittest.mock import patch
@@ -2762,17 +2763,17 @@ class TestSubcommandAwareParser:
     """Tests for SubcommandAwareParser error-handling behavior."""
 
     def _make_parser(self):
-        """Return a minimal SubcommandAwareParser with a 'submit' subcommand."""
+        """Build a parser with a 'submit' subcommand."""
         parser = testflinger_cli.SubcommandAwareParser(prog="testflinger")
         parser.add_argument("-d", "--debug", action="store_true")
         parser.add_argument("--server")
-        sub = parser.add_subparsers()
+        sub = parser.add_subparsers(dest="subcommand")
         sub_parser = sub.add_parser("submit", help="Submit a test job")
         parser.subparsers_dict["submit"] = sub_parser
         return parser
 
     def test_error_shows_subcommand_help_when_subcommand_present(self, capsys):
-        """error() displays subcommand help and exits 2 when subcommand is in argv."""
+        """Show subcommand help when the command is in argv."""
         parser = self._make_parser()
         with patch("sys.argv", ["testflinger", "submit", "--bad-arg"]):
             with pytest.raises(SystemExit) as exc:
@@ -2783,7 +2784,7 @@ class TestSubcommandAwareParser:
         assert "submit" in captured.out
 
     def test_error_fallback_to_main_help_when_no_subcommand(self, capsys):
-        """error() falls back to main parser behaviour when no subcommand is found."""
+        """Fall back to main parser behavior without a subcommand."""
         parser = self._make_parser()
         with patch("sys.argv", ["testflinger", "--unknown-flag"]):
             with pytest.raises(SystemExit) as exc:
@@ -2794,7 +2795,7 @@ class TestSubcommandAwareParser:
         assert "testflinger" in captured.err
 
     def test_error_with_store_true_flag_before_subcommand(self, capsys):
-        """A store_true flag before a subcommand must not prevent subcommand detection in error()."""
+        """A store_true flag must not hide a following subcommand."""
         parser = self._make_parser()
         # '-d' is store_true; it must not consume 'submit' as its value
         with patch("sys.argv", ["testflinger", "-d", "submit", "--bad-arg"]):
@@ -2806,11 +2807,18 @@ class TestSubcommandAwareParser:
 
     def test_error_with_value_taking_flag_before_subcommand(self, capsys):
         """A flag that takes a value (--server URL) before a subcommand must
-        have its value skipped so the subcommand is still detected."""
+        have its value skipped so the subcommand is still detected.
+        """
         parser = self._make_parser()
         with patch(
             "sys.argv",
-            ["testflinger", "--server", "http://example.com", "submit", "--bad-arg"],
+            [
+                "testflinger",
+                "--server",
+                "http://example.com",
+                "submit",
+                "--bad-arg",
+            ],
         ):
             with pytest.raises(SystemExit) as exc:
                 parser.error("unrecognized arguments: --bad-arg")
@@ -2818,34 +2826,53 @@ class TestSubcommandAwareParser:
         captured = capsys.readouterr()
         assert "submit" in captured.out
 
+    def test_error_does_not_treat_option_value_as_subcommand(self, capsys):
+        """An option value matching a subcommand must not select its help."""
+        parser = self._make_parser()
+        with patch(
+            "sys.argv",
+            ["testflinger", "--server", "submit", "--unknown-flag"],
+        ):
+            with pytest.raises(SystemExit) as exc:
+                parser.error("unrecognized arguments: --unknown-flag")
+        assert exc.value.code == 2
+        captured = capsys.readouterr()
+        assert "submit" not in captured.out
+        assert "testflinger" in captured.err
 
-def test_all_subcommands_registered_in_subparsers_dict():
-    """All top-level subcommands, including list-agents, must be registered
-    in subparsers_dict so they can show targeted help on argument errors."""
+
+def test_subcommand_parsers_show_their_help(capsys):
+    """Exercise every parser that accepts a nested subcommand."""
     sys.argv = ["", "status", "dummy-job-id"]
     tfcli = testflinger_cli.TestflingerCli()
-    registered = set(tfcli.main_parser.subparsers_dict.keys())
-    expected_subcommands = {
-        "artifacts",
-        "cancel",
-        "config",
-        "jobs",
-        "list-agents",
-        "list-queues",
-        "login",
-        "poll",
-        "poll-serial",
-        "reserve",
-        "status",
-        "agent-status",
-        "queue-status",
-        "results",
-        "show",
-        "submit",
-        "secret",
-    }
-    missing = expected_subcommands - registered
-    assert not missing, (
-        f"Subcommands not registered in subparsers_dict: {missing}. "
-        "These subcommands cannot show targeted help on argument errors."
-    )
+
+    def command_parsers(parser, command_path=()):
+        for action in parser._actions:
+            if not isinstance(action, _SubParsersAction):
+                continue
+            for name, child_parser in action.choices.items():
+                child_path = (*command_path, name)
+                has_subcommands = any(
+                    isinstance(child_action, _SubParsersAction)
+                    for child_action in child_parser._actions
+                )
+                if has_subcommands:
+                    yield (
+                        (*child_path, "__invalid_subcommand__"),
+                        child_parser.prog,
+                    )
+                    yield from command_parsers(child_parser, child_path)
+
+    cases = list(command_parsers(tfcli.main_parser))
+    assert cases, "Expected the CLI to define subcommands"
+
+    for args, expected_prog in cases:
+        sys.argv = ["testflinger", *args]
+        with pytest.raises(SystemExit) as exc_info:
+            tfcli.main_parser.parse_args()
+
+        assert exc_info.value.code == 2
+        output = capsys.readouterr()
+        assert f"usage: {expected_prog}" in output.out
+        assert "invalid choice: '__invalid_subcommand__'" in output.err
+        assert "error: argument " not in output.err

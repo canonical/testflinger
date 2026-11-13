@@ -65,6 +65,8 @@ from testflinger_cli.status_line import StatusLine
 
 logger = logging.getLogger(__name__)
 
+ARGPARSE_SYNTAX_ERROR = 2
+
 
 class SubcommandAwareParser(ArgumentParser):
     """ArgumentParser that shows subcommand help on error."""
@@ -72,28 +74,56 @@ class SubcommandAwareParser(ArgumentParser):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.subparsers_dict = {}
+        self.subparser_dests = set()
+
+    def add_subparsers(self, *args, **kwargs):
+        """Record subparser destinations for concise invalid-choice errors."""
+        subparsers = super().add_subparsers(*args, **kwargs)
+        self.subparser_dests.add(subparsers.dest)
+        return subparsers
 
     def error(self, message):
         """Show subcommand-specific help if applicable."""
-        # Check if a subcommand was specified
-        # Look through sys.argv to find a subcommand (skip flags/options)
-        i = 1
-        while i < len(sys.argv):
-            arg = sys.argv[i]
-            if arg in self.subparsers_dict:
-                # Show subcommand-specific help
-                self.subparsers_dict[arg].print_help()
-                self.exit(2, f"{self.prog}: error: {message}\n")
-            # Skip option values only for flags that consume an argument.
-            # store_true/store_false/store_const/count have nargs=0 and take no
-            # following value; all other actions have nargs=None or an integer,
-            # which are != 0 in Python and therefore correctly trigger a skip.
-            if arg.startswith("-") and "=" not in arg:
-                action = self._option_string_actions.get(arg)
-                if action is not None and action.nargs != 0:
-                    i += 1  # Skip the next arg (it's the flag's value)
-            i += 1
-        # Fall back to main parser help
+        # Nested parsers receive only the remaining arguments, but parse_known
+        # args below uses sys.argv. Show this parser's help instead of
+        # reparsing the full command line as a nested command.
+        if not self.subparsers_dict:
+            self.print_help()
+            invalid_choice = re.fullmatch(
+                r"argument (\w+): (invalid choice: .+)", message
+            )
+            if (
+                invalid_choice
+                and invalid_choice.group(1) in self.subparser_dests
+            ):
+                self.exit(
+                    ARGPARSE_SYNTAX_ERROR,
+                    f"{self.prog}: {invalid_choice.group(2)}\n",
+                )
+            self.exit(
+                ARGPARSE_SYNTAX_ERROR,
+                f"{self.prog}: error: {message}\n",
+            )
+
+        if getattr(self, "_finding_subcommand", False):
+            super().error(message)
+
+        # Parsing to find the subcommand may call error() itself, such as when
+        # a required argument is missing. In that case, use argparse's normal
+        # error handling instead of recursively trying to parse again.
+        self._finding_subcommand = True
+        try:
+            namespace, _ = self.parse_known_args()
+        finally:
+            self._finding_subcommand = False
+        subcommand = getattr(namespace, "subcommand", None)
+        if subcommand in self.subparsers_dict:
+            self.subparsers_dict[subcommand].print_help()
+            # Exit with argparse's syntax-error status.
+            self.exit(
+                ARGPARSE_SYNTAX_ERROR,
+                f"{self.prog}: error: {message}\n",
+            )
         super().error(message)
 
 
@@ -227,7 +257,7 @@ class TestflingerCli:
             "--server", default=None, help="Testflinger server to use"
         )
         parser.set_defaults(client_id=None, secret_key=None)
-        subparsers = parser.add_subparsers()
+        subparsers = parser.add_subparsers(dest="subcommand")
         self.admin_cli = TestflingerAdminCLI(subparsers, self)
         self._add_artifacts_args(subparsers)
         self._add_cancel_args(subparsers)
