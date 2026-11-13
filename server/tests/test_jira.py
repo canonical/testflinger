@@ -139,14 +139,14 @@ def test_get_agent_space_key_missing(agent):
 def test_create_agent_ticket():
     """The ticket is created in the space configured for the agent."""
     client = MagicMock()
-    client.create_issue.return_value = "TORLABS-7"
+    client.create_issue.return_value = "TESTOPS-7"
     with patch.object(
-        database, "get_agent_info", return_value={"jira_space": "TORLABS"}
+        database, "get_agent_info", return_value={"jira_space": "TESTOPS"}
     ):
         key = create_agent_ticket("agent1", "title", "desc", client=client)
-    assert key == "TORLABS-7"
+    assert key == "TESTOPS-7"
     client.create_issue.assert_called_once_with(
-        space_key="TORLABS",
+        space_key="TESTOPS",
         summary="title",
         description="desc",
         issue_type="Task",
