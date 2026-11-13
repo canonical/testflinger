@@ -19,6 +19,7 @@ import functools
 import logging
 import os
 import urllib
+import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -840,7 +841,7 @@ def set_agent_job(agent_name: str, job_id: str) -> None:
     )
 
 
-def claim_agent_jira_ticket(agent_name: str) -> bool:
+def claim_agent_jira_ticket(agent_name: str) -> str | None:
     """Reserve the agent's Jira ticket so only one is ever opened.
 
     The claim is atomic, so when several requests race to open a ticket
@@ -848,38 +849,86 @@ def claim_agent_jira_ticket(agent_name: str) -> bool:
     agent leaves maintenance, or if the ticket could not be created.
 
     :param agent_name: Name of the agent.
-    :return: True if this call claimed the ticket.
+    :return: A token identifying this claim, or None if it was not won.
     """
+    token = uuid.uuid4().hex
     result = mongo.db.agents.update_one(
         {"name": agent_name, "jira_ticket": {"$exists": False}},
-        {"$set": {"jira_ticket": {"key": None, "created_at": _now()}}},
+        {
+            "$set": {
+                "jira_ticket": {
+                    "key": None,
+                    "token": token,
+                    "created_at": _now(),
+                }
+            }
+        },
+    )
+    return token if result.modified_count == 1 else None
+
+
+def set_agent_jira_ticket_key(agent_name: str, token: str, key: str) -> bool:
+    """Record the key of the Jira ticket claimed for an agent.
+
+    :param agent_name: Name of the agent.
+    :param token: Token returned when the ticket was claimed.
+    :param key: Key of the created ticket.
+    :return: True if the claim was still current and the key recorded.
+    """
+    result = mongo.db.agents.update_one(
+        {"name": agent_name, "jira_ticket.token": token},
+        {"$set": {"jira_ticket.key": key}},
+    )
+    return result.matched_count == 1
+
+
+def release_agent_jira_ticket(agent_name: str, token: str) -> None:
+    """Drop an agent's Jira ticket claim so a later trigger can retry.
+
+    :param agent_name: Name of the agent.
+    :param token: Token returned when the ticket was claimed.
+    """
+    mongo.db.agents.update_one(
+        {"name": agent_name, "jira_ticket.token": token},
+        {"$unset": {"jira_ticket": ""}},
+    )
+
+
+def set_agent_commanded_mode_if_unset(
+    agent_name: str, mode: str, comment: str, changed_by: str | None
+) -> bool:
+    """Command an agent to change mode only if no command is pending.
+
+    The check and the update are atomic, so a command issued concurrently
+    by someone else is never overwritten.
+
+    :param agent_name: Name of the agent.
+    :param mode: The commanded mode value.
+    :param comment: Comment to store with the command.
+    :param changed_by: Identity of whoever commands the mode.
+    :return: True if the command was set.
+    """
+    updated_at = _now()
+    result = mongo.db.agents.update_one(
+        {"name": agent_name, "commanded_mode": {"$exists": False}},
+        {
+            "$set": {
+                "commanded_mode": {
+                    "value": mode,
+                    "comment": comment,
+                    "changed_at": updated_at,
+                    "changed_by": changed_by,
+                },
+                "updated_at": updated_at,
+            }
+        },
     )
     return result.modified_count == 1
 
 
-def set_agent_jira_ticket_key(agent_name: str, key: str) -> None:
-    """Record the key of the Jira ticket claimed for an agent.
-
-    :param agent_name: Name of the agent.
-    :param key: Key of the created ticket.
-    """
-    mongo.db.agents.update_one(
-        {"name": agent_name, "jira_ticket": {"$exists": True}},
-        {"$set": {"jira_ticket.key": key}},
-    )
-
-
-def release_agent_jira_ticket(agent_name: str) -> None:
-    """Drop an agent's Jira ticket claim so a later trigger can retry.
-
-    :param agent_name: Name of the agent.
-    """
-    mongo.db.agents.update_one(
-        {"name": agent_name}, {"$unset": {"jira_ticket": ""}}
-    )
-
-
-def prefix_agent_comment(agent_name: str, text: str) -> None:
+def prefix_agent_comment(
+    agent_name: str, text: str, ticket_token: str | None = None
+) -> None:
     """Add text in front of the comment on an agent's pending command.
 
     When the agent already acknowledged the command, the text goes on the
@@ -889,11 +938,18 @@ def prefix_agent_comment(agent_name: str, text: str) -> None:
 
     :param agent_name: Name of the agent.
     :param text: Text to add, e.g. a Jira ticket key.
+    :param ticket_token: If given, only update while this Jira ticket claim
+        is still current, i.e. the agent is still in the same maintenance.
     """
+    claim = {"jira_ticket.token": ticket_token} if ticket_token else {}
     for field in ("commanded_mode", "mode"):
         for _ in range(PREFIX_COMMENT_ATTEMPTS):
             agent = mongo.db.agents.find_one(
-                {"name": agent_name, f"{field}.value": {"$exists": True}},
+                {
+                    "name": agent_name,
+                    f"{field}.value": {"$exists": True},
+                    **claim,
+                },
                 {field: True},
             )
             if not agent:
@@ -905,6 +961,7 @@ def prefix_agent_comment(agent_name: str, text: str) -> None:
                     "name": agent_name,
                     f"{field}.value": agent[field]["value"],
                     f"{field}.comment": existing,
+                    **claim,
                 },
                 {"$set": {f"{field}.comment": comment}},
             )

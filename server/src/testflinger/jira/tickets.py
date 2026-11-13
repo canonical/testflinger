@@ -94,9 +94,19 @@ def _ticket_description(
 
 
 def _create_ticket(
-    app, agent_name: str, agent: dict, summary: str, report: MaintenanceReport
+    app,
+    agent_name: str,
+    agent: dict,
+    summary: str,
+    report: MaintenanceReport,
+    token: str,
 ) -> None:
-    """Create the claimed Jira ticket and add its key to the comment."""
+    """Create the claimed Jira ticket and add its key to the comment.
+
+    The result is only recorded while the claim is still current, so a
+    reply that arrives after the agent left maintenance (or started a new
+    one) doesn't touch the agent.
+    """
     with app.app_context():
         issue_key = None
         try:
@@ -111,12 +121,24 @@ def _create_ticket(
             )
         try:
             if issue_key:
-                database.set_agent_jira_ticket_key(agent_name, issue_key)
-                note = f"Jira ticket {issue_key}"
+                if not database.set_agent_jira_ticket_key(
+                    agent_name, token, issue_key
+                ):
+                    logger.warning(
+                        "Agent %s left maintenance before Jira ticket %s "
+                        "was created, not recording it",
+                        agent_name,
+                        issue_key,
+                    )
+                    return
+                database.prefix_agent_comment(
+                    agent_name, f"Jira ticket {issue_key}", token
+                )
             else:
-                database.release_agent_jira_ticket(agent_name)
-                note = "Jira ticket could not be created"
-            database.prefix_agent_comment(agent_name, note)
+                database.prefix_agent_comment(
+                    agent_name, "Jira ticket could not be created", token
+                )
+                database.release_agent_jira_ticket(agent_name, token)
         except Exception:
             logger.exception(
                 "Failed to record Jira ticket for agent %s", agent_name
@@ -128,6 +150,8 @@ def open_maintenance_ticket(
     summary: str,
     report: MaintenanceReport,
     agent: dict | None = None,
+    *,
+    keep_pending_command: bool = False,
 ) -> None:
     """Command an agent into maintenance and open a Jira ticket about it.
 
@@ -141,16 +165,31 @@ def open_maintenance_ticket(
     :param summary: Ticket title.
     :param report: Who reported the problem, when, and any details.
     :param agent: The agent record, if the caller already has it.
+    :param keep_pending_command: If True, do nothing when a mode is
+        already commanded, since someone is then handling the agent.
     """
     if agent is None:
         agent = database.get_agent_info_v2(agent_name) or {}
     comment = report.comment or _comment_of(agent.get("commanded_mode"))
-    database.set_agent_commanded_mode(
-        agent_name,
-        AgentMode.MAINTENANCE.value,
-        comment,
-        changed_by=SERVER_CLIENT_ID,
-    )
+    if keep_pending_command:
+        if not database.set_agent_commanded_mode_if_unset(
+            agent_name,
+            AgentMode.MAINTENANCE.value,
+            comment,
+            changed_by=SERVER_CLIENT_ID,
+        ):
+            logger.info(
+                "Agent %s already has a commanded mode, skipping Jira ticket",
+                agent_name,
+            )
+            return
+    else:
+        database.set_agent_commanded_mode(
+            agent_name,
+            AgentMode.MAINTENANCE.value,
+            comment,
+            changed_by=SERVER_CLIENT_ID,
+        )
     if not agent.get("jira_space"):
         logger.warning(
             "Agent %s has no jira_space, skipping Jira ticket", agent_name
@@ -162,11 +201,12 @@ def open_maintenance_ticket(
             agent_name,
         )
         return
-    if not database.claim_agent_jira_ticket(agent_name):
+    token = database.claim_agent_jira_ticket(agent_name)
+    if token is None:
         logger.info("Agent %s already has a Jira ticket", agent_name)
         return
     app = current_app._get_current_object()  # noqa: SLF001
-    _spawn(_create_ticket, app, agent_name, agent, summary, report)
+    _spawn(_create_ticket, app, agent_name, agent, summary, report, token)
 
 
 def create_ticket_if_agent_self_maintenance(
@@ -221,6 +261,7 @@ def create_ticket_if_agent_self_maintenance(
         f"Agent {agent_name} went into maintenance on its own",
         report,
         agent=agent,
+        keep_pending_command=True,
     )
 
 

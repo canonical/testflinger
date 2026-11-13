@@ -126,7 +126,7 @@ class JiraClient:
                 messages.extend(
                     f"{field}: {message}" for field, message in errors.items()
                 )
-        except ValueError:
+        except (ValueError, TypeError):
             messages = [response.reason or "Unknown error"]
         return JiraRequestError(response.status_code, messages)
 

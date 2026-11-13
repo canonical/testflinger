@@ -969,6 +969,56 @@ def test_racing_reports_create_one_ticket(mongo_app, ticket_mock):
     assert record["jira_ticket"]["key"] == "TESTOPS-1"
 
 
+def test_command_issued_after_the_snapshot_is_kept(mongo_app, ticket_mock):
+    """A command set while the heartbeat was handled is not overwritten."""
+    app, mongo = mongo_app
+    mongo.agents.insert_one(
+        {
+            "name": "agent1",
+            "mode": {"value": "maintenance"},
+            "jira_space": "TESTOPS",
+        }
+    )
+    _command_mode(app, "online", "back in service")
+
+    with app.application.test_request_context():
+        tickets.create_ticket_if_agent_self_maintenance(
+            "agent1", "online", None, "maintenance", client_id="agent"
+        )
+
+    ticket_mock.assert_not_called()
+    record = mongo.agents.find_one({"name": "agent1"})
+    assert record["commanded_mode"]["value"] == "online"
+    assert record["commanded_mode"]["comment"] == "back in service"
+    assert "jira_ticket" not in record
+
+
+@pytest.mark.parametrize("issue_key", ["TESTOPS-1", None])
+def test_stale_ticket_result_is_not_applied(
+    mongo_app, agent_auth_header, ticket_mock, issue_key
+):
+    """A reply for an earlier maintenance leaves the current one alone."""
+    app, mongo = mongo_app
+    ticket_mock.return_value = issue_key
+    spawned = []
+    with patch.object(
+        tickets, "_spawn", lambda func, *args: spawned.append((func, args))
+    ):
+        _report(app, agent_auth_header, "maintenance")
+        _report(app, agent_auth_header, "maintenance")
+        _report(app, agent_auth_header, "online")
+        _report(app, agent_auth_header, "maintenance", comment="again")
+
+    assert len(spawned) == 2
+    func, args = spawned[0]
+    func(*args)
+
+    record = mongo.agents.find_one({"name": "agent1"})
+    assert record["jira_ticket"]["key"] is None
+    assert record["jira_ticket"]["token"] == spawned[1][1][-1]
+    assert record["commanded_mode"]["comment"] == "again"
+
+
 def test_unconfigured_jira_leaves_agent_alone(
     mongo_app, agent_auth_header, ticket_mock
 ):

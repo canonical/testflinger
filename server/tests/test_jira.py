@@ -94,7 +94,9 @@ def test_create_issue_error(client, requests_mock):
     assert exc.value.status == 400
 
 
-@pytest.mark.parametrize("body", [[], "oops", {"errors": ["bad"]}])
+@pytest.mark.parametrize(
+    "body", [[], "oops", {"errors": ["bad"]}, {"errorMessages": None}]
+)
 def test_create_issue_unexpected_error_body(client, requests_mock, body):
     """Error bodies that aren't Jira's usual object still give a JiraError."""
     requests_mock.post(ISSUE_URL, json=body, status_code=502)
