@@ -222,10 +222,10 @@ def _is_admin():
     """
     if current_app.oauth is None:
         return False
-    user_email = session.get("user_email", "")
-    if not user_email:
+    sub = session.get("user_sub", "")
+    if not sub:
         return False
-    perms = database.get_client_permissions(user_email)
+    perms = database.get_client_permissions_by_sub(sub)
     return perms.get("role") == ServerRoles.ADMIN
 
 
@@ -329,13 +329,13 @@ def agent_detail(agent_id):
 def agent_state_update(agent_id):
     """UI endpoint for an admin to update an agent's mode."""
     if current_app.oauth is not None:
-        user_email = session.get("user_email", "")
-        if not user_email:
+        sub = session.get("user_sub", "")
+        if not sub:
             return make_response(
                 render_template("401_unauthorized.html"),
                 HTTPStatus.UNAUTHORIZED,
             )
-        perms = database.get_client_permissions(user_email)
+        perms = database.get_client_permissions_by_sub(sub)
         if perms.get("role") != ServerRoles.ADMIN:
             return make_response("Forbidden", HTTPStatus.FORBIDDEN)
     else:
@@ -355,7 +355,8 @@ def agent_state_update(agent_id):
     if new_mode not in allowed_modes:
         return make_response("Invalid mode", HTTPStatus.BAD_REQUEST)
 
-    database.set_agent_commanded_mode(agent_id, new_mode, comment, user_email)
+    changed_by = session.get("user_email", "")
+    database.set_agent_commanded_mode(agent_id, new_mode, comment, changed_by)
 
     # Return to the page the change was initiated from (e.g. the agents
     # list) when a safe, local `next` target is supplied; otherwise fall

@@ -660,14 +660,14 @@ def test_agent_state_update_forbidden_without_oidc(testapp):
 
 
 def test_agent_state_update_unauthorized_without_session(oidc_app):
-    """agent_state_update returns 401 when no user_email is in session."""
+    """agent_state_update returns 401 when no OIDC subject is in session."""
     app, _ = oidc_app
     mongo_client = mongomock.MongoClient()
     with (
         app.test_client() as client,
         patch("testflinger.database.mongo", mongo_client),
     ):
-        # No session set — user_email will be absent
+        # No session set — user_sub will be absent.
         response = client.post(
             "/agents/agent1/state",
             data={"mode": "offline", "comment": "test"},
@@ -679,9 +679,14 @@ def test_agent_state_update_forbidden_non_admin(oidc_app):
     """agent_state_update returns 403 when the logged-in user is not admin."""
     app, _ = oidc_app
     non_admin_email = "user@example.com"
+    non_admin_sub = "non-admin-sub"
     mongo_client = mongomock.MongoClient()
     mongo_client.db.client_permissions.insert_one(
-        {"client_id": non_admin_email, "role": "contributor"}
+        {
+            "client_id": non_admin_email,
+            "sub": non_admin_sub,
+            "role": "contributor",
+        }
     )
     with (
         app.test_client() as client,
@@ -690,6 +695,7 @@ def test_agent_state_update_forbidden_non_admin(oidc_app):
         with client.session_transaction() as sess:
             sess["user"] = "testuser"
             sess["user_email"] = non_admin_email
+            sess["user_sub"] = non_admin_sub
         response = client.post(
             "/agents/agent1/state",
             data={"mode": "offline", "comment": "test"},
@@ -703,7 +709,7 @@ def test_agent_state_update_invalid_mode(oidc_app):
     admin_email = "admin@example.com"
     mongo_client = mongomock.MongoClient()
     mongo_client.db.client_permissions.insert_one(
-        {"client_id": admin_email, "role": "admin"}
+        {"client_id": admin_email, "sub": "admin-sub", "role": "admin"}
     )
     with (
         app.test_client() as client,
@@ -712,6 +718,7 @@ def test_agent_state_update_invalid_mode(oidc_app):
         with client.session_transaction() as sess:
             sess["user"] = "admin"
             sess["user_email"] = admin_email
+            sess["user_sub"] = "admin-sub"
             sess["_csrf_token"] = "test-csrf-token"  # noqa: S105
         response = client.post(
             "/agents/agent1/state",
@@ -748,7 +755,7 @@ def test_agent_state_update_offline_allows_empty_comment(oidc_app):
     admin_email = "admin@example.com"
     mongo_client = mongomock.MongoClient()
     mongo_client.db.client_permissions.insert_one(
-        {"client_id": admin_email, "role": "admin"}
+        {"client_id": admin_email, "sub": "admin-sub", "role": "admin"}
     )
     with (
         app.test_client() as client,
@@ -757,6 +764,7 @@ def test_agent_state_update_offline_allows_empty_comment(oidc_app):
         with client.session_transaction() as sess:
             sess["user"] = "admin"
             sess["user_email"] = admin_email
+            sess["user_sub"] = "admin-sub"
             sess["_csrf_token"] = "test-csrf-token"  # noqa: S105
         response = client.post(
             "/agents/agent1/state",
@@ -771,7 +779,7 @@ def test_agent_state_update_success_sets_mode(oidc_app):
     admin_email = "admin@example.com"
     mongo_client = mongomock.MongoClient()
     mongo_client.db.client_permissions.insert_one(
-        {"client_id": admin_email, "role": "admin"}
+        {"client_id": admin_email, "sub": "admin-sub", "role": "admin"}
     )
     mongo_client.db.agents.insert_one(
         {
@@ -790,6 +798,7 @@ def test_agent_state_update_success_sets_mode(oidc_app):
         with client.session_transaction() as sess:
             sess["user"] = "admin"
             sess["user_email"] = admin_email
+            sess["user_sub"] = "admin-sub"
             sess["_csrf_token"] = "test-csrf-token"  # noqa: S105
         response = client.post(
             "/agents/agent1/state",
@@ -851,12 +860,17 @@ def _make_oidc_admin_client(oidc_app, mongo_client, admin_email):
     """Return a test client with an admin session."""
     app, _ = oidc_app
     mongo_client.db.client_permissions.insert_one(
-        {"client_id": admin_email, "role": "admin"}
+        {
+            "client_id": admin_email,
+            "sub": "admin-sub",
+            "role": "admin",
+        }
     )
     client = app.test_client()
     with client.session_transaction() as sess:
         sess["user"] = "admin"
         sess["user_email"] = admin_email
+        sess["user_sub"] = "admin-sub"
         sess["_csrf_token"] = "test-csrf-token"  # noqa: S105
     return app, client
 
@@ -1009,7 +1023,11 @@ def test_agents_list_non_admin_has_no_state_modal(oidc_app):
     app, _ = oidc_app
     mongo_client = mongomock.MongoClient()
     mongo_client.db.client_permissions.insert_one(
-        {"client_id": "user@example.com", "role": "contributor"}
+        {
+            "client_id": "user@example.com",
+            "sub": "non-admin-sub",
+            "role": "contributor",
+        }
     )
     mongo_client.db.agents.insert_one(
         {
@@ -1033,6 +1051,7 @@ def test_agents_list_non_admin_has_no_state_modal(oidc_app):
         with client.session_transaction() as sess:
             sess["user"] = "user"
             sess["user_email"] = "user@example.com"
+            sess["user_sub"] = "non-admin-sub"
         response = client.get("/agents")
 
     assert response.status_code == HTTPStatus.OK

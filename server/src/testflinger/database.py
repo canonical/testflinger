@@ -1050,6 +1050,18 @@ def get_client_permissions(client_id: str) -> dict:
     )
 
 
+def get_client_permissions_by_sub(sub: str) -> dict:
+    """Retrieve client permissions for an OIDC subject.
+
+    :param sub: OIDC subject identifier.
+    :return: Dictionary with the permissions for the subject.
+    """
+    return (
+        mongo.db.client_permissions.find_one({"sub": sub}, {"_id": False})
+        or {}
+    )
+
+
 def get_all_client_permissions() -> list[dict]:
     """Retrieve a list of all client permissions known; will return the
     permissions from all users.
@@ -1141,9 +1153,8 @@ def delete_refresh_token(token: str) -> None:
 def register_oidc_client(userinfo: dict) -> None:
     """Register or update an OIDC user in client_permissions.
 
-    This uses the OIDC subject identifier (sub) as the primary identity anchor,
-    but uses email as the client_id as human readable identifier for permission
-    lookups.
+    OIDC identities are separate records from credential clients, even when
+    they share an email. The provider subject is the stable identity key.
 
     :param userinfo: User information dict from the OIDC id_token.
     """
@@ -1160,11 +1171,12 @@ def register_oidc_client(userinfo: dict) -> None:
         {"sub": sub},
         {
             "$set": {
-                "client_id": email,
+                "email": email,
                 "name": name,
                 "last_login": now,
             },
             "$setOnInsert": {
+                "client_id": email,
                 "sub": sub,
                 "role": ServerRoles.CONTRIBUTOR,
                 "created_at": now,

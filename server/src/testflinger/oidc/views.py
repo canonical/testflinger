@@ -41,6 +41,7 @@ def callback():
         token = current_app.oauth.oidc.authorize_access_token()
         userinfo = token["userinfo"]
         session["user"] = userinfo["name"]
+        session["user_sub"] = userinfo["sub"]
         session["user_email"] = userinfo.get("email", "")
         register_oidc_client(userinfo)
         # Log successful OIDC authentication
