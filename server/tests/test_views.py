@@ -712,11 +712,34 @@ def test_agent_state_update_invalid_mode(oidc_app):
         with client.session_transaction() as sess:
             sess["user"] = "admin"
             sess["user_email"] = admin_email
+            sess["_csrf_token"] = "test-csrf-token"  # noqa: S105
         response = client.post(
             "/agents/agent1/state",
-            data={"mode": "bogus", "comment": "test"},
+            data={
+                "mode": "bogus",
+                "comment": "test",
+                "csrf_token": "test-csrf-token",
+            },
         )
     assert response.status_code == HTTPStatus.BAD_REQUEST
+
+
+def test_agent_state_update_rejects_missing_csrf_token(oidc_app):
+    """An admin POST without the session CSRF token is rejected."""
+    admin_email = "admin@example.com"
+    mongo_client = mongomock.MongoClient()
+    _, client = _make_oidc_admin_client(oidc_app, mongo_client, admin_email)
+    mongo_client.db.agents.insert_one({"name": "agent1"})
+
+    with patch("testflinger.database.mongo", mongo_client):
+        response = client.post(
+            "/agents/agent1/state", data={"mode": "offline"}
+        )
+
+    assert response.status_code == HTTPStatus.BAD_REQUEST
+    assert "commanded_mode" not in mongo_client.db.agents.find_one(
+        {"name": "agent1"}
+    )
 
 
 def test_agent_state_update_offline_allows_empty_comment(oidc_app):
@@ -734,9 +757,10 @@ def test_agent_state_update_offline_allows_empty_comment(oidc_app):
         with client.session_transaction() as sess:
             sess["user"] = "admin"
             sess["user_email"] = admin_email
+            sess["_csrf_token"] = "test-csrf-token"  # noqa: S105
         response = client.post(
             "/agents/agent1/state",
-            data={"mode": "offline"},
+            data={"mode": "offline", "csrf_token": "test-csrf-token"},
         )
     assert response.status_code == HTTPStatus.FOUND
 
@@ -766,9 +790,14 @@ def test_agent_state_update_success_sets_mode(oidc_app):
         with client.session_transaction() as sess:
             sess["user"] = "admin"
             sess["user_email"] = admin_email
+            sess["_csrf_token"] = "test-csrf-token"  # noqa: S105
         response = client.post(
             "/agents/agent1/state",
-            data={"mode": "offline", "comment": "scheduled downtime"},
+            data={
+                "mode": "offline",
+                "comment": "scheduled downtime",
+                "csrf_token": "test-csrf-token",
+            },
         )
     # Expect a redirect back to the agent detail page
     assert response.status_code in (
@@ -805,7 +834,12 @@ def test_agent_state_update_empty_comment_clears_comment(oidc_app):
 
     with patch("testflinger.database.mongo", mongo_client):
         response = client.post(
-            "/agents/agent1/state", data={"mode": "online", "comment": ""}
+            "/agents/agent1/state",
+            data={
+                "mode": "online",
+                "comment": "",
+                "csrf_token": "test-csrf-token",
+            },
         )
 
     assert response.status_code == HTTPStatus.FOUND
@@ -823,6 +857,7 @@ def _make_oidc_admin_client(oidc_app, mongo_client, admin_email):
     with client.session_transaction() as sess:
         sess["user"] = "admin"
         sess["user_email"] = admin_email
+        sess["_csrf_token"] = "test-csrf-token"  # noqa: S105
     return app, client
 
 
@@ -856,7 +891,7 @@ def test_agent_state_update_all_modes(
         }
     )
 
-    form_data = {"mode": new_mode}
+    form_data = {"mode": new_mode, "csrf_token": "test-csrf-token"}
     if comment:
         form_data["comment"] = comment
 
@@ -885,7 +920,8 @@ def test_agent_state_update_maintenance_allows_empty_comment(oidc_app):
         patch("testflinger.database.mongo", mongo_client),
     ):
         response = client.post(
-            "/agents/agent1/state", data={"mode": "maintenance"}
+            "/agents/agent1/state",
+            data={"mode": "maintenance", "csrf_token": "test-csrf-token"},
         )
 
     assert response.status_code == HTTPStatus.FOUND
@@ -928,6 +964,7 @@ def test_agents_list_admin_renders_state_modal(oidc_app):
     assert 'id="state-modal"' in html
     assert 'name="next"' in html
     assert 'value="/agents"' in html
+    assert 'name="csrf_token"' in html
 
 
 def test_queue_detail_admin_renders_state_modal(oidc_app):
@@ -1160,7 +1197,11 @@ def test_agent_state_update_redirects_to_safe_next(oidc_app):
     ):
         response = client.post(
             "/agents/agent1/state",
-            data={"mode": "restart", "next": "/agents"},
+            data={
+                "mode": "restart",
+                "next": "/agents",
+                "csrf_token": "test-csrf-token",
+            },
         )
 
     assert response.status_code in (
@@ -1195,7 +1236,11 @@ def test_agent_state_update_ignores_unsafe_next(oidc_app, bad_next):
     ):
         response = client.post(
             "/agents/agent1/state",
-            data={"mode": "restart", "next": bad_next},
+            data={
+                "mode": "restart",
+                "next": bad_next,
+                "csrf_token": "test-csrf-token",
+            },
         )
 
     assert response.status_code in (
