@@ -20,7 +20,13 @@ from datetime import datetime, timezone
 
 from apiflask import Schema, fields, validators
 from apiflask.validators import Length, OneOf, Regexp
-from marshmallow import INCLUDE, RAISE, ValidationError, validates_schema
+from marshmallow import (
+    INCLUDE,
+    RAISE,
+    ValidationError,
+    pre_dump,
+    validates_schema,
+)
 from marshmallow_oneofschema import OneOfSchema
 from testflinger_common.duration import DurationParseError, parse_duration
 from testflinger_common.enums import ServerRoles, TestPhase
@@ -131,10 +137,19 @@ class AgentJob(Schema):
     tags = fields.List(fields.String(), required=False)
 
 
+class ProvisionStreak(Schema):
+    """Consecutive provisioning result summary for an agent."""
+
+    status = fields.String(required=True, validate=OneOf(["pass", "fail"]))
+    value = fields.Integer(required=True, validate=validators.Range(min=1))
+    signed_value = fields.Integer(required=True)
+
+
 class AgentOut(Schema):
     """Agent data output schema."""
 
     name = fields.String(required=True)
+    identifier = fields.String(required=False)
     job_id = fields.String(required=False)
     state = fields.String(required=False)
     queues = fields.List(fields.String(), required=False)
@@ -143,7 +158,30 @@ class AgentOut(Schema):
     comment = fields.String(required=False)
     restricted_to = fields.Dict(required=False)
     job = fields.Nested(AgentJob, required=False, allow_none=True)
+    provision_streak = fields.Nested(ProvisionStreak, required=False)
+    # TODO: Remove legacy provisioning streak flat fields after deprecating V1
+    provision_streak_type = fields.String(required=False)
+    provision_streak_count = fields.Integer(required=False)
     links = fields.List(fields.Nested(AgentLink), required=False)
+    updated_at = UTCDateTime(required=True)
+
+    @pre_dump
+    def add_provision_streak(self, data, **kwargs):
+        """Derive the nested streak from the flat streak fields."""
+        status = data.get("provision_streak_type")
+        value = data.get("provision_streak_count")
+        if status not in {"pass", "fail"} or not isinstance(value, int):
+            return data
+        if value < 1:
+            return data
+        return {
+            **data,
+            "provision_streak": {
+                "status": status,
+                "value": value,
+                "signed_value": value if status == "pass" else -value,
+            },
+        }
 
 
 class ActionIn(Schema):
