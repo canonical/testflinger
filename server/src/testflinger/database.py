@@ -846,7 +846,7 @@ def claim_agent_jira_ticket(agent_name: str) -> str | None:
 
     The claim is atomic, so when several requests race to open a ticket
     for the same agent, only one of them wins. It is released when the
-    agent leaves maintenance, or if the ticket could not be created.
+    agent is back online, or if the ticket could not be created.
 
     :param agent_name: Name of the agent.
     :return: A token identifying this claim, or None if it was not won.
@@ -939,7 +939,7 @@ def prefix_agent_comment(
     :param agent_name: Name of the agent.
     :param text: Text to add, e.g. a Jira ticket key.
     :param ticket_token: If given, only update while this Jira ticket claim
-        is still current, i.e. the agent is still in the same maintenance.
+        is still current, i.e. the agent has not been back online since.
     """
     claim = {"jira_ticket.token": ticket_token} if ticket_token else {}
     for field in ("commanded_mode", "mode"):
@@ -1464,11 +1464,8 @@ def upsert_agent_document(
     ):
         unset.append("commanded_mode")
 
-    # The Jira ticket claim only lasts while the agent stays in maintenance
-    if reported_mode and reported_mode not in (
-        AgentMode.MAINTENANCE.value,
-        AgentMode.RESTART.value,
-    ):
+    # The Jira ticket claim lasts until the agent is back online
+    if reported_mode == AgentMode.ONLINE.value:
         unset.append("jira_ticket")
 
     # Agent is restarting; preserve restoration target, favor exiting command

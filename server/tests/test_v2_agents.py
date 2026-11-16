@@ -932,16 +932,21 @@ def test_jira_failure_does_not_break_the_update(mongo_app, agent_auth_header):
     assert "jira_ticket" not in record
 
 
-def test_ticket_key_is_kept_until_the_agent_leaves_maintenance(
+def test_ticket_key_is_kept_until_the_agent_is_back_online(
     mongo_app, agent_auth_header, ticket_mock
 ):
-    """The key outlives the acknowledged command, not the maintenance."""
+    """The key outlives maintenance, offline and restart, not online."""
     app, mongo = mongo_app
     _report(app, agent_auth_header, "maintenance")
     _report(app, agent_auth_header, "maintenance")
 
     output = app.get("/v2/agents/agent1/data", headers=agent_auth_header)
     assert output.json["jira_ticket"]["key"] == "TESTOPS-1"
+
+    for mode in ("offline", "restart"):
+        _report(app, agent_auth_header, mode)
+        record = mongo.agents.find_one({"name": "agent1"})
+        assert record["jira_ticket"]["key"] == "TESTOPS-1"
 
     _report(app, agent_auth_header, "online")
     assert "jira_ticket" not in mongo.agents.find_one({"name": "agent1"})

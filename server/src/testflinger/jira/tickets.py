@@ -104,8 +104,8 @@ def _create_ticket(
     """Create the claimed Jira ticket and add its key to the comment.
 
     The result is only recorded while the claim is still current, so a
-    reply that arrives after the agent left maintenance (or started a new
-    one) doesn't touch the agent.
+    reply that arrives after the agent was back online (or started a new
+    maintenance) doesn't touch the agent.
     """
     with app.app_context():
         issue_key = None
@@ -125,7 +125,7 @@ def _create_ticket(
                     agent_name, token, issue_key
                 ):
                     logger.warning(
-                        "Agent %s left maintenance before Jira ticket %s "
+                        "Agent %s was back online before Jira ticket %s "
                         "was created, not recording it",
                         agent_name,
                         issue_key,
