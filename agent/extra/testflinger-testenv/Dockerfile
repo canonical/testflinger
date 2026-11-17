@@ -48,11 +48,11 @@ USER ubuntu
 WORKDIR /home/ubuntu
 
 # Fetch certification-lab-ci-tools pinned to a full commit hash
-ARG TOOLS_REPO="https://github.com/canonical/certification-lab-ci-tools.git"
-ARG TOOLS_PATH="/home/ubuntu/tools"
 ARG COMMIT_HASH="09ec8009c6554a2b24505b1a1c16bc94a7231d48"
+ENV TOOLS_PATH="/home/ubuntu/tools"
 RUN git init -q ${TOOLS_PATH} && \
-    git -C ${TOOLS_PATH} fetch -q --depth 1 ${TOOLS_REPO} ${COMMIT_HASH} && \
+    git -C ${TOOLS_PATH} fetch -q --depth 1 \
+        https://github.com/canonical/certification-lab-ci-tools.git ${COMMIT_HASH} && \
     git -C ${TOOLS_PATH} checkout -q --detach FETCH_HEAD && \
     test "$(git -C ${TOOLS_PATH} rev-parse HEAD)" = "${COMMIT_HASH}" && \
     rm -rf ${TOOLS_PATH}/.git
@@ -65,8 +65,7 @@ RUN uv tool install ${TOOLS_PATH}/cert-tools/launcher && \
         --with ${TOOLS_PATH}/cert-tools/snapstore
 
 # Append scriptlets and ~/.local/bin to PATH
-ARG SCRIPTLETS_PATH="${TOOLS_PATH}/scriptlets"
-ENV PATH="${PATH}:${SCRIPTLETS_PATH}:${SCRIPTLETS_PATH}/sru-helpers:/home/ubuntu/.local/bin"
+ENV PATH="${PATH}:${TOOLS_PATH}/scriptlets:${TOOLS_PATH}/scriptlets/sru-helpers:/home/ubuntu/.local/bin"
 # Used by the `_run` scriptlet to locate scriptlets on the device
 ENV TOOLS_PATH_DEVICE=".scriptlets"
 
