@@ -49,6 +49,18 @@ SAMPLE_CLIENTS = {
         "max_reservation_time": {},
         "secret_key": "testflinger",  # noqa: S105
     },
+    TESTFLINGER_AGENT_ID: {
+        "testflinger_account": True,
+        "dex_account": False,
+        "dev_auto_signin": False,
+        "client_id": TESTFLINGER_AGENT_ID,
+        "email": "testflinger-agent@example.com",
+        "name": "testflinger-agent",
+        "role": "agent",
+        "allowed_queues": [],
+        "max_reservation_time": {},
+        "secret_key": "testflinger",  # noqa: S105
+    },
     "ci-bot-kernel": {
         "testflinger_account": True,
         "dex_account": False,
