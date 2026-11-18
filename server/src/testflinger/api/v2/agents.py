@@ -95,7 +95,7 @@ def agents_get_one(agent_name):
     :return:
         JSON data with the specified agent information.
     """
-    agent_data = database.get_agent_info_v2(agent_name)
+    agent_data = database.get_agent_info(agent_name)
     if not agent_data:
         abort(HTTPStatus.NOT_FOUND, message="Agent not found")
 
@@ -181,7 +181,7 @@ def agents_patch_commanded_mode(agent_name, json_data):
     Returns 404 if the agent does not exist; admins cannot create agents
     through this endpoint.
     """
-    if not database.get_agent_info_v2(agent_name):
+    if not database.get_agent_info(agent_name):
         abort(HTTPStatus.NOT_FOUND, message="Agent not found")
 
     database.set_agent_commanded_mode(

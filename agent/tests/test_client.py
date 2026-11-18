@@ -44,7 +44,7 @@ class TestClient:
     def test_check_jobs_empty(self, client, requests_mock):
         requests_mock.get(rmock.ANY, status_code=HTTPStatus.OK)
         requests_mock.post(rmock.ANY, status_code=HTTPStatus.OK)
-        job_data = client.check_jobs()
+        job_data = client.check_jobs({})
         assert job_data is None
 
     def test_check_jobs_with_job(self, client, requests_mock):
@@ -54,7 +54,7 @@ class TestClient:
         }
         requests_mock.get(rmock.ANY, json=fake_job_data)
         requests_mock.post(rmock.ANY, status_code=HTTPStatus.OK)
-        job_data = client.check_jobs()
+        job_data = client.check_jobs({})
         assert job_data == fake_job_data
 
     def test_check_jobs_with_restricted_queues(self, client, requests_mock):
@@ -64,7 +64,7 @@ class TestClient:
             }
         }
         requests_mock.get(
-            "http://127.0.0.1:8000/v1/agents/data/test_agent",
+            "http://127.0.0.1:8000/v2/agents/test_agent/data",
             json=restricted_data,
         )
         fake_job_data = {
@@ -76,7 +76,7 @@ class TestClient:
             json=fake_job_data,
         )
         requests_mock.post(rmock.ANY, status_code=HTTPStatus.OK)
-        job_data = client.check_jobs()
+        job_data = client.check_jobs({"test_queue": ["test-client-id"]})
         params = requests_mock.last_request.qs.get("queue")
         assert params == ["test_queue"]
         assert job_data == fake_job_data
@@ -85,7 +85,7 @@ class TestClient:
         client.config["job_queues"] = ["queue1"]
         unrestricted_data = {"restricted_to": {}}
         requests_mock.get(
-            "http://127.0.0.1:8000/v1/agents/data/test_agent",
+            "http://127.0.0.1:8000/v2/agents/test_agent/data",
             json=unrestricted_data,
         )
         fake_job_data = {
@@ -97,7 +97,7 @@ class TestClient:
             json=fake_job_data,
         )
         requests_mock.post(rmock.ANY, status_code=HTTPStatus.OK)
-        job_data = client.check_jobs()
+        job_data = client.check_jobs({})
         params = requests_mock.last_request.qs.get("queue")
         assert params == ["queue1"]
         assert job_data == fake_job_data
@@ -330,7 +330,7 @@ class TestClient:
             "restricted_to": {"queue1": ["client1"]},
         }
         requests_mock.get(
-            "http://127.0.0.1:8000/v1/agents/data/test_agent",
+            "http://127.0.0.1:8000/v2/agents/test_agent/data",
             json=agent_data,
         )
 
@@ -349,7 +349,7 @@ class TestClient:
             "links": [{"url": "https://testurl.com", "label": "Test Label"}],
         }
         requests_mock.post(
-            "http://127.0.0.1:8000/v1/agents/data/test_agent",
+            "http://127.0.0.1:8000/v2/agents/test_agent/data",
             status_code=HTTPStatus.OK,
             headers={
                 "Set-Cookie": (
@@ -368,7 +368,7 @@ class TestClient:
             "exclude_agents": [],
         }
         requests_mock.get(
-            "http://127.0.0.1:8000/v1/agents/data/test_agent",
+            "http://127.0.0.1:8000/v2/agents/test_agent/data",
             json={},  # "restricted_to": {}},
         )
         requests_mock.get(
@@ -383,7 +383,7 @@ class TestClient:
 
         # Session should automatically handle cookies after first response
         # The session persists cookies across requests
-        job_data = client.check_jobs()
+        job_data = client.check_jobs({})
         assert job_data == fake_job_data
 
         # Verify the session made the request (session handles cookies)
@@ -393,7 +393,7 @@ class TestClient:
     def test_check_jobs_unauthorized_returns_none(self, client, requests_mock):
         """Test that check_jobs returns None on a 401 response."""
         requests_mock.get(
-            "http://127.0.0.1:8000/v1/agents/data/test_agent",
+            "http://127.0.0.1:8000/v2/agents/test_agent/data",
             json={"restricted_to": {}},
         )
         requests_mock.get(
@@ -402,7 +402,7 @@ class TestClient:
             json={"message": "Agent not identified"},
         )
 
-        result = client.check_jobs()
+        result = client.check_jobs({})
         assert result is None
 
     def test_check_jobs_request_exception(self, client):
@@ -417,7 +417,7 @@ class TestClient:
                 with patch(
                     "testflinger_agent.client.time.sleep"
                 ) as mock_sleep:
-                    result = client.check_jobs()
+                    result = client.check_jobs({})
 
         # Verify logger.error was called with the exception
         mock_logger.error.assert_called_with(network_error)
@@ -433,7 +433,7 @@ class TestClient:
         requests_mock.post(rmock.ANY, status_code=HTTPStatus.OK)
 
         # Should return None and not raise an exception
-        result = client.check_jobs()
+        result = client.check_jobs({})
         assert result is None
 
     def test_get_job_fails_token_invalid(
@@ -455,7 +455,7 @@ class TestClient:
         )
         requests_mock.get(rmock.ANY, status_code=HTTPStatus.OK)
 
-        result = client.check_jobs()
+        result = client.check_jobs({})
         assert result is None
 
     def test_get_job_success_on_valid_token(
@@ -475,12 +475,12 @@ class TestClient:
         )
         # Mock post agent data endpoint for retrieving session cookie
         requests_mock.post(
-            f"{client.server}/v1/agents/data/test_agent",
+            f"{client.server}/v2/agents/test_agent/data",
             json={"job_id": ""},
         )
         # Mock agent data endpoint
         requests_mock.get(
-            f"{client.server}/v1/agents/data/test_agent",
+            f"{client.server}/v2/agents/test_agent/data",
             json={"restricted_to": {}},
         )
         # Mock job endpoint with job data
@@ -493,7 +493,7 @@ class TestClient:
             json=fake_job_data,
         )
 
-        result = client.check_jobs()
+        result = client.check_jobs({})
         assert result == fake_job_data
 
         # Verify Authorization header was set
@@ -517,12 +517,12 @@ class TestClient:
         )
         # Mock post agent data endpoint for retrieving session cookie
         requests_mock.post(
-            f"{client.server}/v1/agents/data/test_agent",
+            f"{client.server}/v2/agents/test_agent/data",
             json={"job_id": ""},
         )
         # Mock agent data endpoint
         requests_mock.get(
-            f"{client.server}/v1/agents/data/test_agent",
+            f"{client.server}/v2/agents/test_agent/data",
             json={"restricted_to": {}},
         )
         # Mock job endpoint to return forbidden due to incorrect role
@@ -532,7 +532,7 @@ class TestClient:
             json={"message": "Specified action requires role: agent"},
         )
 
-        result = client.check_jobs()
+        result = client.check_jobs({})
         assert result is None
 
     def test_malformed_token_file(self, client, requests_mock, tmp_path):
@@ -545,7 +545,7 @@ class TestClient:
         requests_mock.post(rmock.ANY, status_code=HTTPStatus.OK)
 
         # Should return None and not raise an exception
-        result = client.check_jobs()
+        result = client.check_jobs({})
         assert result is None
 
     def test_access_token_returns_none_on_bad_request(
@@ -597,7 +597,7 @@ class TestClient:
         requests_mock.get(rmock.ANY, status_code=HTTPStatus.OK)
         requests_mock.post(rmock.ANY, status_code=HTTPStatus.OK)
 
-        result = client.check_jobs()
+        result = client.check_jobs({})
         assert result is None
         assert "Failed to refresh access token" in caplog.text
 
@@ -609,7 +609,7 @@ class TestClient:
         # Mock agent data endpoint
         requests_mock.post(rmock.ANY, status_code=HTTPStatus.OK)
         requests_mock.get(
-            f"{client.server}/v1/agents/data/test_agent",
+            f"{client.server}/v2/agents/test_agent/data",
             json={"restricted_to": {}},
         )
         # Mock job endpoint to return as no access token provided in header
@@ -621,7 +621,7 @@ class TestClient:
             },
         )
 
-        result = client.check_jobs()
+        result = client.check_jobs({})
         assert result is None
 
     def test_access_token_is_cached(self, client, requests_mock, tmp_path):
@@ -732,7 +732,7 @@ class TestClient:
             ],
         )
         requests_mock.get(
-            f"{client.server}/v1/agents/data/test_agent",
+            f"{client.server}/v2/agents/test_agent/data",
             json={"restricted_to": {}},
         )
         fake_job_data = {
@@ -749,7 +749,7 @@ class TestClient:
             ],
         )
 
-        result = client.check_jobs()
+        result = client.check_jobs({})
         assert result == fake_job_data
 
         job_requests = [
@@ -786,7 +786,7 @@ class TestClient:
             json={"access_token": "fake-access-token"},
         )
         requests_mock.get(
-            f"{client.server}/v1/agents/data/test_agent",
+            f"{client.server}/v2/agents/test_agent/data",
             json={"restricted_to": {}},
         )
         # Always returns 401 — retry should not loop
@@ -795,7 +795,7 @@ class TestClient:
             status_code=HTTPStatus.UNAUTHORIZED,
         )
 
-        result = client.check_jobs()
+        result = client.check_jobs({})
         assert result is None
 
         job_requests = [
@@ -832,7 +832,7 @@ class TestClient:
             ],
         )
         requests_mock.get(
-            f"{client.server}/v1/agents/data/test_agent",
+            f"{client.server}/v2/agents/test_agent/data",
             json={"restricted_to": {}},
         )
         requests_mock.get(
@@ -840,7 +840,7 @@ class TestClient:
             status_code=HTTPStatus.UNAUTHORIZED,
         )
 
-        result = client.check_jobs()
+        result = client.check_jobs({})
         assert result is None
 
         job_requests = [
