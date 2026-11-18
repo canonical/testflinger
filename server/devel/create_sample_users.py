@@ -22,9 +22,9 @@ container.
 
     docker compose exec testflinger python3 devel/create_sample_users.py
 
-The inserted credential matches the defaults used by create_sample_data.py:
-    TESTFLINGER_CLIENT_ID : dev-admin
-    TESTFLINGER_SECRET_KEY: dev-secret-for-testing
+The inserted credentials match the defaults used by create_sample_data.py:
+    TESTFLINGER_ADMIN_ID : testflinger-admin
+    TESTFLINGER_AGENT_ID : testflinger-agent
 
 Sample clients are also inserted with varied client_id/email combinations.
 Some emails are intentionally reused across different client IDs to reflect
@@ -32,17 +32,13 @@ real-world scenarios where a person owns multiple service accounts.
 """
 
 import os
+from datetime import datetime, timezone
 
 import bcrypt
 from pymongo import MongoClient
 
 from testflinger.database import get_mongo_uri
 from sample_users import SAMPLE_CLIENTS
-
-# testflinger-admin is both the OIDC identity (via Dex) and a credential-based
-# admin client used by create_sample_data.py.
-TESTFLINGER_ADMIN_ID = "testflinger-admin"
-TESTFLINGER_ADMIN_SECRET = "testflinger"
 
 
 def _make_secret_hash(secret: str) -> str:
@@ -54,28 +50,53 @@ def main():
     mongo_db = os.environ.get("MONGODB_DATABASE", "testflinger_db")
     db = MongoClient(host=mongo_uri)[mongo_db]
 
-    if not db.client_permissions.find_one({"client_id": TESTFLINGER_ADMIN_ID}):
-        db.client_permissions.insert_one(
-            {
-                "client_id": TESTFLINGER_ADMIN_ID,
-                "client_secret_hash": _make_secret_hash(TESTFLINGER_ADMIN_SECRET),
-                "role": "admin",
-                "max_priority": {"*": 100},
-                "allowed_queues": [],
-                "max_reservation_time": {},
-            }
-        )
-        print(f"Created admin credential '{TESTFLINGER_ADMIN_ID}'")
+    deleted = db.client_permissions.delete_many({}).deleted_count
+    print(f"Cleared {deleted} client-permissions records.")
 
-    for client in SAMPLE_CLIENTS:
-        client_id = client["client_id"]
-        if db.client_permissions.find_one({"client_id": client_id}):
-            print(f"Sample client '{client_id}' already exists, skipping.")
+    # Create each credential record and Dex record independently. They may
+    # share an email, but have different client_id/sub identities.
+    for client_id, client in SAMPLE_CLIENTS.items():
+        if client.get("testflinger_account"):
+            credential_id = client["client_id"]
+            secret_key = client["secret_key"]
+            credential_doc = {
+                key: value
+                for key, value in client.items()
+                if key
+                not in {
+                    "testflinger_account",
+                    "dex_account",
+                    "sub",
+                    "secret_key",
+                }
+            }
+            credential_doc["client_secret_hash"] = _make_secret_hash(
+                secret_key
+            )
+            db.client_permissions.insert_one(credential_doc)
+            print(f"Created credential client '{credential_id}'.")
+        if not client.get("dex_account"):
             continue
-        secret_key = client["secret_key"]
-        doc = {**client, "client_secret_hash": _make_secret_hash(secret_key)}
-        db.client_permissions.insert_one(doc)
-        print(f"Created sample client '{client_id}' (email: {client['email']})")
+
+        sub = client["sub"]
+        oidc_fields = {
+            "client_id": client["email"],
+            "email": client["email"],
+            "name": client.get("name", ""),
+            "sub": sub,
+            "role": client["role"],
+        }
+        db.client_permissions.update_one(
+            {"sub": sub},
+            {
+                "$set": oidc_fields,
+                "$setOnInsert": {
+                    "created_at": datetime.now(timezone.utc)
+                },
+            },
+            upsert=True,
+        )
+        print(f"Upserted Dex account for subject '{sub}'.")
 
 
 if __name__ == "__main__":
