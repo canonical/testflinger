@@ -1153,8 +1153,9 @@ def delete_refresh_token(token: str) -> None:
 def register_oidc_client(userinfo: dict) -> None:
     """Register or update an OIDC user in client_permissions.
 
-    OIDC identities are separate records from credential clients, even when
-    they share an email. The provider subject is the stable identity key.
+    This uses the OIDC subject identifier (sub) as the primary identity anchor,
+    but uses email as the client_id as human readable identifier for permission
+    lookups.
 
     :param userinfo: User information dict from the OIDC id_token.
     """
@@ -1171,12 +1172,11 @@ def register_oidc_client(userinfo: dict) -> None:
         {"sub": sub},
         {
             "$set": {
-                "email": email,
+                "client_id": email,
                 "name": name,
                 "last_login": now,
             },
             "$setOnInsert": {
-                "client_id": email,
                 "sub": sub,
                 "role": ServerRoles.CONTRIBUTOR,
                 "created_at": now,

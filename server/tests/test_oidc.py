@@ -109,6 +109,7 @@ def test_client_refresh_login_if_exists(mock_current_app, oidc_app, user):
 
     client_entry = {
         "client_id": user.emails[0],
+        "email": user.emails[0],
         "sub": "1234",
         "name": user.user_name,
         "created_at": created_time,
@@ -154,6 +155,7 @@ def test_client_refresh_login_if_exists(mock_current_app, oidc_app, user):
     # Validate client remains the same and only last_login was updated
     assert mongo.client_permissions.count_documents({}) == 1
     assert web_client["created_at"] == client_record["created_at"]
+    assert web_client["client_id"] == user.emails[0]
     # Check that last_login was updated
     assert (
         web_client["last_login"].replace(tzinfo=timezone.utc)
