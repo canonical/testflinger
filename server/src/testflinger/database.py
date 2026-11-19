@@ -1173,6 +1173,7 @@ def register_oidc_client(userinfo: dict) -> None:
         {
             "$set": {
                 "client_id": email,
+                "email": email,
                 "name": name,
                 "last_login": now,
             },

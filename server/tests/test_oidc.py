@@ -96,6 +96,7 @@ def test_first_login_registers_new_client(mock_current_app, oidc_app, user):
     )
     assert client_record["name"] == mock_token["userinfo"]["name"]
     assert client_record["client_id"] == mock_token["userinfo"]["email"]
+    assert client_record["email"] == mock_token["userinfo"]["email"]
 
 
 @patch("testflinger.oidc.views.current_app", new_callable=Mock)
@@ -156,6 +157,7 @@ def test_client_refresh_login_if_exists(mock_current_app, oidc_app, user):
     assert mongo.client_permissions.count_documents({}) == 1
     assert web_client["created_at"] == client_record["created_at"]
     assert web_client["client_id"] == user.emails[0]
+    assert web_client["email"] == user.emails[0]
     # Check that last_login was updated
     assert (
         web_client["last_login"].replace(tzinfo=timezone.utc)
