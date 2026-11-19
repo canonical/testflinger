@@ -1145,17 +1145,17 @@ def register_oidc_client(userinfo: dict) -> None:
     now = datetime.now(timezone.utc)
 
     # Update or insert the OIDC user in client_permissions
-    # Match the OIDC account by sub; credential accounts can share this email.
+    # This uses the sub as the unique identifier but uses email as client_id
     mongo.db.client_permissions.update_one(
         {"sub": sub},
         {
             "$set": {
+                "client_id": email,
                 "email": email,
                 "name": name,
                 "last_login": now,
             },
             "$setOnInsert": {
-                "client_id": email,
                 "sub": sub,
                 "role": ServerRoles.CONTRIBUTOR,
                 "created_at": now,

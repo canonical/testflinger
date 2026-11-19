@@ -128,6 +128,7 @@ admin:
 [group('deploy')]
 [positional-arguments]
 populate *args: gen_sample_users
+    @docker compose up --build --detach --force-recreate testflinger dex
     @docker compose exec testflinger python3 devel/create_sample_users.py
     @uv run devel/create_sample_data.py "$@"
 

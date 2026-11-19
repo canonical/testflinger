@@ -85,8 +85,7 @@ def auto():
     if identity is None:
         abort(HTTPStatus.BAD_REQUEST, message="Unknown dev sign-in identity")
 
-    # Resolve by Dex subject; credential accounts may share this email but
-    # have a separate record keyed by client_id.
+    # Resolve by Dex subject and set the role for this development identity.
     database.mongo.db.client_permissions.update_one(
         {"sub": identity["sub"]},
         {
