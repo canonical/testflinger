@@ -28,6 +28,7 @@ from testflinger.jira import (
     create_agent_ticket,
     get_agent_space_key,
 )
+from testflinger.jira.client import text_to_adf
 
 BASE_URL = "https://jira.example.com"
 ISSUE_URL = f"{BASE_URL}/rest/api/3/issue"
@@ -80,6 +81,19 @@ def test_create_issue(client, requests_mock):
     assert b'"key": "TESTOPS"' in fields
     assert b'"labels": ["a"]' in fields
     assert fields.count(b'"type": "paragraph"') == 2
+
+
+def test_text_to_adf_code_block():
+    """Fenced lines become one code block, other lines paragraphs."""
+    doc = text_to_adf("intro\n```yaml\na: 1\n\nb: 2\n```\nafter")
+    assert [node["type"] for node in doc["content"]] == [
+        "paragraph",
+        "codeBlock",
+        "paragraph",
+    ]
+    code = doc["content"][1]
+    assert code["attrs"] == {"language": "yaml"}
+    assert code["content"][0]["text"] == "a: 1\n\nb: 2"
 
 
 def test_create_issue_error(client, requests_mock):

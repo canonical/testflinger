@@ -696,6 +696,7 @@ def test_agent_self_maintenance_creates_ticket(
         queues=["q1", "q2"],
         provision_type="maas",
         identifier="C3-ID",
+        job_id="job-123",
     )
     ticket_mock.assert_not_called()
 
@@ -719,6 +720,7 @@ def test_agent_self_maintenance_creates_ticket(
         "Queues: q1, q2",
         "Provision type: maas",
         "Identifier: C3-ID",
+        "Job: http://localhost/jobs/job-123",
         "Mode: maintenance",
         "Commanded mode: none",
         "State: waiting",
@@ -744,6 +746,64 @@ def test_ticket_lists_links_stored_by_the_agent(
 
     description = ticket_mock.call_args.kwargs["description"]
     assert "Link (C3): https://c3.example.com/1" in description
+    assert "Job: none" in description
+
+
+def test_ticket_includes_job_definition_and_output(
+    mongo_app, agent_auth_header, ticket_mock
+):
+    """The job's YAML and the end of its output are in code blocks."""
+    app, mongo = mongo_app
+    mongo.jobs.insert_one(
+        {
+            "job_id": "job-123",
+            "job_data": {"job_queue": "q1", "test_data": {"test_cmds": "ls"}},
+        }
+    )
+    mongo.logs.insert_one(
+        {
+            "job_id": "job-123",
+            "log_type": "output",
+            "phase": "test",
+            "fragment_number": 0,
+            "timestamp": None,
+            "log_data": "x" * tickets.MAX_JOB_OUTPUT_CHARS + "end",
+        }
+    )
+
+    _report(app, agent_auth_header, "maintenance", job_id="job-123")
+
+    description = ticket_mock.call_args.kwargs["description"]
+    assert "Job definition:\n```yaml\njob_queue: q1\n" in description
+    assert "test_cmds: ls\n```\nJob output:\n```\n" in description
+    assert "[... truncated, see the job link]" in description
+    assert description.endswith("xend\n```")
+
+
+def test_ticket_lists_job_output_by_phase(
+    mongo_app, agent_auth_header, ticket_mock
+):
+    """Phases are listed in order and fences in output are escaped."""
+    app, mongo = mongo_app
+    mongo.logs.insert_many(
+        {
+            "job_id": "job-123",
+            "log_type": "output",
+            "phase": phase,
+            "fragment_number": 0,
+            "timestamp": None,
+            "log_data": data,
+        }
+        for phase, data in (("test", "tested"), ("setup", "```\nset up"))
+    )
+
+    _report(app, agent_auth_header, "maintenance", job_id="job-123")
+
+    description = ticket_mock.call_args.kwargs["description"]
+    assert (
+        "Job output:\n```\n--- setup ---\n ```\nset up\n--- test ---\n"
+        "tested\n```"
+    ) in description
 
 
 def test_self_maintenance_is_followed_by_commanded_maintenance(

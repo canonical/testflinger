@@ -17,20 +17,25 @@
 
 import logging
 import threading
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
 
-from flask import current_app
-from testflinger_common.enums import AgentMode
+from flask import current_app, has_request_context, request
+from testflinger_common.enums import AgentMode, LogType, TestPhase
 
 from testflinger import database
-from testflinger.jira.client import JiraClient, is_configured
+from testflinger.jira.client import CODE_FENCE, JiraClient, is_configured
 from testflinger.jira.exceptions import JiraError
+from testflinger.logs import MongoLogHandler
+from testflinger.views import build_job_yaml
 
 logger = logging.getLogger(__name__)
 
 DEFAULT_ISSUE_TYPE = "Task"
 SERVER_CLIENT_ID = "testflinger-server"
+# Jira descriptions are limited to 32767 characters
+MAX_JOB_YAML_CHARS = 8000
+MAX_JOB_OUTPUT_CHARS = 16000
 
 
 @dataclass(frozen=True)
@@ -41,6 +46,16 @@ class MaintenanceReport:
     time: str
     comment: str | None = None
     links: list[dict] = field(default_factory=list)
+    server_url: str | None = None
+
+
+@dataclass(frozen=True)
+class JobDetails:
+    """The job an agent was running, as shown in its ticket."""
+
+    job_id: str
+    yaml: str = ""
+    output: str = ""
 
 
 def _spawn(func, *args) -> None:
@@ -66,10 +81,78 @@ def _mode_line(label: str, document: dict | None) -> str:
     return f"{label}: {document['value']}{suffix}"
 
 
+def _code_block(text: str, language: str = "") -> list[str]:
+    """Wrap text in a code fence, keeping its own fences from closing it."""
+    lines = [
+        f" {line}" if line.startswith(CODE_FENCE) else line
+        for line in text.splitlines()
+    ]
+    return [f"{CODE_FENCE}{language}", *lines, CODE_FENCE]
+
+
+def _head(text: str, limit: int) -> str:
+    """Return the start of a text, noting if it was truncated."""
+    if len(text) <= limit:
+        return text
+    return f"{text[:limit]}\n[... truncated, see the job link]"
+
+
+def _tail(text: str, limit: int) -> str:
+    """Return the end of a text, noting if it was truncated."""
+    if len(text) <= limit:
+        return text
+    return f"[... truncated, see the job link]\n{text[-limit:]}"
+
+
+def _job_output(job_id: str, job: dict) -> str:
+    """Return the standard output of every phase of a job.
+
+    Output is read from the log store, falling back to the result data
+    of jobs whose output is stored there.
+    """
+    logs = MongoLogHandler(database.mongo).retrieve_logs(
+        job_id, LogType.STANDARD_OUTPUT
+    )["log_data"]
+    result_data = job.get("result_data") or {}
+    sections = []
+    for phase in TestPhase:
+        key = f"{phase}_{LogType.STANDARD_OUTPUT}"
+        if text := logs.get(key) or result_data.get(key):
+            sections.append(f"--- {phase} ---\n{text}")
+    return "\n".join(sections)
+
+
+def _job_details(job_id: str | None) -> JobDetails | None:
+    """Fetch the definition and output of the job an agent was running.
+
+    Failures are logged so the ticket is still created without them.
+    """
+    if not job_id:
+        return None
+    try:
+        job = database.get_job_document(job_id) or {}
+        return JobDetails(
+            job_id=job_id,
+            yaml=build_job_yaml(job.get("job_data") or {}) if job else "",
+            output=_job_output(job_id, job),
+        )
+    except Exception:
+        logger.exception("Failed to fetch details of job %s", job_id)
+        return JobDetails(job_id=job_id)
+
+
 def _ticket_description(
-    agent_name: str, agent: dict, report: MaintenanceReport
+    agent_name: str,
+    agent: dict,
+    report: MaintenanceReport,
+    job: JobDetails | None = None,
 ) -> str:
     """Build the ticket text from the agent record and its report."""
+    job_link = "none"
+    if job:
+        job_link = job.job_id
+        if report.server_url:
+            job_link = f"{report.server_url.rstrip('/')}/jobs/{job.job_id}"
     lines = [
         f"Agent: {agent_name}",
         f"Reported by: {report.client_id or 'N/A'}",
@@ -78,6 +161,7 @@ def _ticket_description(
         f"Queues: {', '.join(agent.get('queues') or []) or 'none'}",
         f"Provision type: {agent.get('provision_type') or 'unknown'}",
         f"Identifier: {agent.get('identifier') or 'unknown'}",
+        f"Job: {job_link}",
         _mode_line("Mode", agent.get("mode")),
         _mode_line("Commanded mode", agent.get("commanded_mode")),
         f"State: {(agent.get('state') or {}).get('value') or 'none'}",
@@ -90,6 +174,12 @@ def _ticket_description(
         for link in links
         if link.get("url")
     )
+    if job and job.yaml:
+        lines.append("Job definition:")
+        lines.extend(_code_block(_head(job.yaml, MAX_JOB_YAML_CHARS), "yaml"))
+    if job and job.output:
+        lines.append("Job output:")
+        lines.extend(_code_block(_tail(job.output, MAX_JOB_OUTPUT_CHARS)))
     return "\n".join(lines)
 
 
@@ -113,7 +203,12 @@ def _create_ticket(
             issue_key = create_agent_ticket(
                 agent_name,
                 summary=summary,
-                description=_ticket_description(agent_name, agent, report),
+                description=_ticket_description(
+                    agent_name,
+                    agent,
+                    report,
+                    _job_details(agent.get("job_id")),
+                ),
             )
         except Exception:
             logger.exception(
@@ -205,6 +300,8 @@ def open_maintenance_ticket(
     if token is None:
         logger.info("Agent %s already has a Jira ticket", agent_name)
         return
+    if report.server_url is None and has_request_context():
+        report = replace(report, server_url=request.url_root)
     app = current_app._get_current_object()  # noqa: SLF001
     _spawn(_create_ticket, app, agent_name, agent, summary, report, token)
 
