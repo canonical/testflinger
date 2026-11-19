@@ -257,6 +257,8 @@ class TestflingerJob:
 
         :param rundir: Directory in which to look for "device-info.json"
         :param global_timeout_checker: timeout checker for the allocate phase.
+        :return: Tuple of (event, reason) if the global timeout was reached,
+            otherwise (None, None).
         """
         device_info = self.get_device_info(rundir)
 
@@ -285,6 +287,8 @@ class TestflingerJob:
         """Monitor the parent job and exit when it completes.
 
         :param global_timeout_checker: timeout checker for the allocate phase.
+        :return: Tuple of (event, reason) if the global timeout was reached,
+            otherwise (None, None) when this job or its parent job ends.
         """
         while True:
             try:
