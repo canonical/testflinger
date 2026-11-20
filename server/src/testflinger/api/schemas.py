@@ -122,6 +122,7 @@ class AgentIn(Schema):
     state = fields.String(required=False)
     comment = fields.String(required=False)
     links = fields.List(fields.Nested(AgentLink), required=False)
+    jira_space = fields.String(required=False)
 
 
 class AgentJob(Schema):
