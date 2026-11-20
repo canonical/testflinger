@@ -36,7 +36,6 @@ API_VERSION = 3
 ADF_VERSION = 1
 REQUEST_TIMEOUT = 30
 ENV_SETTINGS = ("JIRA_BASE_URL", "JIRA_USER_EMAIL", "JIRA_TOKEN")
-CODE_FENCE = "```"
 
 
 def is_configured() -> bool:
@@ -44,46 +43,19 @@ def is_configured() -> bool:
     return all(os.environ.get(name) for name in ENV_SETTINGS)
 
 
-def _adf_node(node_type: str, text: str, **attrs) -> dict:
-    """Build an ADF node holding a single text, if any."""
-    node = {
-        "type": node_type,
-        "content": [{"type": "text", "text": text}] if text else [],
-    }
-    if attrs:
-        node["attrs"] = attrs
-    return node
-
-
 def text_to_adf(text: str) -> dict:
     """Convert plain text to an Atlassian Document Format document.
 
     Each line becomes its own paragraph, as the v3 API only accepts ADF.
-    Lines between a ```` ```language ```` line and a ```` ``` ```` line
-    become a code block.
     """
-    content = []
-    code = language = None
-    for line in text.splitlines() or [""]:
-        if code is None and line.startswith(CODE_FENCE):
-            language = line[len(CODE_FENCE) :].strip()
-            code = []
-        elif code is not None and line == CODE_FENCE:
-            content.append(_code_node(code, language))
-            code = None
-        elif code is not None:
-            code.append(line)
-        else:
-            content.append(_adf_node("paragraph", line))
-    if code is not None:
-        content.append(_code_node(code, language))
-    return {"type": "doc", "version": ADF_VERSION, "content": content}
-
-
-def _code_node(lines: list[str], language: str) -> dict:
-    """Build an ADF code block from its lines."""
-    attrs = {"language": language} if language else {}
-    return _adf_node("codeBlock", "\n".join(lines), **attrs)
+    paragraphs = [
+        {
+            "type": "paragraph",
+            "content": [{"type": "text", "text": line}] if line else [],
+        }
+        for line in text.splitlines() or [""]
+    ]
+    return {"type": "doc", "version": ADF_VERSION, "content": paragraphs}
 
 
 class JiraClient:
@@ -187,3 +159,16 @@ class JiraClient:
                 response.status_code,
                 ["Unexpected response from Jira: missing issue key"],
             ) from exc
+
+    def add_attachments(self, issue_key: str, files: dict[str, str]) -> None:
+        """Attach text files, given as name to content, to an issue."""
+        self.request(
+            "POST",
+            f"/rest/api/{API_VERSION}/issue/{issue_key}/attachments",
+            # Jira rejects uploads without this header (XSRF protection)
+            headers={"X-Atlassian-Token": "no-check"},
+            files=[
+                ("file", (name, content.encode(), "text/plain"))
+                for name, content in files.items()
+            ],
+        )

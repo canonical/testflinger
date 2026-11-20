@@ -83,7 +83,10 @@ for more details.
 If an agent with ``jira_space`` configured (see :doc:`../reference/testflinger-agent-conf`)
 reports ``maintenance`` through the v2 agent API, and no mode was already
 commanded, the server commands the agent to stay in ``maintenance`` and creates
-a Jira ticket in that space. Once the ticket exists, its key is shown on the
+a Jira ticket in that space. If the agent was running a job, the ticket links to
+it and has the job queue and provision data (``job_definition.yaml``) and the
+provision output (``provision-output.log``) attached; the Jira user needs
+permission to create attachments. Once the ticket exists, its key is shown on the
 agent and added in front of the agent's comment; if it can't be created, the
 comment says so instead. Only one ticket is opened until the agent is back
 ``online``; going ``offline`` or restarting keeps the ticket. Agents without ``jira_space``, or servers without Jira

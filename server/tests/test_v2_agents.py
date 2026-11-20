@@ -749,42 +749,21 @@ def test_ticket_lists_links_stored_by_the_agent(
     assert "Job: none" in description
 
 
-def test_ticket_includes_job_definition_and_output(
+def test_ticket_attaches_job_yaml_and_provision_output(
     mongo_app, agent_auth_header, ticket_mock
 ):
-    """The job's YAML and the end of its output are in code blocks."""
+    """The provision data and only the provision output are attached."""
     app, mongo = mongo_app
     mongo.jobs.insert_one(
         {
             "job_id": "job-123",
-            "job_data": {"job_queue": "q1", "test_data": {"test_cmds": "ls"}},
+            "job_data": {
+                "job_queue": "q1",
+                "provision_data": {"distro": "noble"},
+                "test_data": {"test_cmds": "ls"},
+            },
         }
     )
-    mongo.logs.insert_one(
-        {
-            "job_id": "job-123",
-            "log_type": "output",
-            "phase": "test",
-            "fragment_number": 0,
-            "timestamp": None,
-            "log_data": "x" * tickets.MAX_JOB_OUTPUT_CHARS + "end",
-        }
-    )
-
-    _report(app, agent_auth_header, "maintenance", job_id="job-123")
-
-    description = ticket_mock.call_args.kwargs["description"]
-    assert "Job definition:\n```yaml\njob_queue: q1\n" in description
-    assert "test_cmds: ls\n```\nJob output:\n```\n" in description
-    assert "[... truncated, see the job link]" in description
-    assert description.endswith("xend\n```")
-
-
-def test_ticket_lists_job_output_by_phase(
-    mongo_app, agent_auth_header, ticket_mock
-):
-    """Phases are listed in order and fences in output are escaped."""
-    app, mongo = mongo_app
     mongo.logs.insert_many(
         {
             "job_id": "job-123",
@@ -794,16 +773,35 @@ def test_ticket_lists_job_output_by_phase(
             "timestamp": None,
             "log_data": data,
         }
-        for phase, data in (("test", "tested"), ("setup", "```\nset up"))
+        for phase, data in (
+            ("setup", "set up"),
+            ("provision", "provisioned"),
+            ("test", "tested"),
+        )
     )
 
     _report(app, agent_auth_header, "maintenance", job_id="job-123")
 
-    description = ticket_mock.call_args.kwargs["description"]
-    assert (
-        "Job output:\n```\n--- setup ---\n ```\nset up\n--- test ---\n"
-        "tested\n```"
-    ) in description
+    kwargs = ticket_mock.call_args.kwargs
+    assert kwargs["attachments"] == {
+        "job_definition.yaml": (
+            "job_queue: q1\nprovision_data:\n  distro: noble\n"
+        ),
+        "provision-output.log": "provisioned",
+    }
+    assert "provisioned" not in kwargs["description"]
+    assert "distro" not in kwargs["description"]
+
+
+def test_ticket_without_job_has_no_attachments(
+    mongo_app, agent_auth_header, ticket_mock
+):
+    """Agents that weren't running a job get no attachments."""
+    app, _ = mongo_app
+
+    _report(app, agent_auth_header, "maintenance")
+
+    assert ticket_mock.call_args.kwargs["attachments"] is None
 
 
 def test_self_maintenance_is_followed_by_commanded_maintenance(

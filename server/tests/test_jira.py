@@ -28,7 +28,6 @@ from testflinger.jira import (
     create_agent_ticket,
     get_agent_space_key,
 )
-from testflinger.jira.client import text_to_adf
 
 BASE_URL = "https://jira.example.com"
 ISSUE_URL = f"{BASE_URL}/rest/api/3/issue"
@@ -83,17 +82,14 @@ def test_create_issue(client, requests_mock):
     assert fields.count(b'"type": "paragraph"') == 2
 
 
-def test_text_to_adf_code_block():
-    """Fenced lines become one code block, other lines paragraphs."""
-    doc = text_to_adf("intro\n```yaml\na: 1\n\nb: 2\n```\nafter")
-    assert [node["type"] for node in doc["content"]] == [
-        "paragraph",
-        "codeBlock",
-        "paragraph",
-    ]
-    code = doc["content"][1]
-    assert code["attrs"] == {"language": "yaml"}
-    assert code["content"][0]["text"] == "a: 1\n\nb: 2"
+def test_add_attachments(client, requests_mock):
+    """Files are uploaded as multipart with Jira's XSRF header."""
+    requests_mock.post(f"{ISSUE_URL}/TESTOPS-1/attachments", json=[])
+    client.add_attachments("TESTOPS-1", {"a.log": "out", "b.yaml": "x: 1"})
+    request = requests_mock.last_request
+    assert request.headers["X-Atlassian-Token"] == "no-check"
+    assert b'name="file"; filename="a.log"' in request.body
+    assert b'filename="b.yaml"' in request.body
 
 
 def test_create_issue_error(client, requests_mock):
@@ -182,6 +178,24 @@ def test_create_agent_ticket_failure(error, caplog):
     ):
         assert create_agent_ticket("agent1", "t", "d", client=client) is None
     assert "Failed to create Jira ticket for agent agent1" in caplog.text
+
+
+def test_create_agent_ticket_keeps_ticket_if_attaching_fails(caplog):
+    """A failed upload is logged and the ticket key is still returned."""
+    client = MagicMock()
+    client.create_issue.return_value = "TESTOPS-7"
+    client.add_attachments.side_effect = JiraRequestError(413, ["too big"])
+    with patch.object(
+        database, "get_agent_info", return_value={"jira_space": "TESTOPS"}
+    ):
+        key = create_agent_ticket(
+            "agent1", "t", "d", client=client, attachments={"a.log": "out"}
+        )
+    assert key == "TESTOPS-7"
+    client.add_attachments.assert_called_once_with(
+        "TESTOPS-7", {"a.log": "out"}
+    )
+    assert "Failed to attach files to Jira ticket TESTOPS-7" in caplog.text
 
 
 def test_create_agent_ticket_malformed_success(client, requests_mock):

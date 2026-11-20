@@ -24,7 +24,7 @@ from flask import current_app, has_request_context, request
 from testflinger_common.enums import AgentMode, LogType, TestPhase
 
 from testflinger import database
-from testflinger.jira.client import CODE_FENCE, JiraClient, is_configured
+from testflinger.jira.client import JiraClient, is_configured
 from testflinger.jira.exceptions import JiraError
 from testflinger.logs import MongoLogHandler
 from testflinger.views import build_job_yaml
@@ -33,9 +33,8 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_ISSUE_TYPE = "Task"
 SERVER_CLIENT_ID = "testflinger-server"
-# Jira descriptions are limited to 32767 characters
-MAX_JOB_YAML_CHARS = 8000
-MAX_JOB_OUTPUT_CHARS = 16000
+JOB_DEFINITION_FILENAME = "job_definition.yaml"
+PROVISION_OUTPUT_FILENAME = "provision-output.log"
 
 
 @dataclass(frozen=True)
@@ -51,11 +50,20 @@ class MaintenanceReport:
 
 @dataclass(frozen=True)
 class JobDetails:
-    """The job an agent was running, as shown in its ticket."""
+    """The job an agent was running, as attached to its ticket."""
 
     job_id: str
-    yaml: str = ""
-    output: str = ""
+    job_definition: str = ""
+    provision_output: str = ""
+
+    @property
+    def attachments(self) -> dict[str, str]:
+        """Return the non-empty files to attach, by file name."""
+        files = {
+            JOB_DEFINITION_FILENAME: self.job_definition,
+            PROVISION_OUTPUT_FILENAME: self.provision_output,
+        }
+        return {name: content for name, content in files.items() if content}
 
 
 def _spawn(func, *args) -> None:
@@ -81,49 +89,32 @@ def _mode_line(label: str, document: dict | None) -> str:
     return f"{label}: {document['value']}{suffix}"
 
 
-def _code_block(text: str, language: str = "") -> list[str]:
-    """Wrap text in a code fence, keeping its own fences from closing it."""
-    lines = [
-        f" {line}" if line.startswith(CODE_FENCE) else line
-        for line in text.splitlines()
-    ]
-    return [f"{CODE_FENCE}{language}", *lines, CODE_FENCE]
-
-
-def _head(text: str, limit: int) -> str:
-    """Return the start of a text, noting if it was truncated."""
-    if len(text) <= limit:
-        return text
-    return f"{text[:limit]}\n[... truncated, see the job link]"
-
-
-def _tail(text: str, limit: int) -> str:
-    """Return the end of a text, noting if it was truncated."""
-    if len(text) <= limit:
-        return text
-    return f"[... truncated, see the job link]\n{text[-limit:]}"
-
-
-def _job_output(job_id: str, job: dict) -> str:
-    """Return the standard output of every phase of a job.
+def _provision_output(job_id: str, job: dict) -> str:
+    """Return the standard output of the provision phase of a job.
 
     Output is read from the log store, falling back to the result data
     of jobs whose output is stored there.
     """
     logs = MongoLogHandler(database.mongo).retrieve_logs(
-        job_id, LogType.STANDARD_OUTPUT
+        job_id, LogType.STANDARD_OUTPUT, TestPhase.PROVISION
     )["log_data"]
-    result_data = job.get("result_data") or {}
-    sections = []
-    for phase in TestPhase:
-        key = f"{phase}_{LogType.STANDARD_OUTPUT}"
-        if text := logs.get(key) or result_data.get(key):
-            sections.append(f"--- {phase} ---\n{text}")
-    return "\n".join(sections)
+    key = f"{TestPhase.PROVISION}_{LogType.STANDARD_OUTPUT}"
+    return logs or (job.get("result_data") or {}).get(key) or ""
+
+
+def _job_definition(job: dict) -> str:
+    """Return the job queue and provision data of a job as YAML."""
+    job_data = job.get("job_data") or {}
+    definition = {
+        key: job_data[key]
+        for key in ("job_queue", "provision_data")
+        if key in job_data
+    }
+    return build_job_yaml(definition) if definition else ""
 
 
 def _job_details(job_id: str | None) -> JobDetails | None:
-    """Fetch the definition and output of the job an agent was running.
+    """Fetch the definition and provision output of an agent's job.
 
     Failures are logged so the ticket is still created without them.
     """
@@ -133,8 +124,8 @@ def _job_details(job_id: str | None) -> JobDetails | None:
         job = database.get_job_document(job_id) or {}
         return JobDetails(
             job_id=job_id,
-            yaml=build_job_yaml(job.get("job_data") or {}) if job else "",
-            output=_job_output(job_id, job),
+            job_definition=_job_definition(job),
+            provision_output=_provision_output(job_id, job),
         )
     except Exception:
         logger.exception("Failed to fetch details of job %s", job_id)
@@ -174,12 +165,6 @@ def _ticket_description(
         for link in links
         if link.get("url")
     )
-    if job and job.yaml:
-        lines.append("Job definition:")
-        lines.extend(_code_block(_head(job.yaml, MAX_JOB_YAML_CHARS), "yaml"))
-    if job and job.output:
-        lines.append("Job output:")
-        lines.extend(_code_block(_tail(job.output, MAX_JOB_OUTPUT_CHARS)))
     return "\n".join(lines)
 
 
@@ -200,15 +185,14 @@ def _create_ticket(
     with app.app_context():
         issue_key = None
         try:
+            job = _job_details(agent.get("job_id"))
             issue_key = create_agent_ticket(
                 agent_name,
                 summary=summary,
                 description=_ticket_description(
-                    agent_name,
-                    agent,
-                    report,
-                    _job_details(agent.get("job_id")),
+                    agent_name, agent, report, job
                 ),
+                attachments=job.attachments if job else None,
             )
         except Exception:
             logger.exception(
@@ -378,6 +362,7 @@ def create_agent_ticket(
     issue_type: str = DEFAULT_ISSUE_TYPE,
     labels: list[str] | None = None,
     client: JiraClient | None = None,
+    attachments: dict[str, str] | None = None,
 ) -> str | None:
     """Create a ticket in the Jira space configured for the agent.
 
@@ -387,6 +372,8 @@ def create_agent_ticket(
     :param issue_type: Name of the Jira issue type
     :param labels: Optional labels to set on the ticket
     :param client: Jira client, built from the environment if not given
+    :param attachments: Optional text files to attach, by file name. A
+        failed upload is logged and the ticket is kept without them.
     :return: The new ticket key, or None if the agent has no Jira space
         or the ticket could not be created. Jira failures are logged and
         never raised, so callers' workflows are not interrupted.
@@ -416,4 +403,11 @@ def create_agent_ticket(
         )
         return None
     logger.info("Created Jira ticket %s for agent %s", issue_key, agent_name)
+    if attachments:
+        try:
+            client.add_attachments(issue_key, attachments)
+        except JiraError:
+            logger.exception(
+                "Failed to attach files to Jira ticket %s", issue_key
+            )
     return issue_key
