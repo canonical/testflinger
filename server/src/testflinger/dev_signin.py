@@ -34,9 +34,9 @@ every non-public view requires an authenticated session, and there is
 currently no "logged in but no role" state that would let us exercise the
 contributor code paths without a real session.
 
-``devel/generate_sample_users.py`` derives both these identities and Dex's
-``staticPasswords`` entries from ``devel/sample_users.py``. The stable Dex
-subject lets both login paths update the same permissions record.
+``devel/generate_sample_user_configs.py`` derives both these identities and
+Dex's ``staticPasswords`` entries from ``devel/sample_users.py``. The stable
+Dex subject lets both login paths update the same permissions record.
 """
 
 import os
