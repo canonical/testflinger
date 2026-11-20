@@ -161,7 +161,10 @@ class TestflingerCli:
             )
         self.auth = TestflingerCliAuth(server, self.client_id, self.secret_key)
         self.client = client.Client(
-            server, self.auth, error_threshold=error_threshold
+            server,
+            self.auth,
+            error_threshold=error_threshold,
+            timeout=self.args.server_timeout,
         )
 
     def run(self):
@@ -186,6 +189,15 @@ class TestflingerCli:
         )
         parser.add_argument(
             "--server", default=None, help="Testflinger server to use"
+        )
+        parser.add_argument(
+            "--server-timeout",
+            type=int,
+            default=client.DEFAULT_TIMEOUT,
+            help=(
+                "Timeout in seconds for requests to the server "
+                f"(default {client.DEFAULT_TIMEOUT})"
+            ),
         )
         parser.set_defaults(client_id=None, secret_key=None)
         subparsers = parser.add_subparsers()
@@ -214,6 +226,8 @@ class TestflingerCli:
             self.args = parser.parse_args()
         except SnapPrivateFileError as exc:
             parser.error(exc)
+        if self.args.server_timeout <= 0:
+            parser.error("--server-timeout must be greater than zero")
         self.help = parser.format_help()
 
         # Early validation of credentials
