@@ -33,13 +33,6 @@ from testflinger_cli.errors import InvalidTokenError, NetworkError
 from .conftest import TEST_CLIENT_ID, URL
 
 
-@pytest.fixture(autouse=True)
-def no_retry_sleep():
-    """Avoid real waiting between auth retries."""
-    with patch("testflinger_cli.helpers.time.sleep") as mock_sleep:
-        yield mock_sleep
-
-
 def test_submit_with_priority(tmp_path, requests_mock, monkeypatch):
     """Tests authorization of jobs submitted with priority."""
     job_id = str(uuid.uuid1())

@@ -247,7 +247,7 @@ def open_maintenance_ticket(
         already commanded, since someone is then handling the agent.
     """
     if agent is None:
-        agent = database.get_agent_info_v2(agent_name) or {}
+        agent = database.get_agent_info(agent_name) or {}
     comment = report.comment or _comment_of(agent.get("commanded_mode"))
     if keep_pending_command:
         if not database.set_agent_commanded_mode_if_unset(
@@ -320,7 +320,7 @@ def create_ticket_if_agent_self_maintenance(
         or mode != AgentMode.MAINTENANCE
     ):
         return
-    agent = database.get_agent_info_v2(agent_name) or {}
+    agent = database.get_agent_info(agent_name) or {}
     # Without ticketing, agents keep their existing behaviour
     if not agent.get("jira_space"):
         return

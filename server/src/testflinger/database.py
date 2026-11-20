@@ -756,7 +756,7 @@ def _reconstruct_v1_from_v2(agent: dict) -> None:
 
 # TODO: when `views.py` is updated to use the v2 data format this function
 #  can be switched over to the v2 footprint.
-def get_agent_info(agent: str) -> dict | None:
+def get_agent_info_v1(agent: str) -> dict | None:
     """Return the information for a specified agent, with active job attached.
 
     Uses a single aggregation pipeline to join the agent with its current
@@ -808,7 +808,7 @@ def get_agent_mode_snapshot(agent_name: str) -> tuple[str | None, str | None]:
     return values[0], values[1]
 
 
-def get_agent_info_v2(agent: str) -> dict | None:
+def get_agent_info(agent: str) -> dict | None:
     """Return agent information in v2 nested format for v2 API clients.
 
     Uses a single aggregation pipeline to join the agent with its current
@@ -1081,6 +1081,15 @@ def get_restricted_queues_owners() -> dict[str, list[str]]:
 # TODO: when `views.py` is updated to use the v2 data format this function
 #  can be switched over to the v2 footprint.
 def get_agents(queue: str | None = None) -> list[dict]:
+    """Return a list of agents with active job info attached.
+
+    This is a wrapper for the UI views which need v2 nested format
+    (mode/state/commanded_mode structure).
+    """
+    return get_agents_v2(queue)
+
+
+def get_agents_v1(queue: str | None = None) -> list[dict]:
     """Return a list of agents in v1 flat format for v1 API clients.
 
     Retrieves all agents and applies appropriate transformation based on
@@ -1201,6 +1210,18 @@ def get_client_permissions(client_id: str) -> dict:
     )
 
 
+def get_client_permissions_by_sub(sub: str) -> dict:
+    """Retrieve client permissions for an OIDC subject.
+
+    :param sub: OIDC subject identifier.
+    :return: Dictionary with the permissions for the subject.
+    """
+    return (
+        mongo.db.client_permissions.find_one({"sub": sub}, {"_id": False})
+        or {}
+    )
+
+
 def get_all_client_permissions() -> list[dict]:
     """Retrieve a list of all client permissions known; will return the
     permissions from all users.
@@ -1312,6 +1333,7 @@ def register_oidc_client(userinfo: dict) -> None:
         {
             "$set": {
                 "client_id": email,
+                "email": email,
                 "name": name,
                 "last_login": now,
             },
@@ -1383,7 +1405,7 @@ def set_queue_images(queue: str, image_data: dict) -> None:
 
 
 def _upgrade_db_agent_v1_to_v2(agent_name):
-    agent_data = get_agent_info_v2(agent_name)
+    agent_data = mongo.db.agents.find_one({"name": agent_name}, {"_id": False})
     if agent_data and not _is_v2_format(agent_data):
         fields_to_unset = _promote_v1_to_v2(agent_data)
         update = {"$set": agent_data}

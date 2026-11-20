@@ -85,12 +85,18 @@ def test_first_login_registers_new_client(mock_current_app, oidc_app, user):
         assert response.status_code == HTTPStatus.FOUND
         assert response.location == url_for("testflinger.home")
 
+    with client.session_transaction() as session:
+        assert session["user"] == user.user_name
+        assert session["user_email"] == user.emails[0]
+        assert session["user_sub"] == mock_token["userinfo"]["sub"]
+
     # Validate new user was added to client_permissions (keyed by sub)
     client_record = mongo.client_permissions.find_one(
         {"sub": mock_token["userinfo"]["sub"]}
     )
     assert client_record["name"] == mock_token["userinfo"]["name"]
     assert client_record["client_id"] == mock_token["userinfo"]["email"]
+    assert client_record["email"] == mock_token["userinfo"]["email"]
 
 
 @patch("testflinger.oidc.views.current_app", new_callable=Mock)
@@ -104,6 +110,7 @@ def test_client_refresh_login_if_exists(mock_current_app, oidc_app, user):
 
     client_entry = {
         "client_id": user.emails[0],
+        "email": user.emails[0],
         "sub": "1234",
         "name": user.user_name,
         "created_at": created_time,
@@ -149,6 +156,8 @@ def test_client_refresh_login_if_exists(mock_current_app, oidc_app, user):
     # Validate client remains the same and only last_login was updated
     assert mongo.client_permissions.count_documents({}) == 1
     assert web_client["created_at"] == client_record["created_at"]
+    assert web_client["client_id"] == user.emails[0]
+    assert web_client["email"] == user.emails[0]
     # Check that last_login was updated
     assert (
         web_client["last_login"].replace(tzinfo=timezone.utc)

@@ -188,6 +188,9 @@
           "comment": {
             "type": "string"
           },
+          "identifier": {
+            "type": "string"
+          },
           "job": {
             "anyOf": [
               {
@@ -214,6 +217,15 @@
           "name": {
             "type": "string"
           },
+          "provision_streak": {
+            "$ref": "#/components/schemas/ProvisionStreak"
+          },
+          "provision_streak_count": {
+            "type": "integer"
+          },
+          "provision_streak_type": {
+            "type": "string"
+          },
           "provision_type": {
             "type": "string"
           },
@@ -229,10 +241,15 @@
           },
           "state": {
             "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "type": "string"
           }
         },
         "required": [
-          "name"
+          "name",
+          "updated_at"
         ],
         "type": "object"
       },
@@ -909,6 +926,31 @@
         "required": [
           "exit_code",
           "job_id"
+        ],
+        "type": "object"
+      },
+      "ProvisionStreak": {
+        "additionalProperties": false,
+        "properties": {
+          "signed_value": {
+            "type": "integer"
+          },
+          "status": {
+            "enum": [
+              "pass",
+              "fail"
+            ],
+            "type": "string"
+          },
+          "value": {
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "signed_value",
+          "status",
+          "value"
         ],
         "type": "object"
       },
