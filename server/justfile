@@ -95,9 +95,14 @@ check: lint format test check-schema check-roles-docs check-permissions
 clean:
     @rm -rf .tox
 
+[doc('Generate the sample user configuration files.')]
+[group('deploy')]
+gen_sample_user_configs:
+    @uv run devel/generate_sample_user_configs.py
+
 [doc('Run the server.')]
 [group('deploy')]
-serve:
+serve: gen_sample_user_configs
     @docker compose up --build --detach testflinger
 
 [doc('Tear down and restart the local deployment.')]
@@ -122,7 +127,8 @@ admin:
 [doc('Populate the server with sample data.')]
 [group('deploy')]
 [positional-arguments]
-populate *args:
+populate *args: gen_sample_user_configs
+    @docker compose up --build --detach --force-recreate testflinger dex
     @docker compose exec testflinger python3 devel/create_sample_users.py
     @uv run devel/create_sample_data.py "$@"
 

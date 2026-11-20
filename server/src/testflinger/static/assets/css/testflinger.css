@@ -128,6 +128,38 @@ main {
     scroll-behavior: auto;
 }
 
+/* Dev-only auto sign-in dropdown items are <button> in a POST <form> so the
+   action is not GET-safe. Reset button chrome so they render as regular
+   Vanilla dropdown items. */
+.dev-signin-toggle {
+    appearance: none;
+    background: none;
+    border: 0;
+    color: inherit;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    font: inherit;
+    min-height: 2.5rem;
+    padding: 0 1rem;
+    text-align: left;
+    width: 100%;
+}
+
+.p-navigation__dropdown-item-form {
+    margin: 0;
+}
+form button.p-navigation__dropdown-item {
+    appearance: none;
+    background: none;
+    border: 0;
+    width: 100%;
+    text-align: left;
+    font: inherit;
+    cursor: pointer;
+}
+
 /* Tag input filter: a search field + Add button on one row, 
    with chips wrapping freely beneath so they don't disturb the row above. */
 .tag-input-group {
