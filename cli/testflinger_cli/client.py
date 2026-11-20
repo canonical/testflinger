@@ -247,6 +247,36 @@ class Client:
             self._handle_response_error(req)
         return req.text
 
+    def patch(
+        self,
+        uri_frag: str,
+        data: dict,
+        timeout: int = DEFAULT_TIMEOUT,
+    ):
+        """Submit a PATCH request to the server.
+
+        :param uri_frag: endpoint for the PATCH request
+        :param data: JSON data to send in the request body
+        :param timeout: timeout for the request to complete
+        :return: string containing the response from the server
+        """
+        uri = urllib.parse.urljoin(self.server, uri_frag)
+        try:
+            req = self.session.patch(uri, json=data, timeout=timeout)
+        except requests.exceptions.Timeout as exc:
+            raise NetworkError(
+                "Timeout while trying to communicate with the server."
+            ) from exc
+        except requests.exceptions.ConnectionError as exc:
+            raise NetworkError(
+                "Unable to communicate with specified server."
+            ) from exc
+        # If request was not successful, raise HTTPError with parsed response
+        # PATCH endpoints may return 204 No Content instead of 200 OK
+        if req.status_code not in (HTTPStatus.OK, HTTPStatus.NO_CONTENT):
+            self._handle_response_error(req)
+        return req.text
+
     def delete(self, uri_frag: str, timeout: int = DEFAULT_TIMEOUT):
         """Submit a DELETE request to the server
         :param uri_frag: endpoint for the DELETE request
@@ -318,33 +348,69 @@ class Client:
     def get_all_agents(self) -> list[dict]:
         """Get all agents and their data.
 
-        :return: List of dicts containing all agent data.
+        Tries the v2 API first (returns ``mode``, ``state``,
+        ``commanded_mode``); falls back to v1 when the server does not
+        yet support v2.
+
+        # TODO: Remove v1 fallback once all servers are updated to v2
+        :return: List of dicts containing agent data.
         """
-        endpoint = "/v1/agents/data"
-        return json.loads(self.get(endpoint))
+        try:
+            return json.loads(self.get("/v2/agents/data"))
+        except HTTPError as exc:
+            if exc.status == HTTPStatus.NOT_FOUND:
+                return json.loads(self.get("/v1/agents/data"))
+            raise
 
     def get_agent_data(self, agent_name: str) -> dict:
         """Get all the data for a specified agent.
 
+        Tries the v2 API first (returns ``mode``, ``state``,
+        ``commanded_mode``); falls back to v1 only when the *collection*
+        endpoint also returns 404 (server does not support v2).  A 404
+        on the per-agent endpoint means the agent does not exist and is
+        re-raised so callers can handle it correctly.
+
         :param agent_name: Name of the agent to retrieve its data
-        :return: Dict containing all the data from the agent.
+        :return: Dict containing agent data.
         """
-        endpoint = f"/v1/agents/data/{agent_name}"
-        return json.loads(self.get(endpoint))
+        try:
+            return json.loads(self.get(f"/v2/agents/{agent_name}/data"))
+        except HTTPError as exc:
+            if exc.status != HTTPStatus.NOT_FOUND:
+                raise
+            # Distinguish "agent not found" from "v2 not available":
+            # probe the collection endpoint.
+            try:
+                self.get("/v2/agents/data")
+            except HTTPError as probe_exc:
+                if probe_exc.status == HTTPStatus.NOT_FOUND:
+                    # v2 not available — fall back to v1
+                    return json.loads(
+                        self.get(f"/v1/agents/data/{agent_name}")
+                    )
+            # v2 is available but the agent genuinely does not exist
+            raise
 
     def get_agent_status_by_queue(self, queue: str) -> list[dict]:
-        """Get the status of the agents by a specified queue.
+        """Get the mode and state of agents listening on a queue.
 
         :param queue: Name of the queue to retrieve its agent status
-        :return: Dict with the name and status for each agent in queue.
+        :return: List of dicts with ``name``, ``mode``, ``state``,
+            and ``commanded_mode`` for each agent on the queue.
         """
         endpoint = f"/v1/queues/{queue}/agents"
         data = json.loads(self.get(endpoint))
 
-        agents_status = [
-            {"name": agent["name"], "status": agent["state"]} for agent in data
+        return [
+            {
+                "name": agent["name"],
+                "mode": agent.get("mode"),
+                "state": agent.get("state"),
+                "commanded_mode": agent.get("commanded_mode"),
+            }
+            for agent in data
         ]
-        return agents_status
 
     def submit_job(self, data: dict) -> str:
         """Submit a test job to the testflinger server.
@@ -484,16 +550,22 @@ class Client:
         data = self.get(endpoint)
         return json.loads(data)
 
-    def set_agent_status(self, agent: str, status: str, comment: str) -> None:
-        """Modify the status of an agent based on user request.
+    def set_agent_status(self, agent: str, mode: str, comment: str) -> None:
+        """Modify the operating mode of an agent based on user request.
+
+        Sets ``commanded_mode`` on the agent record via the v2 API, signalling
+        the desired mode to the agent.  The agent will adopt the mode on its
+        next poll and report back via ``mode``.
 
         :param agent: Name of the agent
-        :param status: Status to send to the agent
-        :param comment: Reason for changing the status
+        :param mode: AgentMode value to command
+            (online/maintenance/offline/restart)
+        :param comment: Optional reason for the mode change. An empty value
+            clears the agent's existing comment.
         """
-        endpoint = f"/v1/agents/data/{agent}"
-        data = {"state": status, "comment": comment}
-        self.post(endpoint, data)
+        endpoint = f"/v2/agents/{agent}/commanded_mode"
+        data = {"commanded_mode": mode, "comment": comment}
+        self.patch(endpoint, data)
 
     def set_client_permissions(self, json_data: dict):
         """Set existing client_id permissions.
