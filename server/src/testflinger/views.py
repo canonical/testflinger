@@ -18,7 +18,6 @@
 from datetime import datetime, timedelta, timezone
 from http import HTTPStatus
 
-import yaml
 from apiflask import APIBlueprint
 from flask import (
     current_app,
@@ -33,8 +32,8 @@ from pygments.formatters import HtmlFormatter
 from pygments.lexers import BashLexer, YamlLexer
 
 from testflinger import database
-from testflinger.api.schemas import Job
 from testflinger.jira.client import issue_url
+from testflinger.job_yaml import build_job_yaml, dump_yaml
 from testflinger.logs import MongoLogHandler
 
 views = APIBlueprint("testflinger", __name__, enable_openapi=False)
@@ -53,57 +52,6 @@ def require_login():
     return None
 
 
-# Fields the server assigns; never part of a resubmittable job definition.
-_SERVER_MANAGED_JOB_FIELDS = frozenset({"job_id", "parent_job_id"})
-
-# Submittable job-definition fields, derived from the Job schema in declaration
-# order. Deriving (rather than hard-coding) means new submittable fields added
-# to the schema appear in the copied YAML automatically; only server-managed
-# fields need excluding above.
-JOB_DEFINITION_FIELDS = tuple(
-    name for name in Job().fields if name not in _SERVER_MANAGED_JOB_FIELDS
-)
-
-
-class _JobYamlDumper(yaml.SafeDumper):
-    """YAML dumper that renders multiline strings as literal blocks."""
-
-
-def _str_representer(dumper, data):
-    """Represent multiline strings (e.g. test_cmds) as literal blocks."""
-    if "\n" in data:
-        # remove trailing whitespace from each line
-        # (suggested fix for https://github.com/yaml/pyyaml/issues/240)
-        data = "\n".join(line.rstrip() for line in data.splitlines()) + "\n"
-        return dumper.represent_scalar(
-            "tag:yaml.org,2002:str", data, style="|"
-        )
-    return dumper.represent_scalar("tag:yaml.org,2002:str", data)
-
-
-_JobYamlDumper.add_representer(str, _str_representer)
-
-
-def _dump_yaml(data):
-    """Dump a value to YAML using the literal-block-aware dumper."""
-    return yaml.dump(
-        data,
-        Dumper=_JobYamlDumper,
-        default_flow_style=False,
-        sort_keys=False,
-    )
-
-
-def build_job_yaml(job_data):
-    """Build a submittable job-definition YAML from stored job data."""
-    definition = {
-        field: job_data[field]
-        for field in JOB_DEFINITION_FIELDS
-        if field in job_data
-    }
-    return _dump_yaml(definition)
-
-
 @views.app_template_filter("as_yaml")
 def as_yaml(value):
     """Render a job-data section as YAML for display in the dashboard.
@@ -113,7 +61,7 @@ def as_yaml(value):
     """
     if value is None or isinstance(value, str):
         return value
-    return _dump_yaml(value).rstrip("\n")
+    return dump_yaml(value).rstrip("\n")
 
 
 # Built once and reused; nowrap emits only token <span>s (the <pre><code>

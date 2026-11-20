@@ -23,10 +23,10 @@ from datetime import datetime, timezone
 from flask import current_app, has_request_context, request
 from testflinger_common.enums import AgentMode, LogType, TestPhase
 
-from testflinger import database, views
+from testflinger import database
 from testflinger.jira.client import JiraClient, is_configured
 from testflinger.jira.exceptions import JiraError
-from testflinger.logs import MongoLogHandler
+from testflinger.job_yaml import build_job_yaml
 
 logger = logging.getLogger(__name__)
 
@@ -94,9 +94,9 @@ def _provision_output(job_id: str, job: dict) -> str:
     Output is read from the log store, falling back to the result data
     of jobs whose output is stored there.
     """
-    logs = MongoLogHandler(database.mongo).retrieve_logs(
+    logs = database.get_job_log(
         job_id, LogType.STANDARD_OUTPUT, TestPhase.PROVISION
-    )["log_data"]
+    )
     key = f"{TestPhase.PROVISION}_{LogType.STANDARD_OUTPUT}"
     return logs or (job.get("result_data") or {}).get(key) or ""
 
@@ -109,7 +109,7 @@ def _job_definition(job: dict) -> str:
         for key in ("job_queue", "provision_data")
         if key in job_data
     }
-    return views.build_job_yaml(definition) if definition else ""
+    return build_job_yaml(definition) if definition else ""
 
 
 def _job_details(job_id: str | None) -> JobDetails | None:

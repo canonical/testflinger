@@ -27,7 +27,15 @@ from flask_pymongo import PyMongo
 from gridfs import GridFS, errors
 from pymongo import ASCENDING, DESCENDING, ReturnDocument
 from pymongo.errors import DuplicateKeyError, PyMongoError
-from testflinger_common.enums import AgentMode, AgentState, ServerRoles
+from testflinger_common.enums import (
+    AgentMode,
+    AgentState,
+    LogType,
+    ServerRoles,
+    TestPhase,
+)
+
+from testflinger.logs import MongoLogHandler
 
 # Field that should be allowed for grouping in the job_statistics collection.
 _STATS_GROUP_FIELDS = frozenset({"queue", "submitted_by"})
@@ -1629,6 +1637,19 @@ def get_job_results(job_id: str):
         {"job_id": job_id},
         {"result_data": True, "_id": False},
     )
+
+
+def get_job_log(job_id: str, log_type: LogType, phase: TestPhase) -> str:
+    """Return the combined log of one type for a phase of a job.
+
+    :param job_id: The job ID.
+    :param log_type: The type of log, e.g. standard output.
+    :param phase: The test phase the log belongs to.
+    :return: The log text, empty if there is none.
+    """
+    return MongoLogHandler(mongo).retrieve_logs(job_id, log_type, phase)[
+        "log_data"
+    ]
 
 
 def update_job_results(job_id: str, json_data: dict) -> dict:

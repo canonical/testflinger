@@ -27,11 +27,11 @@ import yaml
 from testflinger_common.enums import LogType, TestPhase
 
 from testflinger.database import get_agents
+from testflinger.job_yaml import build_job_yaml
 from testflinger.views import (
     _parse_utc_date,
     agent_detail,
     as_yaml,
-    build_job_yaml,
     highlight,
     job_detail,
     queues_data,
@@ -487,7 +487,7 @@ def test_job_definition_fields_derived_from_schema():
     dropped while still excluding fields the server assigns.
     """
     from testflinger.api.schemas import Job
-    from testflinger.views import JOB_DEFINITION_FIELDS
+    from testflinger.job_yaml import JOB_DEFINITION_FIELDS
 
     schema_fields = set(Job().fields)
     server_managed = {"job_id", "parent_job_id"}
