@@ -43,6 +43,14 @@ def is_configured() -> bool:
     return all(os.environ.get(name) for name in ENV_SETTINGS)
 
 
+def issue_url(issue_key: str) -> str | None:
+    """Return the browser URL of an issue, if Jira is configured."""
+    base_url = os.environ.get("JIRA_BASE_URL")
+    if not base_url:
+        return None
+    return f"{base_url.rstrip('/')}/browse/{issue_key}"
+
+
 def text_to_adf(text: str) -> dict:
     """Convert plain text to an Atlassian Document Format document.
 

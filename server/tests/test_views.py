@@ -157,6 +157,42 @@ def test_agent_detail_renders_active_job(testapp):
     assert 'href="/jobs/job-1"' in str(response)
 
 
+@pytest.mark.parametrize(
+    ("base_url", "key", "shown"),
+    [
+        ("https://jira.example.com/", "TESTOPS-1", True),
+        (None, "TESTOPS-1", False),
+        ("https://jira.example.com/", None, False),
+    ],
+)
+def test_agent_detail_jira_ticket_link(
+    testapp, monkeypatch, base_url, key, shown
+):
+    """The Jira ticket is added to the agent's external links."""
+    if base_url:
+        monkeypatch.setenv("JIRA_BASE_URL", base_url)
+    else:
+        monkeypatch.delenv("JIRA_BASE_URL", raising=False)
+    mongo = mongomock.MongoClient()
+    mongo.db.agents.insert_one(
+        {
+            "name": "agent1",
+            "jira_ticket": {"key": key, "token": "t"},
+            "links": [{"label": "Docs", "url": "https://docs.example.com"}],
+            "updated_at": datetime.now(tz=timezone.utc),
+        }
+    )
+
+    with patch("testflinger.database.mongo", mongo):
+        with testapp.test_request_context():
+            response = agent_detail("agent1")
+
+    assert 'href="https://docs.example.com"' in response
+    link = 'href="https://jira.example.com/browse/TESTOPS-1"'
+    assert (link in response) == shown
+    assert ("Jira ticket TESTOPS-1" in response) == shown
+
+
 def test_agent_not_found(testapp):
     """
     Test that the agent_detail fails gracefully when

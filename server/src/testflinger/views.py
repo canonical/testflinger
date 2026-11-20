@@ -34,6 +34,7 @@ from pygments.lexers import BashLexer, YamlLexer
 
 from testflinger import database
 from testflinger.api.schemas import Job
+from testflinger.jira.client import issue_url
 from testflinger.logs import MongoLogHandler
 
 views = APIBlueprint("testflinger", __name__, enable_openapi=False)
@@ -202,6 +203,13 @@ def agent_detail(agent_id):
         queue_info.append(queue_data)
 
     agent_info["queues"] = queue_info
+
+    ticket_key = (agent_info.get("jira_ticket") or {}).get("key")
+    if ticket_key and (ticket_url := issue_url(ticket_key)):
+        agent_info["links"] = [
+            *(agent_info.get("links") or []),
+            {"label": f"Jira ticket {ticket_key}", "url": ticket_url},
+        ]
 
     # We want to include the start/stop dates so that default values
     # can be filled in for the date pickers

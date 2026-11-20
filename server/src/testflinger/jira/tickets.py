@@ -23,11 +23,10 @@ from datetime import datetime, timezone
 from flask import current_app, has_request_context, request
 from testflinger_common.enums import AgentMode, LogType, TestPhase
 
-from testflinger import database
+from testflinger import database, views
 from testflinger.jira.client import JiraClient, is_configured
 from testflinger.jira.exceptions import JiraError
 from testflinger.logs import MongoLogHandler
-from testflinger.views import build_job_yaml
 
 logger = logging.getLogger(__name__)
 
@@ -110,7 +109,7 @@ def _job_definition(job: dict) -> str:
         for key in ("job_queue", "provision_data")
         if key in job_data
     }
-    return build_job_yaml(definition) if definition else ""
+    return views.build_job_yaml(definition) if definition else ""
 
 
 def _job_details(job_id: str | None) -> JobDetails | None:
