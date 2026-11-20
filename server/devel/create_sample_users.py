@@ -34,7 +34,7 @@ real-world scenarios where a person owns multiple service accounts.
 import bcrypt
 
 from testflinger.application import create_flask_app
-from testflinger.database import mongo, register_oidc_client
+from testflinger.database import mongo
 from sample_users import SAMPLE_CLIENTS
 
 
@@ -50,7 +50,9 @@ def main():
         deleted = db.client_permissions.delete_many({}).deleted_count
         print(f"Cleared {deleted} client-permissions records.")
 
-        # Create credential and OIDC records independently from known data.
+        # Only credential accounts are seeded. Dex users are registered by
+        # database.register_oidc_client() the first time they log in. The
+        # dev sign-in menu registers its own identities.
         for client_id, client in SAMPLE_CLIENTS.items():
             if client.get("testflinger_account"):
                 credential_id = client["client_id"]
@@ -85,22 +87,6 @@ def main():
                         "Removed Dex subject from credential "
                         f"'{credential_id}'."
                     )
-
-            if not client.get("dex_account"):
-                continue
-
-            # Same upsert as a real login, then apply the sample role.
-            register_oidc_client(
-                {
-                    "sub": client["sub"],
-                    "email": client["email"],
-                    "name": client.get("name", ""),
-                }
-            )
-            db.client_permissions.update_one(
-                {"sub": client["sub"]}, {"$set": {"role": client["role"]}}
-            )
-            print(f"Upserted Dex account for subject '{client['sub']}'.")
 
 
 if __name__ == "__main__":
