@@ -32,6 +32,7 @@ real-world scenarios where a person owns multiple service accounts.
 """
 
 import os
+from datetime import datetime, timezone
 
 import bcrypt
 from pymongo import MongoClient
@@ -52,8 +53,8 @@ def main():
     deleted = db.client_permissions.delete_many({}).deleted_count
     print(f"Cleared {deleted} client-permissions records.")
 
-    # Only credential accounts are seeded. Dex users are registered by
-    # database.register_oidc_client() the first time they log in.
+    # Credential and Dex records are separate rows. They may share an email
+    # but have different client_id/sub identities.
     for client_id, client in SAMPLE_CLIENTS.items():
         if client.get("testflinger_account"):
             credential_id = client["client_id"]
@@ -65,6 +66,7 @@ def main():
                 not in {
                     "testflinger_account",
                     "dex_account",
+                    "dex_user_id",
                     "sub",
                     "secret_key",
                 }
@@ -74,6 +76,29 @@ def main():
             )
             db.client_permissions.insert_one(credential_doc)
             print(f"Created credential client '{credential_id}'.")
+        if not client.get("dex_account"):
+            continue
+
+        # Pre-register the Dex user with the sub Dex will issue at login so
+        # the first login matches this row and keeps its role.
+        sub = client["sub"]
+        db.client_permissions.update_one(
+            {"sub": sub},
+            {
+                "$set": {
+                    "client_id": client["email"],
+                    "email": client["email"],
+                    "name": client.get("name", ""),
+                    "role": client["role"],
+                },
+                "$setOnInsert": {
+                    "sub": sub,
+                    "created_at": datetime.now(timezone.utc),
+                },
+            },
+            upsert=True,
+        )
+        print(f"Upserted Dex account for subject '{sub}'.")
 
 
 if __name__ == "__main__":

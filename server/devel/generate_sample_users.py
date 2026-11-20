@@ -12,7 +12,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
-"""Generate the local Dex configuration from the sample users."""
+"""Generate local Dex data from sample users."""
 
 from pathlib import Path
 
@@ -22,8 +22,13 @@ ROOT = Path(__file__).parent.parent
 PASSWORD_HASH = "$2a$10$FWI.y.8Zpa9PhTTcV6GDIuxPzrwYJoiVCimgCA427HoyR5FR50mBu"
 
 
-def main() -> None:
-    """Write Dex static passwords for every sample client with Dex access."""
+def _write_dex_config() -> None:
+    """Write Dex configuration for all sample clients with an OIDC identity."""
+    dex_users = [
+        client
+        for client in SAMPLE_CLIENTS.values()
+        if client.get("dex_account")
+    ]
     lines = [
         "issuer: http://dex:5556",
         "storage:",
@@ -43,15 +48,13 @@ def main() -> None:
         "enablePasswordDB: true",
         "staticPasswords:",
     ]
-    for user in SAMPLE_CLIENTS.values():
-        if not user.get("dex_account"):
-            continue
+    for user in dex_users:
         lines.extend(
             [
                 f'  - email: "{user["email"]}"',
                 f'    hash: "{PASSWORD_HASH}"',
                 f'    username: "{user["name"]}"',
-                f'    userID: "{user["sub"]}"',
+                f'    userID: "{user["dex_user_id"]}"',
             ]
         )
     lines.extend(
@@ -65,6 +68,11 @@ def main() -> None:
         ]
     )
     (ROOT / "devel/dex-config.yaml").write_text("\n".join(lines))
+
+
+def main() -> None:
+    """Generate all local account consumer inputs."""
+    _write_dex_config()
 
 
 if __name__ == "__main__":
