@@ -31,10 +31,13 @@ Some emails are intentionally reused across different client IDs to reflect
 real-world scenarios where a person owns multiple service accounts.
 """
 
-import bcrypt
+import os
+from datetime import datetime, timezone
 
-from testflinger.application import create_flask_app
-from testflinger.database import mongo
+import bcrypt
+from pymongo import MongoClient
+
+from testflinger.database import get_mongo_uri
 from sample_users import SAMPLE_CLIENTS
 
 
@@ -43,50 +46,60 @@ def _make_secret_hash(secret: str) -> str:
 
 
 def main():
-    app = create_flask_app()
-    with app.app_context():
-        db = mongo.db
+    mongo_uri = get_mongo_uri()
+    mongo_db = os.environ.get("MONGODB_DATABASE", "testflinger_db")
+    db = MongoClient(host=mongo_uri)[mongo_db]
 
-        deleted = db.client_permissions.delete_many({}).deleted_count
-        print(f"Cleared {deleted} client-permissions records.")
+    deleted = db.client_permissions.delete_many({}).deleted_count
+    print(f"Cleared {deleted} client-permissions records.")
 
-        # Only credential accounts are seeded. Dex users are registered by
-        # database.register_oidc_client() the first time they log in. The
-        # dev sign-in menu registers its own identities.
-        for client_id, client in SAMPLE_CLIENTS.items():
-            if client.get("testflinger_account"):
-                credential_id = client["client_id"]
-                credential = db.client_permissions.find_one(
-                    {"client_id": credential_id}
-                )
-                if credential is None:
-                    secret_key = client["secret_key"]
-                    credential_doc = {
-                        key: value
-                        for key, value in client.items()
-                        if key not in {
-                            "testflinger_account",
-                            "dex_account",
-                            "dev_auto_signin",
-                            "sub",
-                            "secret_key",
-                        }
-                    }
-                    credential_doc["client_secret_hash"] = _make_secret_hash(
-                        secret_key
-                    )
-                    db.client_permissions.insert_one(credential_doc)
-                    print(f"Created credential client '{credential_id}'.")
-                elif credential.get("sub"):
-                    # Older samples put the Dex subject on the credential row.
-                    db.client_permissions.update_one(
-                        {"_id": credential["_id"]},
-                        {"$unset": {"sub": ""}},
-                    )
-                    print(
-                        "Removed Dex subject from credential "
-                        f"'{credential_id}'."
-                    )
+    # Credential and Dex records are separate rows. They may share an email
+    # but have different client_id/sub identities.
+    for client_id, client in SAMPLE_CLIENTS.items():
+        if client.get("testflinger_account"):
+            credential_id = client["client_id"]
+            secret_key = client["secret_key"]
+            credential_doc = {
+                key: value
+                for key, value in client.items()
+                if key
+                not in {
+                    "testflinger_account",
+                    "dex_account",
+                    "dev_auto_signin",
+                    "dex_user_id",
+                    "sub",
+                    "secret_key",
+                }
+            }
+            credential_doc["client_secret_hash"] = _make_secret_hash(
+                secret_key
+            )
+            db.client_permissions.insert_one(credential_doc)
+            print(f"Created credential client '{credential_id}'.")
+        if not client.get("dex_account"):
+            continue
+
+        # Pre-register the Dex user with the sub Dex will issue at login so
+        # the first login matches this row and keeps its role.
+        sub = client["sub"]
+        db.client_permissions.update_one(
+            {"sub": sub},
+            {
+                "$set": {
+                    "client_id": client["email"],
+                    "email": client["email"],
+                    "name": client.get("name", ""),
+                    "role": client["role"],
+                },
+                "$setOnInsert": {
+                    "sub": sub,
+                    "created_at": datetime.now(timezone.utc),
+                },
+            },
+            upsert=True,
+        )
+        print(f"Upserted Dex account for subject '{sub}'.")
 
 
 if __name__ == "__main__":

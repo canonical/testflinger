@@ -18,6 +18,27 @@ OIDC account, and a development sign-in menu entry. The credential and Dex
 accounts are separate Mongo records and may share an email address.
 """
 
+import base64
+
+DEX_CONNECTOR_ID = "local"
+
+
+def dex_subject(user_id: str, connector_id: str = DEX_CONNECTOR_ID) -> str:
+    """Return the ``sub`` claim Dex issues for a static password user.
+
+    Dex does not return the configured ``userID`` as ``sub``. It returns a
+    base64url (unpadded) protobuf message holding the user ID and connector
+    ID. Each sample entry keeps the raw ID as ``dex_user_id``.
+    """
+
+    def field(tag: int, value: str) -> bytes:
+        data = value.encode()
+        return bytes([tag, len(data)]) + data
+
+    raw = field(0x0A, user_id) + field(0x12, connector_id)
+    return base64.urlsafe_b64encode(raw).rstrip(b"=").decode()
+
+
 TESTFLINGER_ADMIN_ID = "testflinger-admin"
 TESTFLINGER_AGENT_ID = "testflinger-agent"
 
@@ -29,7 +50,8 @@ SAMPLE_CLIENTS = {
         "client_id": TESTFLINGER_ADMIN_ID,
         "email": "testflinger@example.com",
         "name": "testflinger-admin",
-        "sub": "1001",
+        "dex_user_id": "1001",
+        "sub": dex_subject("1001"),
         "role": "admin",
         "max_priority": {"*": 100},
         "allowed_queues": [],
@@ -43,7 +65,8 @@ SAMPLE_CLIENTS = {
         "client_id": "alice-sample-client",
         "email": "alice@example.com",
         "name": "alice",
-        "sub": "1003",
+        "dex_user_id": "1003",
+        "sub": dex_subject("1003"),
         "role": "admin",
         "allowed_queues": [],
         "max_reservation_time": {},
@@ -79,7 +102,8 @@ SAMPLE_CLIENTS = {
         "client_id": "ci-bot-snapd",
         "email": "bob@example.com",
         "name": "bob",
-        "sub": "1004",
+        "dex_user_id": "1004",
+        "sub": dex_subject("1004"),
         "role": "manager",
         "allowed_queues": [],
         "max_reservation_time": {},
@@ -92,7 +116,8 @@ SAMPLE_CLIENTS = {
         "client_id": "qa-runner-x86",
         "email": "carol@example.com",
         "name": "carol",
-        "sub": "1005",
+        "dex_user_id": "1005",
+        "sub": dex_subject("1005"),
         "role": "contributor",
         "allowed_queues": [],
         "max_reservation_time": {},

@@ -20,6 +20,7 @@ from sample_users import SAMPLE_CLIENTS
 
 ROOT = Path(__file__).parent.parent
 PASSWORD_HASH = "$2a$10$FWI.y.8Zpa9PhTTcV6GDIuxPzrwYJoiVCimgCA427HoyR5FR50mBu"
+
 REQUIRED_ROLES = {"admin", "manager", "contributor"}
 
 
@@ -47,7 +48,7 @@ def _development_users() -> list[dict]:
     return users
 
 
-def _write_dex_config(users: list[dict]) -> None:
+def _write_dex_config() -> None:
     """Write Dex configuration for all sample clients with an OIDC identity."""
     dex_users = [
         client
@@ -79,7 +80,7 @@ def _write_dex_config(users: list[dict]) -> None:
                 f'  - email: "{user["email"]}"',
                 f'    hash: "{PASSWORD_HASH}"',
                 f'    username: "{user["name"]}"',
-                f'    userID: "{user["sub"]}"',
+                f'    userID: "{user["dex_user_id"]}"',
             ]
         )
     lines.extend(
@@ -136,7 +137,7 @@ def _write_dev_signin_identities(users: list[dict]) -> None:
 def main() -> None:
     """Generate all local account consumer inputs."""
     users = _development_users()
-    _write_dex_config(users)
+    _write_dex_config()
     _write_dev_signin_identities(users)
 
 
