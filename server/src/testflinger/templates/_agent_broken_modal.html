@@ -1,0 +1,83 @@
+{% from "_modal.html" import render_modal_js %}
+{#--
+  "Mark as Broken" modal for the agent detail page.
+
+  Submits POST /agents/<name>/broken, which commands the agent into
+  maintenance and opens a Jira ticket with the description and the
+  provision failures listed here.
+--#}
+<div class="p-modal" id="broken-modal" style="display:none">
+  <section class="p-modal__dialog"
+           role="dialog"
+           aria-modal="true"
+           aria-labelledby="broken-modal-title"
+           aria-describedby="broken-modal-description">
+    <header class="p-modal__header">
+      <h2 class="p-modal__title" id="broken-modal-title">Mark {{ agent.name }} as broken</h2>
+      <button class="p-modal__close"
+              aria-label="Close active modal"
+              aria-controls="broken-modal">Close</button>
+    </header>
+    <div class="p-notification--negative" id="broken-modal-description">
+      <div class="p-notification__content">
+        <h3 class="p-notification__title">This action is not reversible</h3>
+        <p class="p-notification__message">
+          The agent will be put into maintenance mode and will stop
+          running jobs until someone can look at it and resolve the issue.
+          A Jira ticket will be created with the details below.
+        </p>
+      </div>
+    </div>
+    <h3 class="p-muted-heading">
+      Provision failures (last {{ broken_failures_days }} days)
+    </h3>
+    {% if provision_failures %}
+      <div style="max-height: 15rem; overflow-y: auto">
+        <table aria-label="Recent provision failures">
+          <thead>
+            <tr>
+              <th>Finished At</th>
+              <th>Job ID</th>
+              <th class="u-align--right">Exit code</th>
+              <th>Detail</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for failure in provision_failures %}
+              <tr>
+                <td>{{ failure.timestamp.strftime("%Y-%m-%d %H:%M:%S") }}</td>
+                <td>
+                  <a href="{{ url_for('testflinger.job_detail', job_id=failure.job_id) }}">{{ failure.job_id }}</a>
+                </td>
+                <td class="u-align--right">{{ failure.exit_code }}</td>
+                <td>{{ failure.detail }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <p class="u-text--muted">No provision failures recorded.</p>
+    {% endif %}
+    <form method="post"
+          action="{{ url_for('testflinger.agent_mark_broken', agent_id=agent.name) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="p-form__group">
+        <label class="p-form__label is-required" for="broken-description">Describe the issue</label>
+        <textarea class="p-form__control"
+                  id="broken-description"
+                  name="description"
+                  rows="4"
+                  placeholder="What is wrong with this agent? What did you observe?"
+                  required></textarea>
+      </div>
+      <footer class="p-modal__footer">
+        <button type="button"
+                class="u-no-margin--bottom"
+                aria-controls="broken-modal">Cancel</button>
+        <button type="submit" class="p-button--negative u-no-margin--bottom">Mark as Broken</button>
+      </footer>
+    </form>
+  </section>
+</div>
+{{ render_modal_js() }}

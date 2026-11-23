@@ -37,11 +37,17 @@ from pygments.lexers import BashLexer, YamlLexer
 from testflinger_common.enums import AgentMode, ServerRoles
 
 from testflinger import database
+from testflinger.jira import open_maintenance_ticket
 from testflinger.jira.client import issue_url
+from testflinger.jira.tickets import MaintenanceReport
 from testflinger.job_yaml import build_job_yaml, dump_yaml
 from testflinger.logs import MongoLogHandler
 
 views = APIBlueprint("testflinger", __name__, enable_openapi=False)
+
+# Provision failures shown and reported when an agent is marked as broken
+BROKEN_FAILURES_DAYS = 7
+BROKEN_FAILURES_LIMIT = 10
 
 
 def _get_csrf_token() -> str:
@@ -178,6 +184,32 @@ def _is_admin():
     return perms.get("role") == ServerRoles.ADMIN
 
 
+def _is_logged_in() -> bool:
+    """Return True if OIDC is enabled and a user is logged in."""
+    return current_app.oauth is not None and bool(session.get("user_sub"))
+
+
+def _csrf_valid() -> bool:
+    """Return True if the submitted form carries the session CSRF token."""
+    submitted_token = request.form.get("csrf_token", "")
+    session_token = session.get("_csrf_token", "")
+    return bool(session_token) and hmac.compare_digest(
+        submitted_token.encode("utf-8"), session_token.encode("utf-8")
+    )
+
+
+def _recent_provision_failures(agent_id: str) -> list[dict]:
+    """Return the agent's latest failed provisions, newest first."""
+    now = datetime.now(tz=timezone.utc)
+    log = database.get_provision_log(
+        agent_id,
+        start_datetime=now - timedelta(days=BROKEN_FAILURES_DAYS),
+        stop_datetime=now,
+    )
+    failures = [entry for entry in log if entry.get("exit_code") != 0]
+    return failures[::-1][:BROKEN_FAILURES_LIMIT]
+
+
 @views.route("/agents")
 def agents():
     """Agents view."""
@@ -276,9 +308,61 @@ def agent_detail(agent_id):
         # Avoid division by zero
         agent_info["provision_success_rate"] = 0
 
+    can_mark_broken = _is_logged_in()
     return render_template(
-        "agent_detail.html", agent=agent_info, is_admin=_is_admin()
+        "agent_detail.html",
+        agent=agent_info,
+        is_admin=_is_admin(),
+        can_mark_broken=can_mark_broken,
+        provision_failures=(
+            _recent_provision_failures(agent_id) if can_mark_broken else []
+        ),
+        broken_failures_days=BROKEN_FAILURES_DAYS,
     )
+
+
+@views.route("/agents/<agent_id>/broken", methods=["POST"])
+def agent_mark_broken(agent_id):
+    """UI endpoint for a user to report an agent as broken.
+
+    The agent is commanded into maintenance and a Jira ticket is opened
+    with the user's description and the agent's recent provision failures.
+    """
+    if current_app.oauth is None:
+        return make_response("Forbidden", HTTPStatus.FORBIDDEN)
+    if not _is_logged_in():
+        return make_response(
+            render_template("401_unauthorized.html"),
+            HTTPStatus.UNAUTHORIZED,
+        )
+    if not _csrf_valid():
+        return make_response("Invalid CSRF token", HTTPStatus.BAD_REQUEST)
+
+    description = request.form.get("description", "").strip()
+    if not description:
+        return make_response(
+            "A description is required", HTTPStatus.BAD_REQUEST
+        )
+
+    agent = database.get_agent_info(agent_id)
+    if not agent:
+        return make_response("Agent not found", HTTPStatus.NOT_FOUND)
+
+    reporter = session.get("user_email") or session.get("user_sub")
+    report = MaintenanceReport(
+        client_id=reporter,
+        time=datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        comment=f"Marked as broken by {reporter}: {description}",
+        provision_failures=_recent_provision_failures(agent_id),
+    )
+    open_maintenance_ticket(
+        agent_id,
+        f"Agent {agent_id} was marked as broken",
+        report,
+        agent=agent,
+        changed_by=reporter,
+    )
+    return redirect(url_for("testflinger.agent_detail", agent_id=agent_id))
 
 
 @views.route("/agents/<agent_id>/state", methods=["POST"])
@@ -297,11 +381,7 @@ def agent_state_update(agent_id):
     else:
         return make_response("Forbidden", HTTPStatus.FORBIDDEN)
 
-    submitted_token = request.form.get("csrf_token", "")
-    session_token = session.get("_csrf_token", "")
-    if not session_token or not hmac.compare_digest(
-        submitted_token.encode("utf-8"), session_token.encode("utf-8")
-    ):
+    if not _csrf_valid():
         return make_response("Invalid CSRF token", HTTPStatus.BAD_REQUEST)
 
     new_mode = request.form.get("mode", "").strip()

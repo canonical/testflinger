@@ -45,6 +45,7 @@ class MaintenanceReport:
     comment: str | None = None
     links: list[dict] = field(default_factory=list)
     server_url: str | None = None
+    provision_failures: list[dict] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -131,6 +132,27 @@ def _job_details(job_id: str | None) -> JobDetails | None:
         return JobDetails(job_id=job_id)
 
 
+def _job_link(job_id: str, server_url: str | None) -> str:
+    """Return a link to a job on the server, or its id if unknown."""
+    if server_url:
+        return f"{server_url.rstrip('/')}/jobs/{job_id}"
+    return job_id
+
+
+def _failure_line(failure: dict, server_url: str | None) -> str:
+    """Describe a provision log entry of a failed provision."""
+    timestamp = failure.get("timestamp")
+    if isinstance(timestamp, datetime):
+        timestamp = timestamp.strftime("%Y-%m-%d %H:%M:%S")
+    line = (
+        f"- {timestamp or 'unknown time'}: "
+        f"job {_job_link(failure.get('job_id') or 'unknown', server_url)}, "
+        f"exit code {failure.get('exit_code')}"
+    )
+    detail = failure.get("detail")
+    return f"{line} ({detail})" if detail else line
+
+
 def _ticket_description(
     agent_name: str,
     agent: dict,
@@ -138,11 +160,7 @@ def _ticket_description(
     job: JobDetails | None = None,
 ) -> str:
     """Build the ticket text from the agent record and its report."""
-    job_link = "none"
-    if job:
-        job_link = job.job_id
-        if report.server_url:
-            job_link = f"{report.server_url.rstrip('/')}/jobs/{job.job_id}"
+    job_link = _job_link(job.job_id, report.server_url) if job else "none"
     lines = [
         f"Agent: {agent_name}",
         f"Reported by: {report.client_id or 'N/A'}",
@@ -164,6 +182,12 @@ def _ticket_description(
         for link in links
         if link.get("url")
     )
+    if report.provision_failures:
+        lines.append("Recent provision failures:")
+        lines.extend(
+            _failure_line(failure, report.server_url)
+            for failure in report.provision_failures
+        )
     return "\n".join(lines)
 
 
@@ -230,6 +254,7 @@ def open_maintenance_ticket(
     agent: dict | None = None,
     *,
     keep_pending_command: bool = False,
+    changed_by: str = SERVER_CLIENT_ID,
 ) -> None:
     """Command an agent into maintenance and open a Jira ticket about it.
 
@@ -245,6 +270,7 @@ def open_maintenance_ticket(
     :param agent: The agent record, if the caller already has it.
     :param keep_pending_command: If True, do nothing when a mode is
         already commanded, since someone is then handling the agent.
+    :param changed_by: Who the maintenance command is recorded as.
     """
     if agent is None:
         agent = database.get_agent_info(agent_name) or {}
@@ -254,7 +280,7 @@ def open_maintenance_ticket(
             agent_name,
             AgentMode.MAINTENANCE.value,
             comment,
-            changed_by=SERVER_CLIENT_ID,
+            changed_by=changed_by,
         ):
             logger.info(
                 "Agent %s already has a commanded mode, skipping Jira ticket",
@@ -266,7 +292,7 @@ def open_maintenance_ticket(
             agent_name,
             AgentMode.MAINTENANCE.value,
             comment,
-            changed_by=SERVER_CLIENT_ID,
+            changed_by=changed_by,
         )
     if not agent.get("jira_space"):
         logger.warning(
