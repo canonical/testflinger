@@ -3,6 +3,7 @@ autoinstall
 dragonboard
 DUTs
 fragment_number
+Jira
 Lenovo
 log_data
 logfile
