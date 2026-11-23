@@ -1050,6 +1050,18 @@ def get_client_permissions(client_id: str) -> dict:
     )
 
 
+def get_client_permissions_by_sub(sub: str) -> dict:
+    """Retrieve client permissions for an OIDC subject.
+
+    :param sub: OIDC subject identifier.
+    :return: Dictionary with the permissions for the subject.
+    """
+    return (
+        mongo.db.client_permissions.find_one({"sub": sub}, {"_id": False})
+        or {}
+    )
+
+
 def get_all_client_permissions() -> list[dict]:
     """Retrieve a list of all client permissions known; will return the
     permissions from all users.
@@ -1161,6 +1173,7 @@ def register_oidc_client(userinfo: dict) -> None:
         {
             "$set": {
                 "client_id": email,
+                "email": email,
                 "name": name,
                 "last_login": now,
             },

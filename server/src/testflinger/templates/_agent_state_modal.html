@@ -48,6 +48,12 @@
     "name":  "next",
     "value": url_for(request.endpoint, **(request.view_args or {}) ),
   },
+  {
+  "type":  "hidden",
+  "id":    "modal-csrf-token",
+  "name":  "csrf_token",
+  "value": csrf_token(),
+  },
   ],
   submit_label = "Confirm",) }}
   {{ render_modal_js() }}

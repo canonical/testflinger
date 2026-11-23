@@ -15,6 +15,8 @@
 #
 """Additional views not associated with the API."""
 
+import hmac
+import secrets
 from datetime import datetime, timedelta, timezone
 from http import HTTPStatus
 
@@ -40,6 +42,21 @@ from testflinger.api.schemas import Job
 from testflinger.logs import MongoLogHandler
 
 views = APIBlueprint("testflinger", __name__, enable_openapi=False)
+
+
+def _get_csrf_token() -> str:
+    """Return the CSRF token for the current browser session."""
+    token = session.get("_csrf_token")
+    if token is None:
+        token = secrets.token_urlsafe(32)
+        session["_csrf_token"] = token
+    return token
+
+
+@views.app_context_processor
+def inject_csrf_token():
+    """Make the session CSRF token available to portal templates."""
+    return {"csrf_token": _get_csrf_token}
 
 
 def _state_duration(state_changed_at) -> str:
@@ -205,10 +222,10 @@ def _is_admin():
     """
     if current_app.oauth is None:
         return False
-    user_email = session.get("user_email", "")
-    if not user_email:
+    sub = session.get("user_sub", "")
+    if not sub:
         return False
-    perms = database.get_client_permissions(user_email)
+    perms = database.get_client_permissions_by_sub(sub)
     return perms.get("role") == ServerRoles.ADMIN
 
 
@@ -312,17 +329,24 @@ def agent_detail(agent_id):
 def agent_state_update(agent_id):
     """UI endpoint for an admin to update an agent's mode."""
     if current_app.oauth is not None:
-        user_email = session.get("user_email", "")
-        if not user_email:
+        sub = session.get("user_sub", "")
+        if not sub:
             return make_response(
                 render_template("401_unauthorized.html"),
                 HTTPStatus.UNAUTHORIZED,
             )
-        perms = database.get_client_permissions(user_email)
+        perms = database.get_client_permissions_by_sub(sub)
         if perms.get("role") != ServerRoles.ADMIN:
             return make_response("Forbidden", HTTPStatus.FORBIDDEN)
     else:
         return make_response("Forbidden", HTTPStatus.FORBIDDEN)
+
+    submitted_token = request.form.get("csrf_token", "")
+    session_token = session.get("_csrf_token", "")
+    if not session_token or not hmac.compare_digest(
+        submitted_token.encode("utf-8"), session_token.encode("utf-8")
+    ):
+        return make_response("Invalid CSRF token", HTTPStatus.BAD_REQUEST)
 
     new_mode = request.form.get("mode", "").strip()
     comment = request.form.get("comment", "").strip()
@@ -331,7 +355,8 @@ def agent_state_update(agent_id):
     if new_mode not in allowed_modes:
         return make_response("Invalid mode", HTTPStatus.BAD_REQUEST)
 
-    database.set_agent_commanded_mode(agent_id, new_mode, comment, user_email)
+    changed_by = session.get("user_email", "")
+    database.set_agent_commanded_mode(agent_id, new_mode, comment, changed_by)
 
     # Return to the page the change was initiated from (e.g. the agents
     # list) when a safe, local `next` target is supplied; otherwise fall
