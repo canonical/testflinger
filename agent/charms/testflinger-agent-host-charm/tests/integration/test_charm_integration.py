@@ -14,6 +14,7 @@ from conftest import create_mock_token
 
 from defaults import (
     LOCAL_TESTFLINGER_PATH,
+    TESTENV_IMAGE,
     VIRTUAL_ENV_PATH,
 )
 
@@ -128,6 +129,63 @@ def test_update_testflinger_action_with_branch(juju: jubilant.Juju):
     )
     assert action.status == "completed"
     assert action.return_code == 0
+
+
+def test_update_container_action(juju: jubilant.Juju):
+    """Test update-container pulls the testenv image for the default tag."""
+    action = juju.run(f"{APP_NAME}/0", "update-container")
+    assert action.status == "completed"
+    assert action.return_code == 0
+
+    image = juju.exec(
+        "docker",
+        "image",
+        "inspect",
+        f"{TESTENV_IMAGE}:jammy",
+        unit=f"{APP_NAME}/0",
+    )
+    assert image.return_code == 0
+
+
+def test_container_tag_config(juju: jubilant.Juju):
+    """Test container-tag is applied to tf-test and pulled on demand."""
+    try:
+        juju.config(APP_NAME, {"container-tag": "noble"})
+        juju.wait(jubilant.all_active)
+
+        tf_test = juju.exec(
+            "grep",
+            "^IMAGE_TAG=",
+            "/usr/local/bin/tf-test",
+            unit=f"{APP_NAME}/0",
+        )
+        assert tf_test.return_code == 0
+        assert tf_test.stdout.strip() == 'IMAGE_TAG="noble"'
+
+        action = juju.run(f"{APP_NAME}/0", "update-container")
+        assert action.status == "completed"
+        image = juju.exec(
+            "docker",
+            "image",
+            "inspect",
+            f"{TESTENV_IMAGE}:noble",
+            unit=f"{APP_NAME}/0",
+        )
+        assert image.return_code == 0
+    finally:
+        juju.config(APP_NAME, {"container-tag": "jammy"})
+        juju.wait(jubilant.all_active)
+
+
+def test_invalid_container_tag_blocks_charm(juju: jubilant.Juju):
+    """Test an unsupported container-tag puts the charm in blocked status."""
+    try:
+        juju.config(APP_NAME, {"container-tag": "focal"})
+        juju.wait(jubilant.all_blocked)
+    finally:
+        # Return to a valid tag to set active status for subsequent tests
+        juju.config(APP_NAME, {"container-tag": "jammy"})
+        juju.wait(jubilant.all_active)
 
 
 def test_update_configs_action(juju: jubilant.Juju):
