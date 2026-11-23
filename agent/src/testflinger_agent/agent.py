@@ -307,20 +307,22 @@ class TestflingerAgent:
     def enter_maintenance_mode(self, comment: str = "") -> None:
         """Enter maintenance mode: restrict queues to the maintenance queue."""
         logger.info(
-            "Entering maintenance mode – advertising queue: %s",
+            "Entering maintenance mode on queue: %s",
             self.client.maintenance_queue,
         )
+        queues = self.client.config.get("job_queues", [])
         self.set_agent_mode(
             AgentMode.MAINTENANCE,
             comment,
             state=AgentState.WAITING,
-            queues=[self.client.maintenance_queue],
+            queues=queues + [self.client.maintenance_queue],
         )
 
     def go_offline(self, comment: str = "") -> None:
         """Go offline: advertise no queues and set OFFLINE mode."""
         logger.info("Going offline.")
-        self.set_agent_mode(AgentMode.OFFLINE, comment, queues=[])
+        queues = self.client.config.get("job_queues", [])
+        self.set_agent_mode(AgentMode.OFFLINE, comment, queues=queues)
 
     def go_online(self) -> None:
         """Go online: restore normal queues and return to online."""
