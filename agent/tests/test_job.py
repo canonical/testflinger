@@ -297,6 +297,38 @@ class TestJob:
         mock_sleep.assert_called_once_with(60)
 
     @pytest.mark.timeout(5)
+    @patch("testflinger_agent.job.time.sleep")
+    @patch.object(_TestflingerJob, "wait_for_completion")
+    @patch.object(GlobalTimeoutChecker, "__call__")
+    def test_allocate_phase_post_result_global_timeout(
+        self,
+        mock_checker,
+        mock_wait,
+        mock_sleep,
+        client,
+        tmp_path,
+        requests_mock,
+    ):
+        """Test allocate_phase stops retrying when global timeout is hit."""
+        timeout_reason = "ERROR: Global timeout reached! (1s)"
+        mock_checker.side_effect = [
+            (None, ""),
+            (TestEvent.GLOBAL_TIMEOUT, timeout_reason),
+        ]
+        requests_mock.post(
+            rmock.ANY, status_code=HTTPStatus.INTERNAL_SERVER_ERROR
+        )
+
+        checker = GlobalTimeoutChecker(1)
+        job = _TestflingerJob({}, client)
+        event, reason = job.allocate_phase(tmp_path, checker)
+
+        assert event == TestEvent.GLOBAL_TIMEOUT
+        assert reason == timeout_reason
+        mock_sleep.assert_called_once_with(60)
+        mock_wait.assert_not_called()
+
+    @pytest.mark.timeout(5)
     def test_wait_for_completion_parent_completes(self, client, mocker):
         """Test wait_for_completion exits when the parent job completes."""
         parent_job_id = str(uuid.uuid1())

@@ -270,7 +270,11 @@ class TestflingerJob:
                 break
             except TFServerError:
                 logger.warning("Failed to post device_info, retrying...")
-                time.sleep(60)
+            event, reason = global_timeout_checker()
+            if event is not None:
+                # Don't retry forever if the server keeps failing
+                return event, reason
+            time.sleep(60)
 
         # Multi Device looks for a job that is `allocated` to know when
         # a child job has already sent its device info and is ready.
