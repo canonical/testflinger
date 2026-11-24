@@ -10,10 +10,11 @@ from pathlib import Path
 import jubilant
 import pytest
 import yaml
-from conftest import create_mock_token
+from conftest import create_mock_token, trigger_update_status
 
 from defaults import (
     LOCAL_TESTFLINGER_PATH,
+    TESTENV_IMAGE,
     VIRTUAL_ENV_PATH,
 )
 
@@ -57,14 +58,7 @@ def test_deploy(charm_path: Path, juju: jubilant.Juju):
 
     # Create mock token to skip authentication
     create_mock_token(juju, APP_NAME)
-    # Trigger update-status to re-evaluate authentication
-    charm_dir = f"/var/lib/juju/agents/unit-{APP_NAME}-0/charm"
-    juju.exec(
-        "bash",
-        "-c",
-        f"cd {charm_dir} && JUJU_DISPATCH_PATH=hooks/update-status ./dispatch",
-        unit=f"{APP_NAME}/0",
-    )
+    trigger_update_status(juju, APP_NAME)
     juju.wait(jubilant.all_active)
 
 
@@ -128,6 +122,79 @@ def test_update_testflinger_action_with_branch(juju: jubilant.Juju):
     )
     assert action.status == "completed"
     assert action.return_code == 0
+
+
+def test_update_container_action(juju: jubilant.Juju):
+    """Test update-container pulls the testenv image for the default tag."""
+    action = juju.run(f"{APP_NAME}/0", "update-container")
+    assert action.status == "completed"
+    assert action.return_code == 0
+
+    image = juju.exec(
+        "docker",
+        "image",
+        "inspect",
+        f"{TESTENV_IMAGE}:jammy",
+        unit=f"{APP_NAME}/0",
+    )
+    assert image.return_code == 0
+
+
+def _set_container_tag(juju: jubilant.Juju, tag: str):
+    """Set container-tag and wait for the unit to return to active.
+
+    config-changed always re-authenticates and these tests have no credentials
+    secret, so the hook leaves the unit blocked. The mock token is still
+    valid, so dispatching update-status restores ActiveStatus.
+    """
+    juju.config(APP_NAME, {"container-tag": tag})
+    trigger_update_status(juju, APP_NAME)
+    juju.wait(jubilant.all_active)
+
+
+def test_container_tag_config(juju: jubilant.Juju):
+    """Test container-tag is applied to tf-test and pulled on demand."""
+    try:
+        _set_container_tag(juju, "noble")
+
+        tf_test = juju.exec(
+            "grep",
+            "^IMAGE_TAG=",
+            "/usr/local/bin/tf-test",
+            unit=f"{APP_NAME}/0",
+        )
+        assert tf_test.return_code == 0
+        assert tf_test.stdout.strip() == 'IMAGE_TAG="noble"'
+
+        action = juju.run(f"{APP_NAME}/0", "update-container")
+        assert action.status == "completed"
+        image = juju.exec(
+            "docker",
+            "image",
+            "inspect",
+            f"{TESTENV_IMAGE}:noble",
+            unit=f"{APP_NAME}/0",
+        )
+        assert image.return_code == 0
+    finally:
+        _set_container_tag(juju, "jammy")
+
+
+def test_invalid_container_tag_blocks_charm(juju: jubilant.Juju):
+    """Test an unsupported container-tag is rejected by config validation."""
+    try:
+        juju.config(APP_NAME, {"container-tag": "focal"})
+        # Match the block message from the charm config validation
+        juju.wait(
+            lambda status: (
+                status.apps[APP_NAME]
+                .units[f"{APP_NAME}/0"]
+                .workload_status.message.startswith("Invalid config")
+            )
+        )
+    finally:
+        # Return to a valid tag to set active status for subsequent tests
+        _set_container_tag(juju, "jammy")
 
 
 def test_update_configs_action(juju: jubilant.Juju):

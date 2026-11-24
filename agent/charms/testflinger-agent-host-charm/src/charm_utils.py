@@ -9,8 +9,9 @@ from pathlib import Path
 from charmlibs import apt, passwd
 from git import GitCommandError, Repo
 
+from common import run_with_logged_errors
 from config import TestflingerAgentConfig
-from defaults import AGENT_CONFIGS_PATH
+from defaults import AGENT_CONFIGS_PATH, TESTENV_IMAGE
 
 logger = logging.getLogger(__name__)
 
@@ -65,3 +66,14 @@ def update_config_files(config: TestflingerAgentConfig):
     if repo_path.exists():
         shutil.rmtree(repo_path)
     shutil.move(tmp_repo_path, repo_path)
+
+
+def pull_container_latest(container_tag: str) -> bool:
+    """Pull the latest testenv image for the given tag.
+
+    :param container_tag: The testenv image tag (e.g. jammy, noble).
+    :returns: True if the pull succeeded, False otherwise.
+    """
+    image = f"{TESTENV_IMAGE}:{container_tag}"
+    logger.info("Pulling latest container image: %s", image)
+    return run_with_logged_errors(["docker", "pull", image]) == 0

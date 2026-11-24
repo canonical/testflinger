@@ -42,6 +42,29 @@ then the updated configurations will not be applied until those agents are
 restarted.
 
 
+Update the Test Environment Container
+-------------------------------------
+
+Jobs test commands are run inside the ``testflinger-testenv`` container image from
+``ghcr.io``. The image tag is selected with the ``container-tag`` charm
+configuration option, which can be ``jammy`` (the default) or ``noble``.
+
+.. code-block:: shell
+
+  $ juju config <agent-host-application> container-tag=noble
+
+The new tag is used by the next job that runs on the agent host. Images are not
+pulled automatically when a tag has already been downloaded, so to pull the
+latest version of the configured tag, run the ``update-container`` action.
+
+.. code-block:: shell
+
+  $ juju run <agent-host-charm-unit> update-container
+
+Running jobs are not affected by this action; the updated image is used by
+the next job that starts.
+
+
 Update TF Scripts
 ------------------
 

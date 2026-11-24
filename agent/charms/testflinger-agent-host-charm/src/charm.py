@@ -64,6 +64,10 @@ class TestflingerAgentHostCharm(ops.charm.CharmBase):
         )
         self.framework.observe(self.on.secret_changed, self._on_secret_changed)
         self.framework.observe(self.on.update_status, self._on_update_status)
+        self.framework.observe(
+            self.on.update_container_action,
+            self.on_update_container_action,
+        )
 
     def on_install(self, _):
         """Install hook."""
@@ -332,6 +336,18 @@ class TestflingerAgentHostCharm(ops.charm.CharmBase):
     def get_scrape_jobs(self):
         """Get the scrape jobs for the Grafana Agent."""
         return supervisord.get_supervisor_scrape_jobs()
+
+    def on_update_container_action(self, event: ops.ActionEvent):
+        """Update the testenv container image."""
+        self.unit.status = ops.MaintenanceStatus(
+            "Updating Testflinger Agent Container Image"
+        )
+        pulled = charm_utils.pull_container_latest(
+            self.typed_config.container_tag
+        )
+        self.unit.status = ops.ActiveStatus()
+        if not pulled:
+            event.fail("Failed to pull container image, see debug-log")
 
 
 if __name__ == "__main__":

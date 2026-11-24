@@ -37,6 +37,22 @@ def create_mock_token(juju: jubilant.Juju, app_name: str):
     )
 
 
+def trigger_update_status(juju: jubilant.Juju, app_name: str):
+    """Dispatch update-status so the charm re-evaluates authentication.
+
+    With the mock token in place this moves a unit that was blocked on
+    authentication (e.g. by config-changed, which always re-authenticates and
+    has no credentials secret to use here) back to ActiveStatus.
+    """
+    charm_dir = f"/var/lib/juju/agents/unit-{app_name}-0/charm"
+    juju.exec(
+        "bash",
+        "-c",
+        f"cd {charm_dir} && JUJU_DISPATCH_PATH=hooks/update-status ./dispatch",
+        unit=f"{app_name}/0",
+    )
+
+
 @pytest.fixture(scope="session")
 def charm_path():
     """Return the path of the charm under test."""

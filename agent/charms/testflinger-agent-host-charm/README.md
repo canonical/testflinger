@@ -46,6 +46,9 @@ Supported options for this charm are:
 - `credentials-secret`: 
     URI to the Juju Secret that contains the credentials to perform authentication
     against `testflinger-server`
+- `container-tag`:
+    The tag of the `testflinger-testenv` container image used to run device
+    connectors, either `jammy` or `noble` (default: `jammy`)
 
 ## Actions
 
@@ -67,6 +70,9 @@ The following actions are supported for this charm:
     changed. This should not normally happen. This action will also trigger all
     running agents to restart when they are not running a job in case the
     Testflinger configuration has changed.
+- `update-container`:
+    This action pulls the latest `testflinger-testenv` container image for the
+    tag set in the `container-tag` configuration option.
 
 
 ## Community and Support

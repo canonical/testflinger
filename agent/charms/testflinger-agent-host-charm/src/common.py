@@ -13,6 +13,7 @@ from jinja2 import Template
 from config import TestflingerAgentConfig
 from defaults import (
     AGENT_CONFIGS_PATH,
+    TESTENV_IMAGE,
     VIRTUAL_ENV_PATH,
 )
 
@@ -91,6 +92,8 @@ def update_charm_scripts(config: TestflingerAgentConfig) -> None:
             agent_configs_path=AGENT_CONFIGS_PATH,
             config_dir=config.config_dir,
             virtual_env_path=VIRTUAL_ENV_PATH,
+            testenv_image=TESTENV_IMAGE,
+            container_tag=config.container_tag,
         )
         agent_file = usr_local_bin / tf_cmd_file.name
         write_file(agent_file, rendered, chmod=0o775)

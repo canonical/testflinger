@@ -5,12 +5,16 @@
 import ops
 import pydantic
 
+from defaults import DEFAULT_CONTAINER_TAG
+
 SSH_CONFIG_FILE = """\
 StrictHostKeyChecking no
 UserKnownHostsFile /dev/null
 LogLevel QUIET
 ConnectTimeout 30
 """
+
+SUPPORTED_CONTAINER_TAGS = {"jammy", "noble"}
 
 
 class TestflingerAgentConfig(pydantic.BaseModel):
@@ -26,6 +30,7 @@ class TestflingerAgentConfig(pydantic.BaseModel):
     ssh_config: str = SSH_CONFIG_FILE
     testflinger_server: str = "https://testflinger.canonical.com"
     credentials_secret: ops.Secret | None = None
+    container_tag: str = DEFAULT_CONTAINER_TAG
 
     @pydantic.field_validator("testflinger_server")
     @classmethod
@@ -43,4 +48,14 @@ class TestflingerAgentConfig(pydantic.BaseModel):
         """Validate that both config_repo and config_dir have values."""
         if not value:
             raise ValueError("config_repo and config_dir must be set")
+        return value
+
+    @pydantic.field_validator("container_tag")
+    @classmethod
+    def validate_container_tag(cls, value):
+        """Validate that the container tag is supported."""
+        if value not in SUPPORTED_CONTAINER_TAGS:
+            raise ValueError(
+                f"container_tag must be one of {SUPPORTED_CONTAINER_TAGS}"
+            )
         return value

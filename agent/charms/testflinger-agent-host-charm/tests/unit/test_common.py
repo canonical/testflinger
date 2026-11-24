@@ -48,16 +48,25 @@ def test_update_charm_scripts(mock_read_text, mock_iterdir, mock_write_file):
     """Test update_charm_scripts renders and writes templates."""
     mock_script = MagicMock(spec=Path)
     mock_script.name = "test-script"
-    mock_script.read_text.return_value = "config_dir={{ config_dir }}"
+    mock_script.read_text.return_value = (
+        "config_dir={{ config_dir }} image={{ testenv_image }}:"
+        "{{ container_tag }}"
+    )
     mock_iterdir.return_value = [mock_script]
 
-    config = TestflingerAgentConfig(config_dir="my-agent-configs")
+    config = TestflingerAgentConfig(
+        config_dir="my-agent-configs", container_tag="noble"
+    )
 
     common.update_charm_scripts(config)
 
     mock_script.read_text.assert_called_once()
     mock_write_file.assert_called_once()
-    _, _, kwargs = mock_write_file.mock_calls[0]
+    _, args, kwargs = mock_write_file.mock_calls[0]
+    assert (
+        args[1] == "config_dir=my-agent-configs "
+        "image=ghcr.io/canonical/testflinger/testflinger-testenv:noble"
+    )
     assert kwargs.get("chmod") == 0o775
 
 

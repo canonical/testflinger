@@ -47,3 +47,21 @@ def test_invalid_testflinger_server():
     """Test that invalid server URLs are rejected."""
     with pytest.raises(ValueError):
         TestflingerAgentConfig(testflinger_server="localhost:5000")
+
+
+def test_container_tag_defaults_to_jammy():
+    """Test that container_tag defaults to jammy."""
+    assert TestflingerAgentConfig().container_tag == "jammy"
+
+
+@pytest.mark.parametrize("tag", ["jammy", "noble"])
+def test_valid_container_tag(tag):
+    """Test that supported container tags are accepted."""
+    assert TestflingerAgentConfig(container_tag=tag).container_tag == tag
+
+
+@pytest.mark.parametrize("tag", ["", "focal", "latest", "jammy; rm -rf /"])
+def test_invalid_container_tag(tag):
+    """Test that unsupported container tags are rejected."""
+    with pytest.raises(ValueError, match="container_tag must be one of"):
+        TestflingerAgentConfig(container_tag=tag)
