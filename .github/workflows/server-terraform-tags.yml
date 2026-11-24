@@ -29,7 +29,7 @@ jobs:
 
       - name: Generate semantic version
         id: version
-        uses: PaulHatch/semantic-version@502226b17e3e242e4befd0a45690fcbb27dd1373  # v6.0.3
+        uses: PaulHatch/semantic-version@5ae1354e589c5a67345fb2c6e65b025ff676d7c7  # v6.0.7
         with:
           tag_prefix: "testflinger-k8s-"
           major_pattern: "breaking(terraform-server):"
