@@ -1693,7 +1693,7 @@ class TestflingerCli:
                 # If we just entered this state, initialize the StatusLine
                 # Note: we finish printing information about the last (and
                 # maybe also the current) state before updating our StatusLine
-                if job_state != StatusLine.state:
+                if job_state not in ("unknown", StatusLine.state):
                     self._on_state_change(job_state, job_details)
 
                 if phase:
