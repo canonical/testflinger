@@ -235,8 +235,15 @@ class Maas2:
         if not efi_data:
             return
 
+        boot_order = efi_data.get("BootOrder:")
+        if not boot_order:
+            self._logger_warning(
+                "No BootOrder found in EFI data, skipping EFI boot order fix"
+            )
+            return
+
         current_boot = efi_data.get("BootCurrent:")
-        bootlist = efi_data.get("BootOrder:").split(",")
+        bootlist = boot_order.split(",")
         new_boot_order = []
 
         # If current boot is IPv4, add it first to the boot order

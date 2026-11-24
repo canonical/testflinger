@@ -132,6 +132,25 @@ def test_reset_efi_handles_non_ipv4_current_boot(mock_config_file):
 
 
 @patch("subprocess.run")
+def test_reset_efi_skips_when_no_boot_order(mock_run, mock_config_file):
+    """Test that reset_efi does nothing if no BootOrder is set."""
+    Process = namedtuple("Process", ["returncode", "stdout"])
+
+    efibootmgr_output = b"No BootOrder is set; firmware will attempt recovery"
+
+    job_json = mock_config_file.parent / "job.json"
+    job_json.write_text(json.dumps({}))
+
+    mock_run.return_value = Process(0, efibootmgr_output)
+
+    maas2 = Maas2(config=mock_config_file, job_data=job_json)
+    maas2.reset_efi()
+
+    # Only the call to read the EFI data, nothing to set the boot order
+    assert mock_run.call_count == 1
+
+
+@patch("subprocess.run")
 def test_get_efi_data_times_out(mock_run, mock_config_file, caplog):
     """Test that _get_efi_data returns None and logs when ssh times out."""
     job_json = mock_config_file.parent / "job.json"
