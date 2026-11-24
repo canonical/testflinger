@@ -30,6 +30,15 @@
     <div class="l-site">
       {% include "_header.html" %}
       <div class="row">
+        {% for category, message in get_flashed_messages(with_categories=true) %}
+          <div class="p-notification--{{ category }}"
+               style="margin-top: 1.5rem"
+               role="status">
+            <div class="p-notification__content">
+              <p class="p-notification__message">{{ message }}</p>
+            </div>
+          </div>
+        {% endfor %}
         {% block content %}
         {% endblock content %}
       </div>

@@ -46,6 +46,8 @@ class MaintenanceReport:
     links: list[dict] = field(default_factory=list)
     server_url: str | None = None
     provision_failures: list[dict] = field(default_factory=list)
+    provision_failures_total: int | None = None
+    provision_failures_days: int | None = None
 
 
 @dataclass(frozen=True)
@@ -153,6 +155,19 @@ def _failure_line(failure: dict, server_url: str | None) -> str:
     return f"{line} ({detail})" if detail else line
 
 
+def _failures_header(report: MaintenanceReport) -> str:
+    """Describe how many of the agent's provision failures are listed."""
+    if report.provision_failures_total is None:
+        return "Recent provision failures:"
+    counts = (
+        f"{len(report.provision_failures)} of "
+        f"{report.provision_failures_total}"
+    )
+    if report.provision_failures_days:
+        counts += f" in the last {report.provision_failures_days} days"
+    return f"Recent provision failures ({counts}):"
+
+
 def _ticket_description(
     agent_name: str,
     agent: dict,
@@ -183,7 +198,7 @@ def _ticket_description(
         if link.get("url")
     )
     if report.provision_failures:
-        lines.append("Recent provision failures:")
+        lines.append(_failures_header(report))
         lines.extend(
             _failure_line(failure, report.server_url)
             for failure in report.provision_failures
@@ -255,7 +270,7 @@ def open_maintenance_ticket(
     *,
     keep_pending_command: bool = False,
     changed_by: str = SERVER_CLIENT_ID,
-) -> None:
+) -> bool:
     """Command an agent into maintenance and open a Jira ticket about it.
 
     Every reason to open a ticket ends with the agent in maintenance, so
@@ -271,6 +286,7 @@ def open_maintenance_ticket(
     :param keep_pending_command: If True, do nothing when a mode is
         already commanded, since someone is then handling the agent.
     :param changed_by: Who the maintenance command is recorded as.
+    :return: True if a new ticket is being created.
     """
     if agent is None:
         agent = database.get_agent_info(agent_name) or {}
@@ -286,7 +302,7 @@ def open_maintenance_ticket(
                 "Agent %s already has a commanded mode, skipping Jira ticket",
                 agent_name,
             )
-            return
+            return False
     else:
         database.set_agent_commanded_mode(
             agent_name,
@@ -298,21 +314,22 @@ def open_maintenance_ticket(
         logger.warning(
             "Agent %s has no jira_space, skipping Jira ticket", agent_name
         )
-        return
+        return False
     if not is_configured():
         logger.warning(
             "Jira is not configured, skipping Jira ticket for agent %s",
             agent_name,
         )
-        return
+        return False
     token = database.claim_agent_jira_ticket(agent_name)
     if token is None:
         logger.info("Agent %s already has a Jira ticket", agent_name)
-        return
+        return False
     if report.server_url is None and has_request_context():
         report = replace(report, server_url=request.url_root)
     app = current_app._get_current_object()  # noqa: SLF001
     _spawn(_create_ticket, app, agent_name, agent, summary, report, token)
+    return True
 
 
 def create_ticket_if_agent_self_maintenance(

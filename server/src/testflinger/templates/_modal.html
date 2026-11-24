@@ -180,7 +180,11 @@
         if (open) {
           currentDialog = modal;
           modal.style.display = 'flex';
-          focusFirstDescendant(modal);
+          var auto = modal.querySelector('[autofocus]');
+          if (auto) auto.focus({preventScroll: true});
+          if (!auto || document.activeElement !== auto) {
+            focusFirstDescendant(modal);
+          }
           focusAfterClose = sourceEl;
           document.addEventListener('focus', trapFocus, true);
         } else {

@@ -1010,6 +1010,44 @@ def test_ticket_key_is_kept_until_the_agent_is_back_online(
     assert "jira_ticket" not in mongo.agents.find_one({"name": "agent1"})
 
 
+def test_ticket_claim_kept_while_busy_v1_agent_finishes_its_job(
+    mongo_app, agent_auth_header
+):
+    """A busy agent commanded into maintenance keeps its ticket claim.
+
+    It reports online job phases until its job ends; the claim is only
+    cleared once an online command is acknowledged.
+    """
+    app, mongo = mongo_app
+    mongo.agents.insert_one(
+        {
+            "name": "agent1",
+            "mode": {"value": "online"},
+            "commanded_mode": {"value": "maintenance"},
+            "jira_ticket": {"key": "TESTOPS-1", "token": "t"},
+        }
+    )
+
+    for state in ("provision", "test", "offline"):
+        app.post(
+            "/v1/agents/data/agent1",
+            json={"state": state},
+            headers=agent_auth_header,
+        )
+        record = mongo.agents.find_one({"name": "agent1"})
+        assert record["jira_ticket"]["key"] == "TESTOPS-1"
+
+    _command_mode(app, "online")
+    app.post(
+        "/v1/agents/data/agent1",
+        json={"state": "waiting"},
+        headers=agent_auth_header,
+    )
+    record = mongo.agents.find_one({"name": "agent1"})
+    assert "jira_ticket" not in record
+    assert "commanded_mode" not in record
+
+
 def test_racing_reports_create_one_ticket(mongo_app, ticket_mock):
     """Reports that all saw the agent online still open a single ticket."""
     app, mongo = mongo_app

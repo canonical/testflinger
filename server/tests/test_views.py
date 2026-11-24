@@ -24,12 +24,15 @@ from unittest.mock import patch
 import mongomock
 import pytest
 import yaml
+from flask import template_rendered
 from testflinger_common.enums import LogType, TestPhase
 
 from testflinger.database import get_agents
 from testflinger.jira import tickets
 from testflinger.job_yaml import build_job_yaml
 from testflinger.views import (
+    BROKEN_DESCRIPTION_MAX,
+    BROKEN_FAILURES_LIMIT,
     _parse_utc_date,
     _state_duration,
     agent_detail,
@@ -1669,7 +1672,7 @@ def _make_oidc_user_client(oidc_app):
     return client
 
 
-def _insert_broken_agent(mongo_client):
+def _insert_broken_agent(mongo_client, **fields):
     """Insert an online agent that can be marked broken."""
     now = datetime.now(timezone.utc)
     mongo_client.db.agents.insert_one(
@@ -1678,8 +1681,15 @@ def _insert_broken_agent(mongo_client):
             "jira_space": "TESTOPS",
             "mode": {"value": "online", "changed_at": now},
             "updated_at": now,
+            **fields,
         }
     )
+
+
+def _flashes(client) -> list[tuple[str, str]]:
+    """Return the (category, message) pairs flashed to the client."""
+    with client.session_transaction() as sess:
+        return sess.get("_flashes", [])
 
 
 def _patch_provision_log():
@@ -1728,6 +1738,13 @@ def test_agent_mark_broken_commands_maintenance_and_opens_ticket(oidc_app):
         )
 
     assert response.status_code == HTTPStatus.FOUND
+    assert response.location.endswith("/agents/agent1")
+    assert _flashes(client) == [
+        (
+            "positive",
+            "agent1 was put into maintenance. A Jira ticket is being created.",
+        )
+    ]
     record = mongo_client.db.agents.find_one({"name": "agent1"})
     assert record["commanded_mode"]["value"] == "maintenance"
     assert record["commanded_mode"]["comment"] == (
@@ -1743,28 +1760,148 @@ def test_agent_mark_broken_commands_maintenance_and_opens_ticket(oidc_app):
         in (kwargs["description"])
     )
     assert "passed-job" not in kwargs["description"]
+    assert (
+        "Recent provision failures (1 of 1 in the last 7 days):"
+        in kwargs["description"]
+    )
 
 
 @pytest.mark.parametrize(
-    "data",
-    [
-        {"description": "broken"},
-        {"description": "  ", "csrf_token": "test-csrf-token"},
-    ],
+    ("fields", "configured"),
+    [({}, False), ({"jira_space": None}, True)],
 )
-def test_agent_mark_broken_rejects_invalid_form(oidc_app, data):
-    """A missing CSRF token or description changes nothing."""
+def test_agent_mark_broken_warns_without_jira(oidc_app, fields, configured):
+    """Without Jira the agent goes into maintenance with a warning."""
+    client = _make_oidc_user_client(oidc_app)
+    mongo_client = mongomock.MongoClient()
+    _insert_broken_agent(mongo_client, **fields)
+
+    with (
+        patch("testflinger.database.mongo", mongo_client),
+        _patch_provision_log(),
+        patch.object(tickets, "is_configured", return_value=configured),
+        patch.object(tickets, "_spawn") as spawn_mock,
+    ):
+        response = client.post(
+            "/agents/agent1/broken",
+            data={"description": "dead", "csrf_token": "test-csrf-token"},
+        )
+
+    assert response.status_code == HTTPStatus.FOUND
+    spawn_mock.assert_not_called()
+    assert _flashes(client) == [
+        (
+            "caution",
+            "agent1 was put into maintenance. No Jira ticket was created "
+            "because Jira is not configured for this agent.",
+        )
+    ]
+    record = mongo_client.db.agents.find_one({"name": "agent1"})
+    assert record["commanded_mode"]["value"] == "maintenance"
+
+
+def test_agent_mark_broken_reuses_existing_ticket(oidc_app):
+    """An agent that already has a ticket gets no new one."""
+    client = _make_oidc_user_client(oidc_app)
+    mongo_client = mongomock.MongoClient()
+    _insert_broken_agent(
+        mongo_client,
+        mode={"value": "offline"},
+        jira_ticket={"key": "TESTOPS-7", "token": "old"},
+    )
+
+    with (
+        patch("testflinger.database.mongo", mongo_client),
+        _patch_provision_log(),
+        patch.object(tickets, "is_configured", return_value=True),
+        patch.object(tickets, "_spawn") as spawn_mock,
+    ):
+        client.post(
+            "/agents/agent1/broken",
+            data={"description": "dead", "csrf_token": "test-csrf-token"},
+        )
+
+    spawn_mock.assert_not_called()
+    assert _flashes(client) == [
+        (
+            "caution",
+            "agent1 was put into maintenance. It already has a Jira ticket "
+            "(TESTOPS-7), so no new ticket was created; please add your "
+            "details there.",
+        )
+    ]
+
+
+def test_agent_mark_broken_rejects_invalid_csrf(oidc_app):
+    """A missing CSRF token changes nothing."""
     client = _make_oidc_user_client(oidc_app)
     mongo_client = mongomock.MongoClient()
     _insert_broken_agent(mongo_client)
 
     with patch("testflinger.database.mongo", mongo_client):
-        response = client.post("/agents/agent1/broken", data=data)
+        response = client.post(
+            "/agents/agent1/broken", data={"description": "broken"}
+        )
 
     assert response.status_code == HTTPStatus.BAD_REQUEST
     assert "commanded_mode" not in mongo_client.db.agents.find_one(
         {"name": "agent1"}
     )
+
+
+@pytest.mark.parametrize(
+    ("description", "message"),
+    [
+        ("  ", "A description is required to mark the agent as broken."),
+        (
+            "x" * (BROKEN_DESCRIPTION_MAX + 1),
+            f"The description must be at most {BROKEN_DESCRIPTION_MAX} "
+            "characters.",
+        ),
+    ],
+)
+def test_agent_mark_broken_rejects_invalid_description(
+    oidc_app, description, message
+):
+    """An empty or too long description is flashed and changes nothing."""
+    client = _make_oidc_user_client(oidc_app)
+    mongo_client = mongomock.MongoClient()
+    _insert_broken_agent(mongo_client)
+
+    with patch("testflinger.database.mongo", mongo_client):
+        response = client.post(
+            "/agents/agent1/broken",
+            data={"description": description, "csrf_token": "test-csrf-token"},
+        )
+
+    assert response.status_code == HTTPStatus.FOUND
+    assert response.location.endswith("/agents/agent1")
+    assert _flashes(client) == [("negative", message)]
+    assert "commanded_mode" not in mongo_client.db.agents.find_one(
+        {"name": "agent1"}
+    )
+
+
+def test_agent_mark_broken_accepts_max_description(oidc_app):
+    """A description of exactly the maximum length is accepted."""
+    client = _make_oidc_user_client(oidc_app)
+    mongo_client = mongomock.MongoClient()
+    _insert_broken_agent(mongo_client, jira_space=None)
+
+    with (
+        patch("testflinger.database.mongo", mongo_client),
+        _patch_provision_log(),
+    ):
+        client.post(
+            "/agents/agent1/broken",
+            data={
+                "description": "x" * BROKEN_DESCRIPTION_MAX,
+                "csrf_token": "test-csrf-token",
+            },
+        )
+
+    record = mongo_client.db.agents.find_one({"name": "agent1"})
+    assert record["commanded_mode"]["value"] == "maintenance"
 
 
 def test_agent_mark_broken_requires_login(oidc_app):
@@ -1800,10 +1937,45 @@ def test_agent_detail_shows_mark_broken_for_logged_in_users(oidc_app):
 
     assert 'aria-controls="broken-modal"' in page
     assert 'action="/agents/agent1/broken"' in page
-    assert "This action is not reversible" in page
+    assert "This takes the agent out of service" in page
     modal = page.split('id="broken-modal"', 1)[1]
     assert "failed-job" in modal
     assert "passed-job" not in modal
+
+
+def test_agent_detail_counts_all_recent_provision_failures(oidc_app):
+    """The dialog gets the total of failures beyond the listed ones."""
+    app, _ = oidc_app
+    client = _make_oidc_user_client(oidc_app)
+    mongo_client = mongomock.MongoClient()
+    _insert_broken_agent(mongo_client)
+    now = datetime.now(timezone.utc)
+    log = [
+        {"job_id": f"job{i}", "exit_code": 1, "timestamp": now}
+        for i in range(BROKEN_FAILURES_LIMIT + 5)
+    ]
+    rendered = []
+
+    def record(sender, template, context, **extra):
+        rendered.append(context)
+
+    template_rendered.connect(record, app)
+    try:
+        with (
+            patch("testflinger.database.mongo", mongo_client),
+            patch(
+                "testflinger.views.database.get_provision_log",
+                return_value=log,
+            ),
+        ):
+            client.get("/agents/agent1")
+    finally:
+        template_rendered.disconnect(record, app)
+
+    context = rendered[-1]
+    assert len(context["provision_failures"]) == BROKEN_FAILURES_LIMIT
+    assert context["provision_failures_total"] == BROKEN_FAILURES_LIMIT + 5
+    assert context["broken_description_max"] == BROKEN_DESCRIPTION_MAX
 
 
 def test_agent_detail_hides_mark_broken_without_login(testapp):
@@ -1816,3 +1988,55 @@ def test_agent_detail_hides_mark_broken_without_login(testapp):
             page = client.get("/agents/agent1").get_data(as_text=True)
 
     assert "Mark as Broken" not in page
+
+
+MAINTENANCE_FIELDS = [
+    {"mode": {"value": "maintenance"}},
+    {"commanded_mode": {"value": "maintenance"}},
+]
+
+
+@pytest.mark.parametrize("fields", MAINTENANCE_FIELDS)
+def test_agent_detail_hides_mark_broken_in_maintenance(oidc_app, fields):
+    """Agents already in maintenance don't offer Mark as Broken."""
+    client = _make_oidc_user_client(oidc_app)
+    mongo_client = mongomock.MongoClient()
+    _insert_broken_agent(mongo_client, **fields)
+
+    with (
+        patch("testflinger.database.mongo", mongo_client),
+        _patch_provision_log(),
+    ):
+        page = client.get("/agents/agent1").get_data(as_text=True)
+
+    assert 'aria-controls="broken-modal"' not in page
+
+
+@pytest.mark.parametrize("fields", MAINTENANCE_FIELDS)
+def test_agent_mark_broken_rejected_in_maintenance(oidc_app, fields):
+    """Marking an agent already in maintenance broken is rejected."""
+    client = _make_oidc_user_client(oidc_app)
+    mongo_client = mongomock.MongoClient()
+    _insert_broken_agent(mongo_client, **fields)
+
+    with (
+        patch("testflinger.database.mongo", mongo_client),
+        patch.object(tickets, "_spawn", lambda func, *args: func(*args)),
+        patch.object(tickets, "is_configured", return_value=True),
+        patch.object(tickets, "create_agent_ticket") as ticket_mock,
+    ):
+        response = client.post(
+            "/agents/agent1/broken",
+            data={
+                "description": "USB stick is dead",
+                "csrf_token": "test-csrf-token",
+            },
+        )
+
+    assert response.status_code == HTTPStatus.FOUND
+    assert _flashes(client) == [
+        ("negative", "agent1 is already in maintenance.")
+    ]
+    ticket_mock.assert_not_called()
+    record = mongo_client.db.agents.find_one({"name": "agent1"})
+    assert record.get("commanded_mode") == fields.get("commanded_mode")

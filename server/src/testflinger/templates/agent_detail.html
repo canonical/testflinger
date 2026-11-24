@@ -7,10 +7,14 @@
     <div class="row"
          style="display: flex;
                 justify-content: space-between;
-                align-items: baseline">
+                align-items: center;
+                flex-wrap: wrap;
+                gap: 0 1rem">
       <h1 class="p-heading--3">Agent Detail - {{ agent.name }}</h1>
       {% if can_mark_broken %}
-        <button class="p-button--negative" aria-controls="broken-modal">Mark as Broken</button>
+        <button class="p-button--negative u-no-margin--bottom"
+                aria-controls="broken-modal"
+                aria-haspopup="dialog">Mark as Broken</button>
       {% endif %}
     </div>
   </div>
@@ -33,7 +37,7 @@
           </tr>
           <tr>
             <th scope="row">Comment</th>
-            <td>{{ agent.comment }}</td>
+            <td>{{ agent.comment or (agent.commanded_mode or {}).comment or "" }}</td>
           </tr>
           <tr>
             <th scope="row">Last updated</th>

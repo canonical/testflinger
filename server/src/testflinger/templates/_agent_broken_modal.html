@@ -3,73 +3,90 @@
   "Mark as Broken" modal for the agent detail page.
 
   Submits POST /agents/<name>/broken, which commands the agent into
-  maintenance and opens a Jira ticket with the description and the
-  provision failures listed here.
+  maintenance and, if Jira is configured, opens a ticket with the
+  description and the provision failures listed here.
 --#}
 <div class="p-modal" id="broken-modal" style="display:none">
   <section class="p-modal__dialog"
+           style="max-width: 56rem"
            role="dialog"
            aria-modal="true"
            aria-labelledby="broken-modal-title"
            aria-describedby="broken-modal-description">
     <header class="p-modal__header">
-      <h2 class="p-modal__title" id="broken-modal-title">Mark {{ agent.name }} as broken</h2>
+      <h2 class="p-modal__title" id="broken-modal-title">Mark as Broken — {{ agent.name }}</h2>
       <button class="p-modal__close"
               aria-label="Close active modal"
               aria-controls="broken-modal">Close</button>
     </header>
-    <div class="p-notification--negative" id="broken-modal-description">
+    <div class="p-notification--caution" id="broken-modal-description">
       <div class="p-notification__content">
-        <h3 class="p-notification__title">This action is not reversible</h3>
+        <h3 class="p-notification__title">This takes the agent out of service</h3>
         <p class="p-notification__message">
-          The agent will be put into maintenance mode and will stop
-          running jobs until someone can look at it and resolve the issue.
-          A Jira ticket will be created with the details below.
+          It will be put into maintenance and stop taking new jobs (a running
+          job finishes first) until an admin brings it back online. If the
+          agent is linked to a Jira project, a ticket will be opened with the
+          details below.
         </p>
       </div>
     </div>
-    <h3 class="p-muted-heading">
-      Provision failures (last {{ broken_failures_days }} days)
-    </h3>
-    {% if provision_failures %}
-      <div style="max-height: 15rem; overflow-y: auto">
-        <table aria-label="Recent provision failures">
-          <thead>
+    {% set failures = provision_failures|default([]) %}
+    {% set failures_total = provision_failures_total|default(failures|length) %}
+    <h3 class="p-muted-heading u-no-margin--bottom">Provision failures (last {{ broken_failures_days }} days)</h3>
+    {% if failures %}
+      {% if failures_total > failures|length %}
+        <p class="u-text--muted">Showing the {{ failures|length }} most recent of {{ failures_total }} failures.</p>
+      {% endif %}
+      <div style="max-height: min(15rem, 40vh);
+                  overflow-y: auto"
+           tabindex="0"
+           role="region"
+           aria-label="Recent provision failures">
+        <table class="p-table--mobile-card">
+          <thead style="position: sticky; top: 0; z-index: 1; background: #fff">
             <tr>
-              <th>Finished At</th>
-              <th>Job ID</th>
-              <th class="u-align--right">Exit code</th>
+              <th style="width: 11rem">Finished at (UTC)</th>
+              <th style="width: 6rem">Job ID</th>
+              <th class="u-align--right" style="width: 5rem">Exit code</th>
               <th>Detail</th>
             </tr>
           </thead>
           <tbody>
-            {% for failure in provision_failures %}
+            {% for failure in failures %}
               <tr>
-                <td>{{ failure.timestamp.strftime("%Y-%m-%d %H:%M:%S") }}</td>
-                <td>
-                  <a href="{{ url_for('testflinger.job_detail', job_id=failure.job_id) }}">{{ failure.job_id }}</a>
+                <td data-heading="Finished at (UTC)">{{ failure.timestamp.strftime("%Y-%m-%d %H:%M:%S") }}</td>
+                <td data-heading="Job ID">
+                  <a href="{{ url_for('testflinger.job_detail', job_id=failure.job_id) }}"
+                     title="{{ failure.job_id }}"
+                     target="_blank"
+                     rel="noopener">{{ failure.job_id[:8] }}</a>
                 </td>
-                <td class="u-align--right">{{ failure.exit_code }}</td>
-                <td>{{ failure.detail }}</td>
+                <td class="u-align--right" data-heading="Exit code">{{ failure.exit_code }}</td>
+                <td data-heading="Detail"
+                    style="overflow-wrap: anywhere;
+                           white-space: pre-line">{{ failure.detail }}</td>
               </tr>
             {% endfor %}
           </tbody>
         </table>
       </div>
     {% else %}
-      <p class="u-text--muted">No provision failures recorded.</p>
+      <p class="u-text--muted">No provision failures in the last {{ broken_failures_days }} days.</p>
     {% endif %}
     <form method="post"
+          id="broken-form"
           action="{{ url_for('testflinger.agent_mark_broken', agent_id=agent.name) }}">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <div class="p-form__group">
+      <div class="p-form__group u-sv2">
         <label class="p-form__label is-required" for="broken-description">Describe the issue</label>
         <textarea class="p-form__control"
                   id="broken-description"
                   name="description"
                   rows="4"
+                  maxlength="{{ broken_description_max|default(2000) }}"
                   placeholder="What is wrong with this agent? What did you observe?"
-                  required></textarea>
+                  required
+                  autofocus></textarea>
       </div>
       <footer class="p-modal__footer">
         <button type="button"
@@ -80,4 +97,22 @@
     </form>
   </section>
 </div>
+<script>
+  (function () {
+    var form = document.getElementById('broken-form');
+    var text = document.getElementById('broken-description');
+    text.addEventListener('input', function () {
+      text.setCustomValidity('');
+    });
+    form.addEventListener('submit', function (event) {
+      if (!text.value.trim()) {
+        event.preventDefault();
+        text.setCustomValidity('Please describe the issue.');
+        text.reportValidity();
+        return;
+      }
+      form.querySelector('[type=submit]').disabled = true;
+    });
+  })();
+</script>
 {{ render_modal_js() }}

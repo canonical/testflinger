@@ -1494,8 +1494,13 @@ def upsert_agent_document(
     ):
         unset.append("commanded_mode")
 
-    # The Jira ticket claim lasts until the agent is back online
-    if reported_mode == AgentMode.ONLINE.value:
+    # The Jira ticket claim lasts until the agent is back online. A busy
+    # agent keeps reporting online until its job ends, so a pending
+    # maintenance command keeps the claim.
+    if (
+        reported_mode == AgentMode.ONLINE.value
+        and commanded_mode != AgentMode.MAINTENANCE.value
+    ):
         unset.append("jira_ticket")
 
     # Agent is restarting; preserve restoration target, favor exiting command

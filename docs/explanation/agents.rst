@@ -92,11 +92,16 @@ comment says so instead. Only one ticket is opened until the agent is back
 ``online``; going ``offline`` or restarting keeps the ticket. Agents without ``jira_space``, or servers without Jira
 settings, keep the existing behavior.
 
-Logged-in users can also report a broken agent with the **Mark as Broken**
-button on its page in the web UI. They describe the issue, and the server
-commands the agent into ``maintenance`` and creates a Jira ticket the same way,
-including the description and the agent's provision failures from the last
-7 days.
+Any logged-in user can also report a broken agent with the **Mark as Broken**
+button on its page in the web UI. The button is hidden while the agent is in,
+or has been commanded into, ``maintenance``. The dialog lists up to the 10 most
+recent provision failures from the last 7 days and asks for a description of
+the issue. On submit, the server commands the agent into ``maintenance``: it
+stops taking new jobs, and a job that is already running completes first. If
+the server has Jira settings and the agent has ``jira_space``, a Jira ticket is
+created the same way as above, with the description and the listed failures.
+An administrator brings the agent back by setting it to ``online`` with
+**Change Agent Mode** on the same page.
 
         Agent states follow the job execution phase order:
         - waiting: idle, ready for jobs
