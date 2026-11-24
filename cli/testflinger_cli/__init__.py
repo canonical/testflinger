@@ -114,6 +114,8 @@ class SubcommandAwareParser(ArgumentParser):
         self._finding_subcommand = True
         try:
             namespace, _ = self.parse_known_args()
+        except SnapPrivateFileError:
+            super().error(message)
         finally:
             self._finding_subcommand = False
         subcommand = getattr(namespace, "subcommand", None)
