@@ -328,6 +328,64 @@ class TestStatusLineThreadSafety:
 class TestStatusLineReservedState:
     """Tests for countdown in reserved state (integration)."""
 
+    @mock.patch("time.sleep")
+    @mock.patch(
+        "testflinger_cli.TestflingerCli._get_combined_log_output",
+        return_value=(-1, ""),
+    )
+    @mock.patch("testflinger_cli.TestflingerCli.get_job_state")
+    def test_do_poll_ignores_unknown_state_during_reservation(
+        self, mock_get_state, mock_get_logs, mock_sleep, mock_tty
+    ):
+        """Unknown state should not restart a reservation countdown."""
+        from testflinger_cli import TestflingerCli
+
+        cli = TestflingerCli.__new__(TestflingerCli)
+        cli.args = mock.Mock(
+            start_fragment=0,
+            start_timestamp=None,
+            phase=None,
+            debug=False,
+        )
+        cli.history = mock.Mock()
+        cli.client = mock.Mock()
+        cli.client.get_job_data.return_value = {
+            "timeout": 10,
+            "reserve_data": {"timeout": 10},
+        }
+        mock_get_state.side_effect = [
+            {"job_state": "reserve"},
+            {"job_state": "reserve"},
+            {"job_state": "unknown"},
+            {"job_state": "reserve"},
+            {"job_state": "complete"},
+        ]
+
+        state_change = mock.patch.object(
+            cli, "_on_state_change", wraps=cli._on_state_change
+        )
+        set_countdown = mock.patch.object(
+            StatusLine, "set_countdown", wraps=StatusLine.set_countdown
+        )
+        disable_countdown = mock.patch.object(
+            StatusLine,
+            "disable_countdown",
+            wraps=StatusLine.disable_countdown,
+        )
+        try:
+            with state_change as mock_state_change:
+                with set_countdown as mock_set_countdown:
+                    with disable_countdown as mock_disable_countdown:
+                        cli.do_poll("test-job-123")
+
+            assert [
+                call.args[0] for call in mock_state_change.call_args_list
+            ] == ["reserve", "complete"]
+            mock_set_countdown.assert_called_once_with(10)
+            mock_disable_countdown.assert_called_once_with()
+        finally:
+            StatusLine.stop()
+
     @mock.patch("testflinger_cli.TestflingerCli._get_combined_log_output")
     @mock.patch("testflinger_cli.TestflingerCli.get_job_state")
     def test_do_poll_enters_reserved_state_with_countdown(
