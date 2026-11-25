@@ -15,7 +15,6 @@
 import argparse
 import logging
 import os
-import time
 from collections import deque
 from logging.handlers import TimedRotatingFileHandler
 from pathlib import Path
@@ -127,27 +126,8 @@ def start_agent():
     check_interval = config.get("polling_interval")
     client = TestflingerClient(config)
     agent = TestflingerAgent(client)
-    while True:
-        # Only check agent status and process jobs if server is available
-        client.wait_for_server_connectivity()
 
-        is_offline, offline_comment = agent.check_offline()
-        if is_offline:
-            logger.error(
-                "Agent %s is offline, not processing jobs! "
-                "Reason: %s\n"
-                "Please contact Testflinger Admin if you require assistance.",
-                config.get("agent_id"),
-                offline_comment or "Unknown",
-            )
-            while agent.check_offline()[0]:
-                time.sleep(check_interval)
-        # Refresh the updated_at timestamp on advertised queues
-        client.post_advertised_queues()
-        logger.info("Checking jobs")
-        agent.process_jobs()
-        logger.info("Sleeping for %d", check_interval)
-        time.sleep(check_interval)
+    agent.loop(check_interval)
 
 
 def load_config(configfile):
