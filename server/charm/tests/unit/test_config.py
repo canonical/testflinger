@@ -229,3 +229,13 @@ def test_invalid_max_body_size():
         match="Input should be greater than 0",
     ):
         TestflingerServerConfig(max_body_size=-1)
+
+
+def test_invalid_max_provision_failures():
+    """Test that negative max_provision_failures is rejected."""
+    assert TestflingerServerConfig(max_provision_failures=0)
+    with pytest.raises(
+        ValueError,
+        match="Input should be greater than or equal to 0",
+    ):
+        TestflingerServerConfig(max_provision_failures=-1)

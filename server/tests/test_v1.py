@@ -20,6 +20,7 @@ import os
 import uuid
 from datetime import datetime, timedelta, timezone
 from http import HTTPStatus
+from unittest.mock import patch
 
 import pytest
 import requests
@@ -27,6 +28,7 @@ from testflinger_common.enums import ServerRoles
 
 from testflinger import database
 from testflinger.api import v1
+from testflinger.jira import tickets
 from tests.utilities import get_access_token_header
 
 
@@ -1194,6 +1196,140 @@ def test_agents_provision_logs_post(mongo_app, agent_auth_header):
     agent_data = mongo.agents.find_one({"name": agent_name})
     assert agent_data["provision_streak_type"] == "pass"
     assert agent_data["provision_streak_count"] == 1
+
+
+@pytest.fixture(name="ticket_mock")
+def ticket_mock_fixture(monkeypatch):
+    """Run maintenance ticket creation inline and capture the Jira call."""
+    monkeypatch.setenv("MAX_PROVISION_FAILURES", "10")
+    with (
+        patch.object(tickets, "_spawn", lambda func, *args: func(*args)),
+        patch.object(tickets, "is_configured", return_value=True),
+        patch.object(
+            tickets, "create_agent_ticket", return_value="TESTOPS-1"
+        ) as mock,
+    ):
+        yield mock
+
+
+def _post_provision_results(app, header, *exit_codes):
+    for number, exit_code in enumerate(exit_codes):
+        result = app.post(
+            "/v1/agents/provision_logs/agent1",
+            json={"job_id": f"job-{number}", "exit_code": exit_code},
+            headers=header,
+        )
+        assert result.status_code == HTTPStatus.OK
+
+
+def test_provision_failure_limit_commands_maintenance(
+    mongo_app, agent_auth_header, ticket_mock, monkeypatch
+):
+    """Reaching the failure limit commands maintenance and opens a ticket."""
+    monkeypatch.setenv("MAX_PROVISION_FAILURES", "3")
+    app, mongo = mongo_app
+    mongo.agents.insert_one(
+        {"name": "agent1", "state": "waiting", "jira_space": "TESTOPS"}
+    )
+
+    _post_provision_results(app, agent_auth_header, 1, 1)
+    ticket_mock.assert_not_called()
+    assert "commanded_mode" not in mongo.agents.find_one({"name": "agent1"})
+
+    app.post(
+        "/v1/agents/provision_logs/agent1",
+        json={"job_id": "job-3", "exit_code": 3, "detail": "boot timeout"},
+        headers=agent_auth_header,
+    )
+
+    comment = (
+        "Server commanded maintenance because the agent exceeded the "
+        "provision failure limit of 3 (3 consecutive provision failures)"
+    )
+    commanded = mongo.agents.find_one({"name": "agent1"})["commanded_mode"]
+    assert commanded["value"] == "maintenance"
+    assert commanded["comment"] == f"Jira ticket TESTOPS-1: {comment}"
+    assert commanded["changed_by"] == "testflinger-server"
+    ticket_mock.assert_called_once()
+    kwargs = ticket_mock.call_args.kwargs
+    assert "exceeded the provision failure limit" in kwargs["summary"]
+    assert "Job: http://localhost/jobs/job-3" in kwargs["description"]
+    for line in (
+        f"Comment: {comment}",
+        "Provision failures: 3 consecutive (limit 3)",
+        "Last exit code: 3",
+        "Last failure detail: boot timeout",
+    ):
+        assert line in kwargs["description"]
+
+
+def test_provision_pass_resets_failure_limit(
+    mongo_app, agent_auth_header, ticket_mock
+):
+    """A successful provision resets the consecutive failure count."""
+    app, mongo = mongo_app
+    mongo.agents.insert_one(
+        {"name": "agent1", "state": "waiting", "jira_space": "TESTOPS"}
+    )
+
+    _post_provision_results(app, agent_auth_header, *[1] * 9, 0, *[1] * 9)
+
+    ticket_mock.assert_not_called()
+    assert "commanded_mode" not in mongo.agents.find_one({"name": "agent1"})
+
+
+def test_provision_failure_limit_disabled_when_unset(
+    mongo_app, agent_auth_header, ticket_mock, monkeypatch
+):
+    """Without a configured limit, failures never command maintenance."""
+    monkeypatch.delenv("MAX_PROVISION_FAILURES")
+    app, mongo = mongo_app
+    mongo.agents.insert_one(
+        {"name": "agent1", "state": "waiting", "jira_space": "TESTOPS"}
+    )
+
+    _post_provision_results(app, agent_auth_header, *[1] * 20)
+
+    ticket_mock.assert_not_called()
+    assert "commanded_mode" not in mongo.agents.find_one({"name": "agent1"})
+
+
+@pytest.mark.parametrize(
+    "agent",
+    [
+        {"commanded_mode": {"value": "online", "comment": "fixing"}},
+        {"mode": {"value": "maintenance"}, "state": {"value": "waiting"}},
+    ],
+)
+def test_provision_failure_limit_leaves_handled_agents_alone(
+    mongo_app, agent_auth_header, ticket_mock, agent
+):
+    """Pending commands and agents already in maintenance are kept."""
+    app, mongo = mongo_app
+    mongo.agents.insert_one(
+        {"name": "agent1", "jira_space": "TESTOPS", **agent}
+    )
+
+    _post_provision_results(app, agent_auth_header, *[1] * 10)
+
+    ticket_mock.assert_not_called()
+    record = mongo.agents.find_one({"name": "agent1"})
+    assert record.get("commanded_mode") == agent.get("commanded_mode")
+
+
+def test_provision_failure_limit_without_jira_space(
+    mongo_app, agent_auth_header, ticket_mock
+):
+    """Agents without a Jira space are still commanded into maintenance."""
+    app, mongo = mongo_app
+    mongo.agents.insert_one({"name": "agent1", "state": "waiting"})
+
+    _post_provision_results(app, agent_auth_header, *[1] * 10)
+
+    ticket_mock.assert_not_called()
+    commanded = mongo.agents.find_one({"name": "agent1"})["commanded_mode"]
+    assert commanded["value"] == "maintenance"
+    assert commanded["comment"].startswith("Server commanded maintenance")
 
 
 def test_agents_get_returns_provision_streak(mongo_app, agent_auth_header):

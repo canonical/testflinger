@@ -466,6 +466,22 @@ def test_jira_config_set_on_charm(ctx, make_state):
     assert env["JIRA_TOKEN"] == "token"  # noqa: S105
 
 
+@pytest.mark.parametrize(
+    ("config", "expected"),
+    [({}, "10"), ({"max_provision_failures": 3}, "3")],
+)
+def test_max_provision_failures_on_charm(ctx, make_state, config, expected):
+    """Test max_provision_failures is passed to the service environment."""
+    state_in = make_state(config=config)
+    state_out = ctx.run(ctx.on.config_changed(), state_in)
+    env = (
+        state_out.get_container(TESFLINGER_CONTAINER)
+        .plan.services["testflinger"]
+        .environment
+    )
+    assert env["MAX_PROVISION_FAILURES"] == expected
+
+
 def test_jira_config_invalid_on_charm(ctx, make_state):
     """Test charm is blocked when Jira config is only partially set."""
     state_in = make_state(config={"jira_token": "token"})

@@ -22,6 +22,7 @@ from testflinger.jira.exceptions import (
     JiraRequestError,
 )
 from testflinger.jira.tickets import (
+    command_maintenance_if_provision_failure_limit,
     create_agent_ticket,
     create_ticket_if_agent_self_maintenance,
     get_agent_space_key,
@@ -33,6 +34,7 @@ __all__ = [
     "JiraConfigError",
     "JiraError",
     "JiraRequestError",
+    "command_maintenance_if_provision_failure_limit",
     "create_agent_ticket",
     "create_ticket_if_agent_self_maintenance",
     "get_agent_space_key",

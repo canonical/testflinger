@@ -459,6 +459,9 @@ class TestflingerCharm(ops.CharmBase):
             "JIRA_BASE_URL": self.typed_config.jira_base_url,
             "JIRA_USER_EMAIL": self.typed_config.jira_user_email,
             "JIRA_TOKEN": self.typed_config.jira_token,
+            "MAX_PROVISION_FAILURES": str(
+                self.typed_config.max_provision_failures
+            ),
         }
         return env
 

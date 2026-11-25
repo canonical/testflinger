@@ -92,6 +92,15 @@ comment says so instead. Only one ticket is opened until the agent is back
 ``online``; going ``offline`` or restarting keeps the ticket. Agents without ``jira_space``, or servers without Jira
 settings, keep the existing behavior.
 
+The server also limits consecutive provision failures. The limit is set by
+the server charm's ``max_provision_failures`` option (default 10); setting it
+to 0 disables the limit. When an agent reaches the limit of provision failures
+in a row, and no mode was already commanded, the server commands the agent
+into ``maintenance`` with a comment explaining that the provision failure
+limit was exceeded. This happens even without Jira
+settings. If ``jira_space`` is configured, a Jira ticket is also created in the
+same way as above. A successful provision resets the count.
+
         Agent states follow the job execution phase order:
         - waiting: idle, ready for jobs
         - setup, provision, firmware_update, test, allocate, reserve: running job phases

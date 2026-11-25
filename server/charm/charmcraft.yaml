@@ -172,6 +172,13 @@ config:
       type: string
       default: ""
       description: Jira API token used for authenticating with Jira
+    max_provision_failures:
+      type: int
+      default: 10
+      description: |
+        Number of consecutive provision failures after which the server
+        commands an agent into maintenance and, if Jira is configured for
+        the agent, opens a Jira ticket. Set to 0 to disable.
 
 
 parts:
