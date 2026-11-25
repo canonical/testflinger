@@ -15,7 +15,7 @@
 
 """Tests for the `v1/secrets` endpoints."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from http import HTTPStatus
 
 import pytest
@@ -299,7 +299,7 @@ def test_secrets_put_return_expiration(app_with_store):
     # GIVEN: a store whose write returns a fixed expiry datetime
     client_id = "client_1"
     path = "path/to/secret"
-    fixed_expire_at = datetime(2027, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
+    fixed_expire_at = datetime(2027, 1, 1, 0, 0, 0, tzinfo=UTC)
     mock_secrets_store = app_with_store.application.secrets_store
     mock_secrets_store.write.return_value = fixed_expire_at
 
@@ -790,7 +790,7 @@ def test_job_get_with_secrets_no_store(testapp, agent_auth_header):
         {
             "job_id": job_id,
             "job_data": job_data,
-            "created_at": datetime.now(timezone.utc),
+            "created_at": datetime.now(UTC),
             "result_data": {"job_state": "waiting"},
             "job_priority": 0,
         }
@@ -828,7 +828,7 @@ def test_job_get_with_missing_client_id(app_with_store, agent_auth_header):
         {
             "job_id": job_id,
             "job_data": job_data,
-            "created_at": datetime.now(timezone.utc),
+            "created_at": datetime.now(UTC),
             "result_data": {"job_state": "waiting"},
             "job_priority": 0,
         }

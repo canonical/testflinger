@@ -15,7 +15,7 @@
 
 """Tests for the OIDC authenticated endpoints."""
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
 from unittest.mock import Mock, patch
 
@@ -104,7 +104,7 @@ def test_client_refresh_login_if_exists(mock_current_app, oidc_app, user):
     """Test last login is updated if user exist and no new entry is added."""
     app, mongo = oidc_app
 
-    created_time = last_login_time = datetime.now(timezone.utc) - timedelta(
+    created_time = last_login_time = datetime.now(UTC) - timedelta(
         hours=1
     )
 
@@ -160,6 +160,6 @@ def test_client_refresh_login_if_exists(mock_current_app, oidc_app, user):
     assert web_client["email"] == user.emails[0]
     # Check that last_login was updated
     assert (
-        web_client["last_login"].replace(tzinfo=timezone.utc)
+        web_client["last_login"].replace(tzinfo=UTC)
         != last_login_time
     )

@@ -18,7 +18,7 @@
 import json
 import os
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
 
 import pytest
@@ -44,7 +44,7 @@ class _AdvancingClock:
         start: datetime | None = None,
         step: timedelta = timedelta(seconds=1),
     ):
-        self._current = start or datetime(2026, 1, 1, tzinfo=timezone.utc)
+        self._current = start or datetime(2026, 1, 1, tzinfo=UTC)
         self._step = step
 
     def __call__(self) -> datetime:
@@ -1744,7 +1744,7 @@ def test_search_jobs_datetime_iso8601(mongo_app):
     job_id = job_response.json.get("job_id")
     mongo.jobs.update_one(
         {"job_id": job_id},
-        {"$set": {"created_at": datetime(2020, 1, 1, tzinfo=timezone.utc)}},
+        {"$set": {"created_at": datetime(2020, 1, 1, tzinfo=UTC)}},
     )
     output = app.get("/v1/job/search?tags=foo")
     assert 200 == output.status_code
@@ -2377,7 +2377,7 @@ def test_result_events_and_timestamp_on_repeated_post(
         assert response.status_code == HTTPStatus.OK
         result = app.get(f"/v1/result/{job_id}").json
         assert datetime.fromisoformat(result["job_state_changed_at"]) == (
-            datetime(2026, 1, 1, tzinfo=timezone.utc).replace(tzinfo=None)
+            datetime(2026, 1, 1, tzinfo=UTC).replace(tzinfo=None)
         )
 
     event_names = [

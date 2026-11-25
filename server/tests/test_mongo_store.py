@@ -17,7 +17,7 @@
 
 import base64
 import os
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from unittest.mock import ANY, patch
 
 import pytest
@@ -192,7 +192,7 @@ class TestMongoStore:
         encrypted_value = Binary(b"encrypted_data")
         mock_client_encryption.encrypt.return_value = encrypted_value
         expiration_seconds = 3600
-        fixed_now = datetime(2026, 4, 21, tzinfo=timezone.utc)
+        fixed_now = datetime(2026, 4, 21, tzinfo=UTC)
         mock_datetime.now.return_value = fixed_now
 
         mongo_store.write(
@@ -204,7 +204,7 @@ class TestMongoStore:
         )
 
         mock_client_encryption.encrypt.assert_called_once_with(
-            value="test-value".encode("utf-8"),
+            value=b"test-value",
             algorithm=mongo_store.algorithm,
             key_alt_name="test-key",
         )
@@ -371,7 +371,7 @@ class TestMongoStore:
         """Test expiration time is set correctly on write."""
         encrypted_value = Binary(b"encrypted_data")
         mock_client_encryption.encrypt.return_value = encrypted_value
-        fixed_now = datetime(2026, 4, 21, tzinfo=timezone.utc)
+        fixed_now = datetime(2026, 4, 21, tzinfo=UTC)
 
         with patch("testflinger.secrets.mongo.datetime") as mock_datetime:
             mock_datetime.now.return_value = fixed_now
@@ -384,7 +384,7 @@ class TestMongoStore:
             )
 
         mock_client_encryption.encrypt.assert_called_once_with(
-            value="test-value".encode("utf-8"),
+            value=b"test-value",
             algorithm=mongo_store.algorithm,
             key_alt_name="test-key",
         )
@@ -409,7 +409,7 @@ class TestMongoStore:
         """Test ephemeral is set correctly on write if set to True."""
         encrypted_value = Binary(b"encrypted_data")
         mock_client_encryption.encrypt.return_value = encrypted_value
-        fixed_now = datetime(2026, 4, 21, tzinfo=timezone.utc)
+        fixed_now = datetime(2026, 4, 21, tzinfo=UTC)
 
         with patch("testflinger.secrets.mongo.datetime") as mock_datetime:
             mock_datetime.now.return_value = fixed_now
@@ -423,7 +423,7 @@ class TestMongoStore:
             )
 
             mock_client_encryption.encrypt.assert_called_once_with(
-                value="test-value".encode("utf-8"),
+                value=b"test-value",
                 algorithm=mongo_store.algorithm,
                 key_alt_name="test-key",
             )
@@ -450,7 +450,7 @@ class TestMongoStore:
         """Test non-expiring secret write does not set expire_at."""
         encrypted_value = Binary(b"encrypted_data")
         mock_client_encryption.encrypt.return_value = encrypted_value
-        fixed_now = datetime(2026, 4, 21, tzinfo=timezone.utc)
+        fixed_now = datetime(2026, 4, 21, tzinfo=UTC)
         mock_datetime.now.return_value = fixed_now
 
         mongo_store.write(
@@ -462,7 +462,7 @@ class TestMongoStore:
         )
 
         mock_client_encryption.encrypt.assert_called_once_with(
-            value="test-value".encode("utf-8"),
+            value=b"test-value",
             algorithm=mongo_store.algorithm,
             key_alt_name="test-key",
         )
@@ -489,7 +489,7 @@ class TestMongoStore:
         """TTL index should be created only once per namespace."""
         encrypted_value = Binary(b"encrypted_data")
         mock_client_encryption.encrypt.return_value = encrypted_value
-        fixed_now = datetime(2026, 4, 21, tzinfo=timezone.utc)
+        fixed_now = datetime(2026, 4, 21, tzinfo=UTC)
         mock_datetime.now.return_value = fixed_now
 
         mongo_store.write(
@@ -530,7 +530,7 @@ class TestMongoStore:
 
     def test_expired_secret_read(self, mongo_store, mock_collection):
         """Test read expired secret raises AccessError."""
-        expired_time = datetime.now(timezone.utc) - timedelta(seconds=60)
+        expired_time = datetime.now(UTC) - timedelta(seconds=60)
         mock_collection.find_one.return_value = {
             "key": "test-key",
             "value": Binary(b"encrypted_data"),
@@ -547,7 +547,7 @@ class TestMongoStore:
         self, mongo_store, mock_collection, mock_client_encryption
     ):
         """Test read non-expired secret does not call delete_one."""
-        future_time = datetime.now(timezone.utc) + timedelta(seconds=3600)
+        future_time = datetime.now(UTC) + timedelta(seconds=3600)
         mock_collection.find_one.return_value = {
             "key": "test-key",
             "value": Binary(b"encrypted_data"),

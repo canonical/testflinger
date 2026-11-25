@@ -17,7 +17,7 @@
 
 import hmac
 import secrets
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
 
 from apiflask import APIBlueprint
@@ -70,8 +70,8 @@ def _state_duration(state_changed_at) -> str:
     if not state_changed_at:
         return "—"
     if state_changed_at.tzinfo is None:
-        state_changed_at = state_changed_at.replace(tzinfo=timezone.utc)
-    delta = datetime.now(timezone.utc) - state_changed_at
+        state_changed_at = state_changed_at.replace(tzinfo=UTC)
+    delta = datetime.now(UTC) - state_changed_at
     total_seconds = int(delta.total_seconds())
     if total_seconds < 0:
         return "—"
@@ -193,19 +193,19 @@ def agents():
 def agent_detail(agent_id):
     """Agent detail view."""
     default_start_date = (
-        datetime.now(tz=timezone.utc) - timedelta(days=2)
+        datetime.now(tz=UTC) - timedelta(days=2)
     ).strftime("%Y-%m-%d")
-    default_stop_date = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
+    default_stop_date = datetime.now(tz=UTC).strftime("%Y-%m-%d")
 
     start_date = request.args.get("start", default_start_date)
     stop_date = request.args.get("stop", default_stop_date)
 
     # Convert start and stop dates to datetime objects for the query
     start_datetime = datetime.strptime(start_date, "%Y-%m-%d").replace(
-        tzinfo=timezone.utc
+        tzinfo=UTC
     )
     stop_datetime = datetime.strptime(stop_date, "%Y-%m-%d").replace(
-        tzinfo=timezone.utc
+        tzinfo=UTC
     ) + timedelta(days=1)
 
     agent_info = database.get_agent_info(agent_id)
@@ -405,7 +405,7 @@ def queue_detail(queue_name):
     wait_times = database.get_queue_wait_times([queue_name])
     try:
         wait_times = wait_times[0]["wait_times"]
-    except (IndexError, KeyError):
+    except IndexError, KeyError:
         wait_times = []
     queue_percentile_data = database.calculate_percentiles(wait_times)
 
@@ -443,7 +443,7 @@ def _parse_utc_date(value: str) -> datetime:
     :return: UTC datetime for the given date.
     :raises ValueError: If ``value`` is not a valid ``%Y-%m-%d`` date.
     """
-    return datetime.strptime(value, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+    return datetime.strptime(value, "%Y-%m-%d").replace(tzinfo=UTC)
 
 
 @views.route("/statistics")
@@ -461,7 +461,7 @@ def statistics_jobs():
         group_by = "submitted_by"
 
     # Default to the last 7 days for the statistics view
-    now = datetime.now(tz=timezone.utc)
+    now = datetime.now(tz=UTC)
     default_start_date = (now - timedelta(days=6)).strftime("%Y-%m-%d")
     default_stop_date = now.strftime("%Y-%m-%d")
 

@@ -83,7 +83,7 @@ class JiraClient:
         self.auth = HTTPBasicAuth(email, token)
 
     @classmethod
-    def from_env(cls) -> "JiraClient":
+    def from_env(cls) -> JiraClient:
         """Create a client from JIRA_BASE_URL, JIRA_USER_EMAIL, JIRA_TOKEN."""
         values = {name: os.environ.get(name) for name in ENV_SETTINGS}
         missing = [name for name, value in values.items() if not value]
@@ -134,7 +134,7 @@ class JiraClient:
                 messages.extend(
                     f"{field}: {message}" for field, message in errors.items()
                 )
-        except (ValueError, TypeError):
+        except ValueError, TypeError:
             messages = [response.reason or "Unknown error"]
         return JiraRequestError(response.status_code, messages)
 

@@ -68,7 +68,7 @@ def _exchange_device_code(device_code: str) -> dict:
 
     try:
         return token_response.json()
-    except (ValueError, requests.exceptions.JSONDecodeError):
+    except ValueError, requests.exceptions.JSONDecodeError:
         logger.error(
             "Non-JSON response from OIDC token endpoint (status %s)",
             token_response.status_code,
@@ -162,7 +162,7 @@ def oidc_auth_init() -> dict:
 
     try:
         oidc_data = oidc_response.json()
-    except (ValueError, requests.exceptions.JSONDecodeError):
+    except ValueError, requests.exceptions.JSONDecodeError:
         logger.error(
             "Non-JSON response from OIDC device authorization endpoint"
             " (status %s): %s",
@@ -237,7 +237,7 @@ def oidc_auth_poll(request_id: str) -> dict:
 
     try:
         userinfo = helpers.oidc_userinfo(idp_token_data["access_token"])
-    except (RuntimeError, requests.RequestException):
+    except RuntimeError, requests.RequestException:
         logger.exception("Failed to retrieve userinfo from OIDC provider")
         abort(
             HTTPStatus.BAD_GATEWAY,

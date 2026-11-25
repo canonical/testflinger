@@ -45,7 +45,7 @@ class OWASPLogger(TrueOWASPLogger):
         """
         try:
             port = int(request.environ.get("SERVER_PORT", 5000))
-        except (ValueError, TypeError):
+        except ValueError, TypeError:
             port = 5000
 
         return {

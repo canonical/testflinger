@@ -20,7 +20,7 @@ import logging
 import os
 import urllib
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from flask_pymongo import PyMongo
@@ -62,7 +62,7 @@ def _now() -> datetime:
     without patching the ``datetime`` class wholesale. Production behavior
     is identical to ``datetime.now(timezone.utc)``.
     """
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 def _validate_group_by(group_by: str) -> str:
@@ -372,7 +372,7 @@ def pop_job(queue_list: list[str], agent_name: str) -> dict | None:
     job_id = response["job_id"]
     job["job_id"] = job_id
     # Mark the time the job was started
-    started_at = datetime.now(timezone.utc)
+    started_at = datetime.now(UTC)
     mongo.db.jobs.update_one(
         {"job_id": job_id},
         {"$set": {"started_at": started_at}},
@@ -423,8 +423,8 @@ def save_queue_wait_time(
 ):
     """Save data about the wait time in seconds for the specified queue."""
     # Ensure that python knows both datestamps are in UTC
-    started_at = started_at.replace(tzinfo=timezone.utc)
-    created_at = created_at.replace(tzinfo=timezone.utc)
+    started_at = started_at.replace(tzinfo=UTC)
+    created_at = created_at.replace(tzinfo=UTC)
     wait_seconds = (started_at - created_at).seconds
     mongo.db.queue_wait_times.update_one(
         {"name": queue},
@@ -1324,7 +1324,7 @@ def register_oidc_client(userinfo: dict) -> None:
         userinfo.get("email", ""),
         userinfo.get("name", ""),
     )
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     # Update or insert the OIDC user in client_permissions
     # This uses the sub as the unique identifier but uses email as client_id
@@ -1760,7 +1760,7 @@ def add_oidc_device_code(device_code: str, request_id: str, expires_in: int):
             "device_code": device_code,
             "request_id": request_id,
             "expires_at": (
-                datetime.now(timezone.utc) + timedelta(seconds=expires_in)
+                datetime.now(UTC) + timedelta(seconds=expires_in)
             ),
         }
     )
@@ -1799,7 +1799,7 @@ def update_agent_provision_log(agent_name, json_data) -> bool:
     agent_record = {}
 
     # timestamp this agent record and provision log entry
-    timestamp = datetime.now(timezone.utc)
+    timestamp = datetime.now(UTC)
     agent_record["updated_at"] = json_data["timestamp"] = timestamp
 
     # Look up the submitted_by from the job so it can be displayed in the
@@ -1857,7 +1857,7 @@ def add_job_event(job_id: str, event: dict) -> None:
         {"job_id": job_id},
         {
             "$push": {"events": event},
-            "$set": {"updated_at": datetime.now(timezone.utc)},
+            "$set": {"updated_at": datetime.now(UTC)},
         },
         upsert=True,
     )

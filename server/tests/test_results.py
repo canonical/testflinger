@@ -15,7 +15,7 @@
 #
 """Unit tests for Testflinger v1 API results endpoint."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from http import HTTPStatus
 from io import BytesIO
 
@@ -82,7 +82,7 @@ def test_result_get_with_logs(mongo_app, agent_auth_header):
     for i in range(10):
         log_data = f"line{i}\n"
         timestamp = datetime(
-            2025, 4, 24, 10, 5 * i, 0, tzinfo=timezone.utc
+            2025, 4, 24, 10, 5 * i, 0, tzinfo=UTC
         ).isoformat()
         log_json = {
             "fragment_number": i,

@@ -17,7 +17,7 @@
 """Testflinger API Auth module."""
 
 import os
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from functools import wraps
 from http import HTTPStatus
 
@@ -100,12 +100,12 @@ def generate_access_token(allowed_resources: dict, secret_key: str) -> str:
 
     :return: JWT token with all user permissions.
     """
-    expiration_time = datetime.now(timezone.utc) + timedelta(
+    expiration_time = datetime.now(UTC) + timedelta(
         seconds=DEFAULT_ACCESS_TOKEN_EXPIRATION
     )
     token_payload = {
         "exp": expiration_time,
-        "iat": datetime.now(timezone.utc),  # Issued at time
+        "iat": datetime.now(UTC),  # Issued at time
         "sub": "access_token",
         "permissions": allowed_resources,
     }
@@ -376,7 +376,7 @@ def generate_refresh_token(client_id: str, expires_in: int) -> str:
     :return: Refresh token string.
     """
     refresh_token = generate_token(48)  # equal to 64 char
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     token_data = {
         "client_id": client_id,
         "refresh_token": refresh_token,
@@ -458,9 +458,9 @@ def validate_refresh_token(token: str) -> dict:
     expires_at = token_entry.get("expires_at")
     if expires_at:
         if expires_at.tzinfo is None:
-            expires_at = expires_at.replace(tzinfo=timezone.utc)
+            expires_at = expires_at.replace(tzinfo=UTC)
 
-        if expires_at < datetime.now(timezone.utc):
+        if expires_at < datetime.now(UTC):
             # Log attempt to reuse expired token
             current_app.owasp_logger.authn_token_reuse(
                 userid=token_entry.get("client_id", "unknown"),
@@ -475,7 +475,7 @@ def validate_refresh_token(token: str) -> dict:
 
     database.edit_refresh_token(
         token_entry["refresh_token"],
-        {"last_accessed": datetime.now(timezone.utc)},
+        {"last_accessed": datetime.now(UTC)},
     )
 
     return token_entry

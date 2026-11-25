@@ -18,7 +18,7 @@
 import importlib.metadata
 import os
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from http import HTTPStatus
 from urllib.parse import urlparse
 
@@ -221,7 +221,7 @@ def has_attachments(data: dict) -> bool:
 
 def job_builder(data: dict) -> dict:
     """Build a job from a dictionary of data."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     job = {
         "created_at": now,
         "result_data": {
@@ -301,7 +301,7 @@ def job_get():
     if (secrets := retrieve_secrets(job)) is not None:
         job["test_data"]["secrets"] = secrets
     database.set_agent_job(agent_name, job["job_id"])
-    job["started_at"] = datetime.now(timezone.utc)
+    job["started_at"] = datetime.now(UTC)
     return job
 
 
@@ -333,7 +333,7 @@ def retrieve_secrets(data: dict) -> dict | None:
             secret_value = current_app.secrets_store.read(
                 client_id, secret_path
             )
-        except (AccessError, StoreError, UnexpectedError):
+        except AccessError, StoreError, UnexpectedError:
             secret_value = ""
         result[identifier] = secret_value
     return result
@@ -783,7 +783,7 @@ def queues_post(json_data: dict):
     Some agents may want to advertise some of the queues they listen on so that
     the user can check which queues are valid to use.
     """
-    timestamp = datetime.now(timezone.utc)
+    timestamp = datetime.now(UTC)
     for queue, description in json_data.items():
         database.upsert_queue(queue, description, timestamp)
     return "OK"
@@ -901,7 +901,7 @@ def agents_post(agent_name, json_data):
     The database layer handles normalization for v2 compatibility.
     """
     json_data["name"] = agent_name
-    json_data["updated_at"] = datetime.now(timezone.utc)
+    json_data["updated_at"] = datetime.now(UTC)
     # extract log from data so we can push it instead of setting it
     log = json_data.pop("log", [])
 
@@ -1053,7 +1053,7 @@ def job_position_get(job_id):
         return job_data
     try:
         queue = job_data.json.get("job_queue")
-    except (AttributeError, TypeError):
+    except AttributeError, TypeError:
         return f"Invalid json returned for id: {job_id}\n", 400
     # Get all jobs with job_queue=queue and return only the _id
     jobs = database.get_waiting_jobs_in_queue(queue)

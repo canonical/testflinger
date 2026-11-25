@@ -15,7 +15,7 @@
 
 """A Mongo-based implementation for the Testflinger secrets store."""
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from pymongo import MongoClient
 from pymongo.encryption import Algorithm, ClientEncryption
@@ -105,8 +105,8 @@ class MongoStore(SecretsStore):
 
         # Deny access to expired secrets while waiting for MongoDB TTL cleanup
         expire_at = result.get("expire_at")
-        if expire_at and expire_at.replace(tzinfo=timezone.utc) < datetime.now(
-            timezone.utc
+        if expire_at and expire_at.replace(tzinfo=UTC) < datetime.now(
+            UTC
         ):
             raise AccessError(f"Expired '{key}' under '{namespace}'")
 
@@ -169,7 +169,7 @@ class MongoStore(SecretsStore):
         secret_document = {
             "key": key,
             "value": encrypted_value,
-            "updated_at": datetime.now(timezone.utc),
+            "updated_at": datetime.now(UTC),
             "ephemeral": ephemeral,
         }
         # Only add expiration and create TTL index if secret is not ephemeral
@@ -177,7 +177,7 @@ class MongoStore(SecretsStore):
         expire_at = None
         if not ephemeral and expire_after is not None:
             self._ensure_ttl_index(namespace)
-            expire_at = datetime.now(timezone.utc) + timedelta(
+            expire_at = datetime.now(UTC) + timedelta(
                 seconds=expire_after
             )
             secret_document["expire_at"] = expire_at
@@ -232,12 +232,12 @@ class MongoStore(SecretsStore):
                         "key": key,
                         "$or": [
                             {"expire_at": {"$exists": False}},
-                            {"expire_at": {"$gt": datetime.now(timezone.utc)}},
+                            {"expire_at": {"$gt": datetime.now(UTC)}},
                         ],
                     },
                     {"_id": 1},
                 )
                 is not None
             )
-        except (OperationFailure, ConnectionFailure):
+        except OperationFailure, ConnectionFailure:
             return False

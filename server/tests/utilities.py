@@ -17,7 +17,7 @@
 
 import base64
 import os
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
 
 import jwt
@@ -27,10 +27,10 @@ from testflinger_common.enums import ServerRoles
 def get_access_token_header(client_id: str, role: ServerRoles) -> dict:
     """Create a Bearer token header for the specified role."""
     secret_key = os.environ.get("JWT_SIGNING_KEY")
-    expiration_time = datetime.now(timezone.utc) + timedelta(seconds=30)
+    expiration_time = datetime.now(UTC) + timedelta(seconds=30)
     token_payload = {
         "exp": expiration_time,
-        "iat": datetime.now(timezone.utc),
+        "iat": datetime.now(UTC),
         "sub": "access_token",
         "permissions": {
             "client_id": client_id,

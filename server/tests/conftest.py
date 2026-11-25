@@ -17,9 +17,8 @@
 
 import secrets
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from http import HTTPStatus
-from typing import Dict
 from uuid import uuid4
 
 import bcrypt
@@ -268,7 +267,7 @@ def role_clients_factory(mongo_app):
             ),
         }
 
-    roles: Dict[ServerRoles, dict] = {}
+    roles: dict[ServerRoles, dict] = {}
     for role in ServerRoles:
         roles[role] = _make_client(role)
     return roles
@@ -292,25 +291,25 @@ def statistics_data(mongo_app):
             "job_id": str(uuid4()),
             "queue": "queue1",
             "submitted_by": "user1",
-            "created_at": datetime(2026, 1, 1, tzinfo=timezone.utc),
+            "created_at": datetime(2026, 1, 1, tzinfo=UTC),
         },
         {
             "job_id": str(uuid4()),
             "queue": "queue2",
             "submitted_by": "user1",
-            "created_at": datetime(2026, 1, 1, tzinfo=timezone.utc),
+            "created_at": datetime(2026, 1, 1, tzinfo=UTC),
         },
         {
             "job_id": str(uuid4()),
             "queue": "queue1",
             "submitted_by": "user2",
-            "created_at": datetime(2026, 1, 2, tzinfo=timezone.utc),
+            "created_at": datetime(2026, 1, 2, tzinfo=UTC),
         },
         {
             "job_id": str(uuid4()),
             "queue": "queue2",
             "submitted_by": "user1",
-            "created_at": datetime(2026, 1, 2, tzinfo=timezone.utc),
+            "created_at": datetime(2026, 1, 2, tzinfo=UTC),
         },
     ]
 

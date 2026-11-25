@@ -19,7 +19,7 @@ events in the Testflinger API.
 """
 
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
 from unittest.mock import Mock, patch
 
@@ -386,7 +386,7 @@ class TestLoggingCompleteness:
         refresh_token = token_response.get_json()["refresh_token"]
 
         # Manually expire the token by modifying the database
-        expires_at = datetime.now(timezone.utc) - timedelta(seconds=1)
+        expires_at = datetime.now(UTC) - timedelta(seconds=1)
         database.edit_refresh_token(refresh_token, {"expires_at": expires_at})
 
         # Attempt to refresh with expired token

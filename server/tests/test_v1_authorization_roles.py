@@ -72,7 +72,7 @@ def build_param_from_perms():
         for method, roles in methods.items():
             case_id = (
                 f"{method}:{endpoint.replace('/', '_')}:"
-                f"{'+'.join((str(x) for x in roles))}"
+                f"{'+'.join(str(x) for x in roles)}"
             )
             params.append(
                 pytest.param(

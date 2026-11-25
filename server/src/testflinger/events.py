@@ -15,7 +15,7 @@
 #
 """Event handling functions for Testflinger server."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from testflinger_common.enums import (
     JobEvent,
@@ -73,7 +73,7 @@ def build_event(
     message = format_event(event_type, **context)
     event = {
         "event_name": event_type,
-        "timestamp": datetime.now(timezone.utc),
+        "timestamp": datetime.now(UTC),
         "message": message,
         "detail": detail,
     }

@@ -15,7 +15,7 @@
 
 """A Vault-based implementation for the Testflinger secrets store."""
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import hvac
 import requests
@@ -106,7 +106,7 @@ class VaultStore(SecretsStore):
                     path=f"{namespace}/{key}",
                     delete_version_after=f"{expire_after}s",
                 )
-                expire_at = datetime.now(timezone.utc) + timedelta(
+                expire_at = datetime.now(UTC) + timedelta(
                     seconds=expire_after
                 )
         except self.hvac_access_errors as error:

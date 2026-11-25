@@ -18,7 +18,7 @@
 Adds `mode`, `commanded_mode`, and `state` to agent data.
 """
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from http import HTTPStatus
 
 from apiflask import abort
@@ -130,7 +130,7 @@ def agents_post(agent_name, json_data):
     # Convert v2 REST input format (flat strings) to v2 database format
     # (nested dicts)
     # This is where the REST API schema becomes database schema
-    updated_at = datetime.now(timezone.utc)
+    updated_at = datetime.now(UTC)
 
     if isinstance(json_data.get("mode"), str):
         json_data["mode"] = {

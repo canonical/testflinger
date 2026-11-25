@@ -47,7 +47,7 @@ enable_gridfs_integration()
 def test_update_job_results_preserves_preimage_and_payload(mock_mongo, state):
     """Return the pre-image without mutating input or evaluating its values."""
     job_id = str(uuid4())
-    initial_time = datetime.datetime(2026, 1, 1, tzinfo=datetime.timezone.utc)
+    initial_time = datetime.datetime(2026, 1, 1, tzinfo=datetime.UTC)
     next_time = initial_time + datetime.timedelta(seconds=1)
     mock_mongo.db.jobs.insert_one(
         {
@@ -203,7 +203,7 @@ def _make_event(
 @patch("testflinger.database.mongo", new_callable=mongomock.MongoClient)
 def test_add_job_event(mock_mongo):
     """Test add_job_event stores the event in the jobs_events collection."""
-    timestamp = datetime.datetime.now(datetime.timezone.utc)
+    timestamp = datetime.datetime.now(datetime.UTC)
     event = _make_event("job_submitted", "Job submitted", timestamp)
     job_id = str(uuid4())
     add_job_event(job_id=job_id, event=event)
@@ -223,7 +223,7 @@ def test_new_job_events_preserve_insertion_order(mock_mongo):
     """Test new events are appended in insertion (oldest-first) order."""
     job_id = str(uuid4())
     timestamp = datetime.datetime(
-        2026, 1, 1, 12, 0, tzinfo=datetime.timezone.utc
+        2026, 1, 1, 12, 0, tzinfo=datetime.UTC
     )
     # timestamp is fixed for test simplicity and for validating insertion order
     events = [
@@ -302,7 +302,7 @@ def test_set_agent_mode_creates_and_stamps_new_agent(mock_mongo):
 @patch("testflinger.database.mongo", new_callable=mongomock.MongoClient)
 def test_upsert_agent_document_stamps_state_change(mock_mongo):
     """A state transition records its own timestamp."""
-    timestamp = datetime.datetime(2026, 1, 1, tzinfo=datetime.timezone.utc)
+    timestamp = datetime.datetime(2026, 1, 1, tzinfo=datetime.UTC)
     mock_mongo.db.agents.insert_one(
         {
             "name": "agent1",
@@ -333,7 +333,7 @@ def test_upsert_agent_document_stamps_state_change(mock_mongo):
 def test_add_job_event_does_not_raise_on_exception(mock_mongo, exception):
     """Test add_job_event doesn't raise an exception on MongoDB errors."""
     job_id = str(uuid4())
-    timestamp = datetime.datetime.now(datetime.timezone.utc)
+    timestamp = datetime.datetime.now(datetime.UTC)
     event = _make_event("job_submitted", "Job submitted", timestamp)
 
     # Patch the mongo client to raise the specified exception
@@ -476,7 +476,7 @@ def test_statistics_totals_start_at_range(statistics_data):
     # only jobs on/after 2026-01-02
     totals = get_job_statistics_totals(
         group_by="queue",
-        start_at=datetime.datetime(2026, 1, 2, tzinfo=datetime.timezone.utc),
+        start_at=datetime.datetime(2026, 1, 2, tzinfo=datetime.UTC),
     )
     assert totals == [
         {"key": "queue1", "count": 1},
@@ -489,7 +489,7 @@ def test_statistics_totals_end_at_range(statistics_data):
     # only jobs before 2026-01-02 (end bound is exclusive)
     totals = get_job_statistics_totals(
         group_by="queue",
-        end_at=datetime.datetime(2026, 1, 2, tzinfo=datetime.timezone.utc),
+        end_at=datetime.datetime(2026, 1, 2, tzinfo=datetime.UTC),
     )
     assert totals == [
         {"key": "queue1", "count": 1},
@@ -502,8 +502,8 @@ def test_statistics_totals_date_range_both_bounds(statistics_data):
     # window covering only 2026-01-01 (start inclusive, end exclusive)
     totals = get_job_statistics_totals(
         group_by="submitted_by",
-        start_at=datetime.datetime(2026, 1, 1, tzinfo=datetime.timezone.utc),
-        end_at=datetime.datetime(2026, 1, 2, tzinfo=datetime.timezone.utc),
+        start_at=datetime.datetime(2026, 1, 1, tzinfo=datetime.UTC),
+        end_at=datetime.datetime(2026, 1, 2, tzinfo=datetime.UTC),
     )
     assert totals == [{"key": "user1", "count": 2}]
 
@@ -538,7 +538,7 @@ def test_statistics_combined_filters(statistics_data):
     # queue1 jobs on/after 2026-01-02: only the user2 job qualifies
     totals = get_job_statistics_totals(
         group_by="submitted_by",
-        start_at=datetime.datetime(2026, 1, 2, tzinfo=datetime.timezone.utc),
+        start_at=datetime.datetime(2026, 1, 2, tzinfo=datetime.UTC),
         queues=["queue1"],
     )
     assert totals == [{"key": "user2", "count": 1}]
@@ -560,7 +560,7 @@ def test_agent_restart_preserves_current_mode_when_no_command_pending(
     2. Agent reports mode=restart (no commanded_mode set)
     3. Server should save current mode to commanded_mode for restoration
     """
-    timestamp = datetime.datetime(2026, 1, 1, tzinfo=datetime.timezone.utc)
+    timestamp = datetime.datetime(2026, 1, 1, tzinfo=datetime.UTC)
     mock_mongo.db.agents.insert_one(
         {
             "name": "agent1",
@@ -597,7 +597,7 @@ def test_agent_restart_sets_commanded_mode_to_restoration_target(mock_mongo):
     2. Agent reports mode=restart
     3. Server should replace the restart command with the previous mode
     """
-    timestamp = datetime.datetime(2026, 1, 1, tzinfo=datetime.timezone.utc)
+    timestamp = datetime.datetime(2026, 1, 1, tzinfo=datetime.UTC)
     mock_mongo.db.agents.insert_one(
         {
             "name": "agent1",
@@ -635,7 +635,7 @@ def test_agent_acks_commanded_mode(mock_mongo):
     2. Agent reports mode=offline
     3. Server should clear commanded_mode (ack received)
     """
-    timestamp = datetime.datetime(2026, 1, 1, tzinfo=datetime.timezone.utc)
+    timestamp = datetime.datetime(2026, 1, 1, tzinfo=datetime.UTC)
     mock_mongo.db.agents.insert_one(
         {
             "name": "agent1",
@@ -671,7 +671,7 @@ def test_agent_restart_without_current_mode_does_not_set_commanded_mode(
     2. Agent reports mode=restart
     3. Server should NOT set commanded_mode (nothing to preserve)
     """
-    timestamp = datetime.datetime(2026, 1, 1, tzinfo=datetime.timezone.utc)
+    timestamp = datetime.datetime(2026, 1, 1, tzinfo=datetime.UTC)
     # New agent, no existing record
     # After upgrade, agent record exists but mode doesn't
 
@@ -701,7 +701,7 @@ def test_agent_reports_different_mode_preserves_commanded_mode(mock_mongo):
     2. Agent reports mode=online (not yet adopted command)
     3. Server should preserve commanded_mode (for next cycle)
     """
-    timestamp = datetime.datetime(2026, 1, 1, tzinfo=datetime.timezone.utc)
+    timestamp = datetime.datetime(2026, 1, 1, tzinfo=datetime.UTC)
     mock_mongo.db.agents.insert_one(
         {
             "name": "agent1",

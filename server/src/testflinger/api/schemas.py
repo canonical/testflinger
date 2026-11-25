@@ -16,7 +16,7 @@
 """Testflinger v1 OpenAPI schemas."""
 
 import typing
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from apiflask import Schema, fields, validators
 from apiflask.validators import Length, OneOf, Regexp
@@ -69,7 +69,7 @@ class UTCDateTime(fields.DateTime):
         """
         result = super()._deserialize(value, attr, data, **kwargs)
         if result.tzinfo is not None:
-            result = result.astimezone(timezone.utc).replace(tzinfo=None)
+            result = result.astimezone(UTC).replace(tzinfo=None)
         return result
 
     def _serialize(
@@ -89,9 +89,9 @@ class UTCDateTime(fields.DateTime):
         """
         if value is not None:
             if value.tzinfo is None:
-                value = value.replace(tzinfo=timezone.utc)
+                value = value.replace(tzinfo=UTC)
             else:
-                value = value.astimezone(timezone.utc)
+                value = value.astimezone(UTC)
         return super()._serialize(value, attr, obj, **kwargs)
 
 

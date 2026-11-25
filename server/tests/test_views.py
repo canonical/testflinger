@@ -17,7 +17,7 @@
 
 import re
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
 from unittest.mock import patch
 
@@ -122,7 +122,7 @@ def test_agent_detail_no_provision_log(testapp):
     """
     mongo = mongomock.MongoClient()
     mongo.db.agents.insert_one(
-        {"name": "agent1", "updated_at": datetime.now(tz=timezone.utc)}
+        {"name": "agent1", "updated_at": datetime.now(tz=UTC)}
     )
     with patch("testflinger.database.mongo", mongo):
         with testapp.test_request_context():
@@ -139,7 +139,7 @@ def test_agent_detail_renders_active_job(testapp):
         {
             "name": "agent1",
             "job_id": "job-1",
-            "updated_at": datetime.now(tz=timezone.utc),
+            "updated_at": datetime.now(tz=UTC),
         }
     )
     mongo.db.jobs.insert_one(
@@ -180,7 +180,7 @@ def test_agent_detail_jira_ticket_link(
             "name": "agent1",
             "jira_ticket": {"key": key, "token": "t"},
             "links": [{"label": "Docs", "url": "https://docs.example.com"}],
-            "updated_at": datetime.now(tz=timezone.utc),
+            "updated_at": datetime.now(tz=UTC),
         }
     )
 
@@ -222,7 +222,7 @@ def test_agent_detail_with_restricted_to(testapp):
         {
             "name": "agent1",
             "queues": ["queue1", "queue2"],
-            "updated_at": datetime.now(tz=timezone.utc),
+            "updated_at": datetime.now(tz=UTC),
         }
     )
     with patch("testflinger.database.mongo", mongo):
@@ -245,7 +245,7 @@ def test_agent_detail_with_non_advertised_queue(testapp):
         {
             "name": "agent1",
             "queues": ["advertised_queue", "non_advertised_queue"],
-            "updated_at": datetime.now(tz=timezone.utc),
+            "updated_at": datetime.now(tz=UTC),
         }
     )
     mongo.db.jobs.insert_many(
@@ -294,7 +294,7 @@ def test_job_results_mongo_logs(testapp):
     mongo.db.jobs.insert_one(
         {
             "job_id": job_id,
-            "created_at": datetime.now(timezone.utc),
+            "created_at": datetime.now(UTC),
             "job_data": {"job_queue": "queue1", "provision_data": "skip"},
             "result_data": {
                 "status": {TestPhase.PROVISION: 0, TestPhase.TEST: 1},
@@ -314,7 +314,7 @@ def test_job_results_mongo_logs(testapp):
                 "log_type": LogType.STANDARD_OUTPUT,
                 "phase": TestPhase.PROVISION,
                 "fragment_number": 0,
-                "timestamp": datetime.now(tz=timezone.utc),
+                "timestamp": datetime.now(tz=UTC),
                 "log_data": "Provision log content",
             },
             {
@@ -322,7 +322,7 @@ def test_job_results_mongo_logs(testapp):
                 "log_type": LogType.STANDARD_OUTPUT,
                 "phase": TestPhase.TEST,
                 "fragment_number": 0,
-                "timestamp": datetime.now(tz=timezone.utc),
+                "timestamp": datetime.now(tz=UTC),
                 "log_data": "Test log content",
             },
         ]
@@ -347,7 +347,7 @@ def test_job_detail_shows_activity_events(testapp):
     mongo.db.jobs.insert_one(
         {
             "job_id": job_id,
-            "created_at": datetime.now(timezone.utc),
+            "created_at": datetime.now(UTC),
             "job_data": {"job_queue": "queue1"},
             "result_data": {"job_state": "complete"},
         }
@@ -359,7 +359,7 @@ def test_job_detail_shows_activity_events(testapp):
                 {
                     "event_name": "job_submitted",
                     "timestamp": datetime(
-                        2026, 1, 1, 11, 0, 0, tzinfo=timezone.utc
+                        2026, 1, 1, 11, 0, 0, tzinfo=UTC
                     ),
                     "message": "Job submitted by user bob into queue queue1.",
                     "detail": "",
@@ -367,7 +367,7 @@ def test_job_detail_shows_activity_events(testapp):
                 {
                     "event_name": "job_phase_started",
                     "timestamp": datetime(
-                        2026, 1, 1, 11, 15, 0, tzinfo=timezone.utc
+                        2026, 1, 1, 11, 15, 0, tzinfo=UTC
                     ),
                     "message": "Phase setup started.",
                     "detail": "",
@@ -375,7 +375,7 @@ def test_job_detail_shows_activity_events(testapp):
                 {
                     "event_name": "job_phase_completed",
                     "timestamp": datetime(
-                        2026, 1, 1, 11, 30, 0, tzinfo=timezone.utc
+                        2026, 1, 1, 11, 30, 0, tzinfo=UTC
                     ),
                     "message": "Phase setup completed with exit code 0",
                     "detail": "",
@@ -384,7 +384,7 @@ def test_job_detail_shows_activity_events(testapp):
                 {
                     "event_name": "job_phase_started",
                     "timestamp": datetime(
-                        2026, 1, 1, 12, 0, 0, tzinfo=timezone.utc
+                        2026, 1, 1, 12, 0, 0, tzinfo=UTC
                     ),
                     "message": "Phase provision started.",
                     "detail": "",
@@ -392,7 +392,7 @@ def test_job_detail_shows_activity_events(testapp):
                 {
                     "event_name": "job_phase_completed",
                     "timestamp": datetime(
-                        2026, 1, 1, 12, 30, 0, tzinfo=timezone.utc
+                        2026, 1, 1, 12, 30, 0, tzinfo=UTC
                     ),
                     "message": "Phase provision completed with exit code 1",
                     "detail": "",
@@ -424,7 +424,7 @@ def test_job_detail_no_events_shows_placeholder(testapp):
     mongo.db.jobs.insert_one(
         {
             "job_id": job_id,
-            "created_at": datetime.now(timezone.utc),
+            "created_at": datetime.now(UTC),
             "job_data": {"job_queue": "queue1"},
             "result_data": {"job_state": "complete"},
         }
@@ -505,7 +505,7 @@ def test_job_detail_has_copy_button(testapp):
     mongo.db.jobs.insert_one(
         {
             "job_id": job_id,
-            "created_at": datetime.now(timezone.utc),
+            "created_at": datetime.now(UTC),
             "job_data": {
                 "job_queue": "queue1",
                 "provision_data": {"distro": "jammy"},
@@ -554,7 +554,7 @@ def test_job_detail_renders_yaml_not_python_repr(testapp):
     mongo.db.jobs.insert_one(
         {
             "job_id": job_id,
-            "created_at": datetime.now(timezone.utc),
+            "created_at": datetime.now(UTC),
             "job_data": {
                 "job_queue": "queue1",
                 "provision_data": {"distro": "jammy"},
@@ -626,37 +626,37 @@ def test_state_duration_none_returns_dash():
 
 def test_state_duration_future_returns_dash():
     """_state_duration with a future timestamp returns '—'."""
-    future = datetime.now(timezone.utc) + timedelta(hours=1)
+    future = datetime.now(UTC) + timedelta(hours=1)
     assert _state_duration(future) == "—"
 
 
 def test_state_duration_zero_seconds():
     """_state_duration for a just-now timestamp returns '0m'."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     assert _state_duration(now) == "0m"
 
 
 def test_state_duration_minutes_only():
     """_state_duration for 45 minutes ago returns '45m'."""
-    ts = datetime.now(timezone.utc) - timedelta(minutes=45)
+    ts = datetime.now(UTC) - timedelta(minutes=45)
     assert _state_duration(ts) == "45m"
 
 
 def test_state_duration_hours_and_minutes():
     """_state_duration for 2h30m ago returns '2h 30m'."""
-    ts = datetime.now(timezone.utc) - timedelta(hours=2, minutes=30)
+    ts = datetime.now(UTC) - timedelta(hours=2, minutes=30)
     assert _state_duration(ts) == "2h 30m"
 
 
 def test_state_duration_days_hours_minutes():
     """_state_duration for 1d 3h 15m ago returns '1d 3h 15m'."""
-    ts = datetime.now(timezone.utc) - timedelta(days=1, hours=3, minutes=15)
+    ts = datetime.now(UTC) - timedelta(days=1, hours=3, minutes=15)
     assert _state_duration(ts) == "1d 3h 15m"
 
 
 def test_state_duration_exact_one_hour():
     """_state_duration for exactly 1 hour returns '1h' (0 minutes omitted)."""
-    ts = datetime.now(timezone.utc) - timedelta(hours=1)
+    ts = datetime.now(UTC) - timedelta(hours=1)
     assert _state_duration(ts) == "1h"
 
 
@@ -680,7 +680,7 @@ def test_agent_state_update_forbidden_without_oidc(testapp):
             "name": "agent1",
             "mode": {
                 "value": "online",
-                "changed_at": datetime.now(timezone.utc),
+                "changed_at": datetime.now(UTC),
             },
         }
     )
@@ -822,9 +822,9 @@ def test_agent_state_update_success_sets_mode(oidc_app):
             "name": "agent1",
             "mode": {
                 "value": "online",
-                "changed_at": datetime.now(timezone.utc),
+                "changed_at": datetime.now(UTC),
             },
-            "updated_at": datetime.now(timezone.utc),
+            "updated_at": datetime.now(UTC),
         }
     )
     with (
@@ -866,12 +866,12 @@ def test_agent_state_update_empty_comment_clears_comment(oidc_app):
             "name": "agent1",
             "mode": {
                 "value": "maintenance",
-                "changed_at": datetime.now(timezone.utc),
+                "changed_at": datetime.now(UTC),
             },
             "commanded_mode": {
                 "value": "maintenance",
                 "comment": "Replacing hardware",
-                "changed_at": datetime.now(timezone.utc),
+                "changed_at": datetime.now(UTC),
                 "changed_by": admin_email,
             },
         }
@@ -935,9 +935,9 @@ def test_agent_state_update_all_modes(
             "name": "agent1",
             "mode": {
                 "value": "online",
-                "changed_at": datetime.now(timezone.utc),
+                "changed_at": datetime.now(UTC),
             },
-            "updated_at": datetime.now(timezone.utc),
+            "updated_at": datetime.now(UTC),
         }
     )
 
@@ -987,13 +987,13 @@ def test_agents_list_admin_renders_state_modal(oidc_app):
             "name": "agent1",
             "mode": {
                 "value": "online",
-                "changed_at": datetime.now(timezone.utc),
+                "changed_at": datetime.now(UTC),
             },
             "state": {
                 "value": "waiting",
-                "changed_at": datetime.now(timezone.utc),
+                "changed_at": datetime.now(UTC),
             },
-            "updated_at": datetime.now(timezone.utc),
+            "updated_at": datetime.now(UTC),
         }
     )
     with (
@@ -1028,14 +1028,14 @@ def test_queue_detail_admin_renders_state_modal(oidc_app):
             "name": "agent1",
             "mode": {
                 "value": "online",
-                "changed_at": datetime.now(timezone.utc),
+                "changed_at": datetime.now(UTC),
             },
             "state": {
                 "value": "waiting",
-                "changed_at": datetime.now(timezone.utc),
+                "changed_at": datetime.now(UTC),
             },
             "queues": ["q1"],
-            "updated_at": datetime.now(timezone.utc),
+            "updated_at": datetime.now(UTC),
         }
     )
     with (
@@ -1070,14 +1070,14 @@ def test_agents_list_non_admin_has_no_state_modal(oidc_app):
             "name": "agent1",
             "mode": {
                 "value": "online",
-                "changed_at": datetime(2026, 1, 1, tzinfo=timezone.utc),
+                "changed_at": datetime(2026, 1, 1, tzinfo=UTC),
                 "comment": "Awaiting scheduled work",
             },
             "state": {
                 "value": "waiting",
-                "changed_at": datetime(2026, 1, 2, tzinfo=timezone.utc),
+                "changed_at": datetime(2026, 1, 2, tzinfo=UTC),
             },
-            "updated_at": datetime.now(timezone.utc),
+            "updated_at": datetime.now(UTC),
         }
     )
     with (
@@ -1107,8 +1107,8 @@ def test_agents_list_uses_state_time_for_stateful_modes(oidc_app):
     """Stateful chips use the sub-state time; offline uses the mode time."""
     app, _ = oidc_app
     mongo_client = mongomock.MongoClient()
-    mode_changed_at = datetime(2026, 1, 1, tzinfo=timezone.utc)
-    state_changed_at = datetime(2026, 1, 2, tzinfo=timezone.utc)
+    mode_changed_at = datetime(2026, 1, 1, tzinfo=UTC)
+    state_changed_at = datetime(2026, 1, 2, tzinfo=UTC)
     mongo_client.db.agents.insert_many(
         [
             {
@@ -1122,7 +1122,7 @@ def test_agents_list_uses_state_time_for_stateful_modes(oidc_app):
                     "changed_at": state_changed_at,
                     "comment": "Reserved for certification",
                 },
-                "updated_at": datetime.now(timezone.utc),
+                "updated_at": datetime.now(UTC),
             },
             {
                 "name": "offline-agent",
@@ -1130,7 +1130,7 @@ def test_agents_list_uses_state_time_for_stateful_modes(oidc_app):
                     "value": "offline",
                     "changed_at": mode_changed_at,
                 },
-                "updated_at": datetime.now(timezone.utc),
+                "updated_at": datetime.now(UTC),
             },
         ]
     )
@@ -1160,7 +1160,7 @@ def test_queue_detail_keeps_chip_tooltip(oidc_app):
     """Queue agent chips retain hover details alongside existing columns."""
     app, _ = oidc_app
     mongo_client = mongomock.MongoClient()
-    timestamp = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    timestamp = datetime(2026, 1, 1, tzinfo=UTC)
     mongo_client.db.queues.insert_one({"name": "q1", "description": "desc"})
     mongo_client.db.agents.insert_one(
         {
@@ -1204,13 +1204,13 @@ def test_agent_detail_keeps_status_timestamp_in_chip_tooltip(oidc_app):
             "name": "agent1",
             "mode": {
                 "value": "online",
-                "changed_at": datetime(2026, 1, 1, tzinfo=timezone.utc),
+                "changed_at": datetime(2026, 1, 1, tzinfo=UTC),
             },
             "state": {
                 "value": "reserve",
-                "changed_at": datetime(2026, 1, 2, tzinfo=timezone.utc),
+                "changed_at": datetime(2026, 1, 2, tzinfo=UTC),
             },
-            "updated_at": datetime(2026, 1, 3, tzinfo=timezone.utc),
+            "updated_at": datetime(2026, 1, 3, tzinfo=UTC),
         }
     )
 
@@ -1242,9 +1242,9 @@ def test_agent_state_update_redirects_to_safe_next(oidc_app):
             "name": "agent1",
             "mode": {
                 "value": "online",
-                "changed_at": datetime.now(timezone.utc),
+                "changed_at": datetime.now(UTC),
             },
-            "updated_at": datetime.now(timezone.utc),
+            "updated_at": datetime.now(UTC),
         }
     )
     with (
@@ -1281,9 +1281,9 @@ def test_agent_state_update_ignores_unsafe_next(oidc_app, bad_next):
             "name": "agent1",
             "mode": {
                 "value": "online",
-                "changed_at": datetime.now(timezone.utc),
+                "changed_at": datetime.now(UTC),
             },
-            "updated_at": datetime.now(timezone.utc),
+            "updated_at": datetime.now(UTC),
         }
     )
     with (
@@ -1340,7 +1340,7 @@ def test_agents_view_renders_active_job_and_submitter(testapp):
             "name": "agent1",
             "job_id": "job-1",
             "state": "running",
-            "updated_at": datetime.now(timezone.utc),
+            "updated_at": datetime.now(UTC),
         }
     )
     mongo.db.jobs.insert_one({"job_id": "job-1", "submitted_by": "client-A"})
@@ -1384,20 +1384,20 @@ def test_agent_detail_provision_log_with_client_id(testapp):
     mongo.db.agents.insert_one(
         {
             "name": "agent1",
-            "updated_at": datetime.now(tz=timezone.utc),
+            "updated_at": datetime.now(tz=UTC),
         }
     )
     provision_log = [
         {
             "job_id": job_id_1,
             "exit_code": 0,
-            "timestamp": datetime.now(tz=timezone.utc),
+            "timestamp": datetime.now(tz=UTC),
             "submitted_by": "client-A",
         },
         {
             "job_id": job_id_2,
             "exit_code": 1,
-            "timestamp": datetime.now(tz=timezone.utc),
+            "timestamp": datetime.now(tz=UTC),
             "submitted_by": "client-B",
         },
     ]
@@ -1420,7 +1420,7 @@ def test_agent_detail_provision_log_with_client_id(testapp):
 def test_parse_utc_date_valid():
     """Test that a valid date string parses to a tz-aware UTC datetime."""
     assert _parse_utc_date("2026-01-15") == datetime(
-        2026, 1, 15, tzinfo=timezone.utc
+        2026, 1, 15, tzinfo=UTC
     )
 
 
@@ -1487,7 +1487,7 @@ def test_statistics_jobs_invalid_group_by_defaults_to_submitter(mongo_app):
 def test_statistics_jobs_invalid_dates_render_default_range(mongo_app):
     """Test malformed dates fall back to actually querying the last 7 days."""
     app, mongo = mongo_app
-    now = datetime.now(tz=timezone.utc)
+    now = datetime.now(tz=UTC)
     mongo.job_statistics.insert_many(
         [
             {
@@ -1599,7 +1599,7 @@ def test_statistics_jobs_stop_date_is_inclusive(statistics_data, mongo_app):
 def test_statistics_jobs_default_date_range(mongo_app):
     """Test the default range covers the last 7 days but not older jobs."""
     app, mongo = mongo_app
-    now = datetime.now(tz=timezone.utc)
+    now = datetime.now(tz=UTC)
     mongo.job_statistics.insert_many(
         [
             {

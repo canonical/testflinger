@@ -18,7 +18,7 @@
 import logging
 import threading
 from dataclasses import dataclass, field, replace
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from flask import current_app, has_request_context, request
 from testflinger_common.enums import AgentMode, LogType, TestPhase
@@ -332,7 +332,7 @@ def create_ticket_if_agent_self_maintenance(
         return
     report = MaintenanceReport(
         client_id=client_id,
-        time=datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        time=datetime.now(UTC).isoformat(timespec="seconds"),
         comment=comment,
         links=links or [],
     )

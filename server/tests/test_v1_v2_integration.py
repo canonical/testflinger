@@ -23,7 +23,7 @@ Tests verify that v1 and v2 clients can interoperate safely:
 - Formats are distinguishable and conversions are reversible
 """
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from http import HTTPStatus
 
 from testflinger_common.enums import ServerRoles
@@ -495,14 +495,14 @@ def test_is_v2_format_detection(mongo_app):
     # V2 format: mode dict
     v2_record = {
         "name": "agent1",
-        "mode": {"value": "online", "changed_at": datetime.now(timezone.utc)},
+        "mode": {"value": "online", "changed_at": datetime.now(UTC)},
     }
     assert _is_v2_format(v2_record), "Dict mode should be v2 format"
 
     # V2 format: state dict
     v2_record_state_only = {
         "name": "agent1",
-        "state": {"value": "ready", "changed_at": datetime.now(timezone.utc)},
+        "state": {"value": "ready", "changed_at": datetime.now(UTC)},
     }
     assert _is_v2_format(v2_record_state_only), (
         "Dict state should be v2 format"
@@ -525,7 +525,7 @@ def test_upsert_agent_document_works_with_v1_and_v2_data(mongo_app):
     and v2 nested format (mode/state dicts) equally well.
     """
     app, mongo = mongo_app
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     from testflinger import database
 
@@ -534,7 +534,7 @@ def test_upsert_agent_document_works_with_v1_and_v2_data(mongo_app):
         "name": "v1-test-agent",
         "state": "provision",
         "queues": ["q1"],
-        "updated_at": datetime.now(timezone.utc),
+        "updated_at": datetime.now(UTC),
     }
     database.upsert_agent_document(
         "v1-test-agent",
@@ -557,10 +557,10 @@ def test_upsert_agent_document_works_with_v1_and_v2_data(mongo_app):
         "name": "v2-test-agent",
         "mode": {
             "value": "offline",
-            "changed_at": datetime.now(timezone.utc),
+            "changed_at": datetime.now(UTC),
         },
         "queues": ["q2"],
-        "updated_at": datetime.now(timezone.utc),
+        "updated_at": datetime.now(UTC),
     }
     database.upsert_agent_document(
         "v2-test-agent",

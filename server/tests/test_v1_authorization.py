@@ -20,7 +20,7 @@ restricted queues.
 
 import logging
 import os
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
 from unittest.mock import patch
 
@@ -167,8 +167,8 @@ def test_priority_expired_token(mongo_app_with_permissions):
     app, _, _, _, _ = mongo_app_with_permissions
     secret_key = os.environ.get("JWT_SIGNING_KEY")
     expired_token_payload = {
-        "exp": datetime.now(timezone.utc) - timedelta(seconds=10),
-        "iat": datetime.now(timezone.utc) - timedelta(seconds=12),
+        "exp": datetime.now(UTC) - timedelta(seconds=10),
+        "iat": datetime.now(UTC) - timedelta(seconds=12),
         "sub": "access_token",
         "permissions": {
             "max_priority": {},
@@ -207,8 +207,8 @@ def test_missing_role_defaults_to_contributor(mongo_app_with_permissions):
     secret_key = os.environ.get("JWT_SIGNING_KEY")
     # Create token with valid client_id but no role field
     token_payload = {
-        "exp": datetime.now(timezone.utc) + timedelta(hours=1),
-        "iat": datetime.now(timezone.utc),
+        "exp": datetime.now(UTC) + timedelta(hours=1),
+        "iat": datetime.now(UTC),
         "sub": "access_token",
         "permissions": {
             "client_id": client_id,
@@ -1183,7 +1183,7 @@ def test_refresh_with_expired_token(mongo_app_with_permissions):
         {"refresh_token": refresh_token},
         {
             "$set": {
-                "expires_at": datetime.now(timezone.utc) - timedelta(seconds=1)
+                "expires_at": datetime.now(UTC) - timedelta(seconds=1)
             }
         },
     )
@@ -1378,7 +1378,7 @@ def test_refresh_token_last_accessed_update(mongo_app_with_permissions):
         {"refresh_token": refresh_token},
         {
             "$set": {
-                "last_accessed": datetime.now(timezone.utc)
+                "last_accessed": datetime.now(UTC)
                 - timedelta(hours=1)
             }
         },
@@ -1664,8 +1664,8 @@ def test_access_token_valid_if_expired_within_leeway(
     secret_key = os.environ.get("JWT_SIGNING_KEY")
     # Token expired 2 seconds ago, within the default 5-second leeway
     token_payload = {
-        "exp": datetime.now(timezone.utc) - timedelta(seconds=2),
-        "iat": datetime.now(timezone.utc),
+        "exp": datetime.now(UTC) - timedelta(seconds=2),
+        "iat": datetime.now(UTC),
         "sub": "access_token",
         "permissions": {
             "client_id": client_id,
@@ -1687,8 +1687,8 @@ def test_access_token_valid_if_iat_within_leeway(mongo_app_with_permissions):
     secret_key = os.environ.get("JWT_SIGNING_KEY")
     # Token issued 2 seconds in the future, within the default 5s leeway
     token_payload = {
-        "exp": datetime.now(timezone.utc) + timedelta(hours=1),
-        "iat": datetime.now(timezone.utc) + timedelta(seconds=2),
+        "exp": datetime.now(UTC) + timedelta(hours=1),
+        "iat": datetime.now(UTC) + timedelta(seconds=2),
         "sub": "access_token",
         "permissions": {
             "client_id": client_id,
@@ -1712,8 +1712,8 @@ def test_access_token_invalid_if_iat_not_within_leeway(
     secret_key = os.environ.get("JWT_SIGNING_KEY")
     # Token issued 10 seconds in the future, outside the default 5s leeway
     token_payload = {
-        "exp": datetime.now(timezone.utc) + timedelta(hours=1),
-        "iat": datetime.now(timezone.utc) + timedelta(seconds=10),
+        "exp": datetime.now(UTC) + timedelta(hours=1),
+        "iat": datetime.now(UTC) + timedelta(seconds=10),
         "sub": "access_token",
         "permissions": {
             "client_id": client_id,

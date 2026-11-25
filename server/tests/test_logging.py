@@ -18,7 +18,7 @@
 
 import urllib.parse
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 from testflinger_common.enums import LogType, TestPhase
@@ -41,7 +41,7 @@ def fixture_mongo_app_with_outputs(mongo_app):
                 "phase": TestPhase.SETUP,
                 "fragment_number": i,
                 "timestamp": datetime(
-                    2025, 4, 24, 10, 5 * i, 0, tzinfo=timezone.utc
+                    2025, 4, 24, 10, 5 * i, 0, tzinfo=UTC
                 ),
                 "log_data": f"My log data {i}",
             }
@@ -56,7 +56,7 @@ def test_store_log_fragment(mongo_app):
     log_handler = MongoLogHandler(mongo)
     for i in range(2):
         timestamp = datetime(
-            2025, 4, 24, 10, 5 * i, 0, tzinfo=timezone.utc
+            2025, 4, 24, 10, 5 * i, 0, tzinfo=UTC
         ).isoformat()
         log_fragment = LogFragment(
             job_id,
@@ -98,7 +98,7 @@ def test_retrieve_log_fragments_by_timestamp(mongo_app_with_outputs):
     """
     _, mongo, job_id = mongo_app_with_outputs
     log_handler = MongoLogHandler(mongo)
-    start_timestamp = datetime(2025, 4, 24, 10, 32, 0, tzinfo=timezone.utc)
+    start_timestamp = datetime(2025, 4, 24, 10, 32, 0, tzinfo=UTC)
     fragments = list(
         log_handler.retrieve_log_fragments(
             job_id,
@@ -131,7 +131,7 @@ def test_output_post_get(mongo_app, agent_auth_header):
     job_id = "00000000-0000-0000-0000-000000000000"
     output_url = f"/v1/result/{job_id}/log/output"
     log_data = "line1\nline2\nline3"
-    timestamp = datetime(2020, 1, 1, tzinfo=timezone.utc).isoformat()
+    timestamp = datetime(2020, 1, 1, tzinfo=UTC).isoformat()
     phase = str(TestPhase.SETUP)
     log_json = {
         "fragment_number": 0,
@@ -156,7 +156,7 @@ def test_output_post_get_query(mongo_app, agent_auth_header):
     for i in range(10):
         log_data = f"line{i}\n"
         timestamp = datetime(
-            2025, 4, 24, 10, 5 * i, 0, tzinfo=timezone.utc
+            2025, 4, 24, 10, 5 * i, 0, tzinfo=UTC
         ).isoformat()
         log_json = {
             "fragment_number": i,
@@ -167,7 +167,7 @@ def test_output_post_get_query(mongo_app, agent_auth_header):
         output = app.post(output_url, json=log_json, headers=agent_auth_header)
         assert "OK" == output.text
     query_timestamp = datetime(
-        2025, 4, 24, 10, 32, 0, tzinfo=timezone.utc
+        2025, 4, 24, 10, 32, 0, tzinfo=UTC
     ).isoformat()
     params = {"start_timestamp": query_timestamp, "phase": phase}
     encoded_params = urllib.parse.urlencode(params)
@@ -190,7 +190,7 @@ def test_output_post_get_phase_query(mongo_app, agent_auth_header):
         for phase in phases:
             log_data = f"{phase} line{i}\n"
             timestamp = datetime(
-                2025, 4, 24, 10, 5 * i, 0, tzinfo=timezone.utc
+                2025, 4, 24, 10, 5 * i, 0, tzinfo=UTC
             ).isoformat()
             log_json = {
                 "fragment_number": i,
@@ -203,7 +203,7 @@ def test_output_post_get_phase_query(mongo_app, agent_auth_header):
             )
             assert "OK" == output.text
     query_timestamp = datetime(
-        2025, 4, 24, 10, 32, 0, tzinfo=timezone.utc
+        2025, 4, 24, 10, 32, 0, tzinfo=UTC
     ).isoformat()
     phase = TestPhase.PROVISION
     params = {"start_timestamp": query_timestamp, "phase": phase}
@@ -237,7 +237,7 @@ def test_serial_output(mongo_app, agent_auth_header):
     job_id = "00000000-0000-0000-0000-000000000000"
     output_url = f"/v1/result/{job_id}/log/{LogType.SERIAL_OUTPUT}"
     log_data = "line1\nline2\nline3"
-    timestamp = datetime(2020, 1, 1, tzinfo=timezone.utc).isoformat()
+    timestamp = datetime(2020, 1, 1, tzinfo=UTC).isoformat()
     phase = str(TestPhase.SETUP)
     log_json = {
         "fragment_number": 0,

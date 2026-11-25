@@ -18,9 +18,9 @@
 
 from abc import ABC, abstractmethod
 from collections import defaultdict
+from collections.abc import Iterable
 from dataclasses import asdict, dataclass
-from datetime import datetime, timezone
-from typing import Iterable
+from datetime import UTC, datetime
 
 from testflinger_common.enums import LogType, TestPhase
 
@@ -137,7 +137,7 @@ class MongoLogHandler(LogHandler):
         """
         log_collection = self.mongo.db.logs
         fragment_dict = asdict(log_fragment)
-        timestamp = datetime.now(timezone.utc)
+        timestamp = datetime.now(UTC)
         if fragment_dict["timestamp"] is None:
             fragment_dict["timestamp"] = timestamp
         fragment_dict["updated_at"] = timestamp
