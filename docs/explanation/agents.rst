@@ -66,6 +66,17 @@ To manage a running agent a Testflinger administrative user can communicate with
 the Testflinger server to tell the Agent to go ``offline``, ``online``, or into
 ``maintenance`` mode. See :ref:`howto-manage-agent`
 
+Any logged-in user can also report a broken agent with the **Mark as Broken**
+button on its page in the web UI. The button is hidden while the agent is in,
+or has been commanded into, ``maintenance``. The dialog lists up to the 10 most
+recent provision failures from the last 7 days and asks for a description of
+the issue. On submit, the server commands the agent into ``maintenance``: it
+stops taking new jobs, and a job that is already running completes first. If
+the server has Jira settings and the agent has ``jira_space``, a Jira ticket is
+created as described in `Agent Operating Modes`_, with the description and
+the listed failures. An administrator brings the agent back by setting it to
+``online`` with **Change Agent Mode** on the same page.
+
 
 Agent Operating Modes
 ---------------------

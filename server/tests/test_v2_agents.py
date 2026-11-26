@@ -19,6 +19,7 @@ import time
 from http import HTTPStatus
 from unittest.mock import patch
 
+import mongomock
 import pytest
 from testflinger_common.enums import ServerRoles
 
@@ -1008,6 +1009,83 @@ def test_ticket_key_is_kept_until_the_agent_is_back_online(
 
     _report(app, agent_auth_header, "online")
     assert "jira_ticket" not in mongo.agents.find_one({"name": "agent1"})
+
+
+def test_ticket_claim_kept_while_busy_v1_agent_finishes_its_job(
+    mongo_app, agent_auth_header
+):
+    """A busy agent commanded into maintenance keeps its ticket claim.
+
+    It reports online job phases until its job ends; the claim is only
+    cleared once an online command is acknowledged.
+    """
+    app, mongo = mongo_app
+    mongo.agents.insert_one(
+        {
+            "name": "agent1",
+            "mode": {"value": "online"},
+            "commanded_mode": {"value": "maintenance"},
+            "jira_ticket": {"key": "TESTOPS-1", "token": "t"},
+        }
+    )
+
+    for state in ("provision", "test", "offline"):
+        app.post(
+            "/v1/agents/data/agent1",
+            json={"state": state},
+            headers=agent_auth_header,
+        )
+        record = mongo.agents.find_one({"name": "agent1"})
+        assert record["jira_ticket"]["key"] == "TESTOPS-1"
+
+    _command_mode(app, "online")
+    app.post(
+        "/v1/agents/data/agent1",
+        json={"state": "waiting"},
+        headers=agent_auth_header,
+    )
+    record = mongo.agents.find_one({"name": "agent1"})
+    assert "jira_ticket" not in record
+    assert "commanded_mode" not in record
+
+
+def test_claim_made_after_the_snapshot_is_kept(mongo_app, agent_auth_header):
+    """Marking an agent broken while it reports online keeps the claim."""
+    app, mongo = mongo_app
+    mongo.agents.insert_one({"name": "agent1", "mode": {"value": "online"}})
+    find_one = mongomock.collection.Collection.find_one
+    upgrade = database._upgrade_db_agent_v1_to_v2
+    armed = []
+
+    def upgrade_then_arm(agent_name):
+        upgrade(agent_name)
+        armed.append(True)
+
+    def find_then_mark_broken(collection, *args, **kwargs):
+        agent = find_one(collection, *args, **kwargs)
+        if armed == [True] and args == ({"name": "agent1"},):
+            armed.append(False)
+            database.set_agent_commanded_mode(
+                "agent1", "maintenance", "broken", "admin"
+            )
+            database.claim_agent_jira_ticket("agent1")
+        return agent
+
+    # Mark the agent broken right after the heartbeat reads its record
+    with (
+        patch.object(database, "_upgrade_db_agent_v1_to_v2", upgrade_then_arm),
+        patch.object(
+            mongomock.collection.Collection,
+            "find_one",
+            autospec=True,
+            side_effect=find_then_mark_broken,
+        ),
+    ):
+        _report(app, agent_auth_header, "online")
+
+    record = mongo.agents.find_one({"name": "agent1"})
+    assert record["commanded_mode"]["value"] == "maintenance"
+    assert "jira_ticket" in record
 
 
 def test_racing_reports_create_one_ticket(mongo_app, ticket_mock):

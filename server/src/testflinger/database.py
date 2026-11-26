@@ -49,6 +49,9 @@ DEFAULT_EXPIRATION = 60 * 60 * 24 * 7  # 7 days
 OUTPUT_EXPIRATION = 60 * 60 * 4  # 4 hours
 ACCOUNT_DELETE_EXPIRATION = 60 * 60 * 24 * 90  # 90 days
 
+# Number of most recent entries kept in each agent's provision log
+PROVISION_LOG_LIMIT = 100
+
 mongo = PyMongo()
 logger = logging.getLogger(__name__)
 
@@ -1494,10 +1497,6 @@ def upsert_agent_document(
     ):
         unset.append("commanded_mode")
 
-    # The Jira ticket claim lasts until the agent is back online
-    if reported_mode == AgentMode.ONLINE.value:
-        unset.append("jira_ticket")
-
     # Agent is restarting; preserve restoration target, favor exiting command
     # if the command has not yet been ack'ed.
     if (
@@ -1559,6 +1558,19 @@ def upsert_agent_document(
                 ]
             },
         }
+
+    # The Jira ticket claim lasts until the agent is back online. A busy
+    # agent keeps reporting online until its job ends, so a pending
+    # maintenance command keeps the claim. It is checked at write time,
+    # so a maintenance command issued since the read keeps its claim.
+    if reported_mode == AgentMode.ONLINE.value:
+        mongo.db.agents.update_one(
+            {
+                "name": agent_name,
+                "commanded_mode.value": {"$ne": AgentMode.MAINTENANCE.value},
+            },
+            {"$unset": {"jira_ticket": ""}},
+        )
 
     # Build aggregation pipeline for mode/state conditional updates
     pipeline = [{"$set": set_fields}]
@@ -1813,7 +1825,10 @@ def update_agent_provision_log(agent_name, json_data) -> bool:
     update_operation = {
         "$set": json_data,
         "$push": {
-            "provision_log": {"$each": [json_data], "$slice": -100},
+            "provision_log": {
+                "$each": [json_data],
+                "$slice": -PROVISION_LOG_LIMIT,
+            },
         },
     }
     mongo.db.provision_logs.update_one(

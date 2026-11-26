@@ -23,6 +23,7 @@ from http import HTTPStatus
 from apiflask import APIBlueprint
 from flask import (
     current_app,
+    flash,
     make_response,
     redirect,
     render_template,
@@ -37,11 +38,18 @@ from pygments.lexers import BashLexer, YamlLexer
 from testflinger_common.enums import AgentMode, ServerRoles
 
 from testflinger import database
+from testflinger.jira import open_maintenance_ticket, tickets
 from testflinger.jira.client import issue_url
+from testflinger.jira.tickets import MaintenanceReport
 from testflinger.job_yaml import build_job_yaml, dump_yaml
 from testflinger.logs import MongoLogHandler
 
 views = APIBlueprint("testflinger", __name__, enable_openapi=False)
+
+# Provision failures shown and reported when an agent is marked as broken
+BROKEN_FAILURES_DAYS = 7
+BROKEN_FAILURES_LIMIT = 10
+BROKEN_DESCRIPTION_MAX = 2000
 
 
 def _get_csrf_token() -> str:
@@ -178,6 +186,48 @@ def _is_admin():
     return perms.get("role") == ServerRoles.ADMIN
 
 
+def _is_logged_in() -> bool:
+    """Return True if OIDC is enabled and a user is logged in."""
+    return current_app.oauth is not None and bool(session.get("user_sub"))
+
+
+def _csrf_valid() -> bool:
+    """Return True if the submitted form carries the session CSRF token."""
+    submitted_token = request.form.get("csrf_token", "")
+    session_token = session.get("_csrf_token", "")
+    return bool(session_token) and hmac.compare_digest(
+        submitted_token.encode("utf-8"), session_token.encode("utf-8")
+    )
+
+
+def _in_maintenance(agent: dict) -> bool:
+    """Return True if the agent is, or is commanded into, maintenance."""
+    return AgentMode.MAINTENANCE.value in (
+        (agent.get("mode") or {}).get("value"),
+        (agent.get("commanded_mode") or {}).get("value"),
+    )
+
+
+def _recent_provision_failures(
+    agent_id: str,
+) -> tuple[list[dict], int, bool]:
+    """Return the agent's latest failed provisions, newest first.
+
+    Also return how many provisions failed in the whole time window, and
+    whether that count may be too low: if every retained provision log
+    entry is within the window, older ones in it may have been dropped.
+    """
+    now = datetime.now(tz=timezone.utc)
+    log = database.get_provision_log(
+        agent_id,
+        start_datetime=now - timedelta(days=BROKEN_FAILURES_DAYS),
+        stop_datetime=now,
+    )
+    failures = [entry for entry in log if entry.get("exit_code") != 0]
+    truncated = len(log) >= database.PROVISION_LOG_LIMIT
+    return failures[::-1][:BROKEN_FAILURES_LIMIT], len(failures), truncated
+
+
 @views.route("/agents")
 def agents():
     """Agents view."""
@@ -276,9 +326,108 @@ def agent_detail(agent_id):
         # Avoid division by zero
         agent_info["provision_success_rate"] = 0
 
-    return render_template(
-        "agent_detail.html", agent=agent_info, is_admin=_is_admin()
+    can_mark_broken = _is_logged_in() and not _in_maintenance(agent_info)
+    failures, failures_total, failures_truncated = (
+        _recent_provision_failures(agent_id)
+        if can_mark_broken
+        else ([], 0, False)
     )
+    return render_template(
+        "agent_detail.html",
+        agent=agent_info,
+        is_admin=_is_admin(),
+        can_mark_broken=can_mark_broken,
+        provision_failures=failures,
+        provision_failures_total=failures_total,
+        provision_failures_truncated=failures_truncated,
+        broken_failures_days=BROKEN_FAILURES_DAYS,
+        broken_description_max=BROKEN_DESCRIPTION_MAX,
+    )
+
+
+@views.route("/agents/<agent_id>/broken", methods=["POST"])
+def agent_mark_broken(agent_id):
+    """UI endpoint for a user to report an agent as broken.
+
+    The agent is commanded into maintenance and a Jira ticket is opened
+    with the user's description and the agent's recent provision failures.
+    """
+    if current_app.oauth is None:
+        return make_response("Forbidden", HTTPStatus.FORBIDDEN)
+    if not _is_logged_in():
+        return make_response(
+            render_template("401_unauthorized.html"),
+            HTTPStatus.UNAUTHORIZED,
+        )
+    if not _csrf_valid():
+        return make_response("Invalid CSRF token", HTTPStatus.BAD_REQUEST)
+
+    agent = database.get_agent_info(agent_id)
+    if not agent:
+        return make_response("Agent not found", HTTPStatus.NOT_FOUND)
+    detail_url = url_for("testflinger.agent_detail", agent_id=agent_id)
+
+    description = request.form.get("description", "").strip()
+    error = None
+    if not description:
+        error = "A description is required to mark the agent as broken."
+    elif len(description) > BROKEN_DESCRIPTION_MAX:
+        error = (
+            "The description must be at most "
+            f"{BROKEN_DESCRIPTION_MAX} characters."
+        )
+    elif _in_maintenance(agent):
+        error = f"{agent_id} is already in maintenance."
+    if error:
+        flash(error, "negative")
+        return redirect(detail_url)
+
+    reporter = session.get("user_email") or session.get("user_sub")
+    failures, failures_total, failures_truncated = _recent_provision_failures(
+        agent_id
+    )
+    report = MaintenanceReport(
+        client_id=reporter,
+        time=datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        comment=f"Marked as broken by {reporter}: {description}",
+        provision_failures=failures,
+        provision_failures_total=failures_total,
+        provision_failures_days=BROKEN_FAILURES_DAYS,
+        provision_failures_truncated=failures_truncated,
+    )
+    if open_maintenance_ticket(
+        agent_id,
+        f"Agent {agent_id} was marked as broken",
+        report,
+        agent=agent,
+        changed_by=reporter,
+    ):
+        flash(
+            f"{agent_id} was put into maintenance. "
+            "A Jira ticket is being created.",
+            "positive",
+        )
+    elif agent.get("jira_space") and tickets.is_configured():
+        ticket_key = (agent.get("jira_ticket") or {}).get("key")
+        flash(
+            f"{agent_id} was put into maintenance. It already has a Jira "
+            f"ticket{f' ({ticket_key})' if ticket_key else ''}, so no new "
+            "ticket was created; please add your details there.",
+            "caution",
+        )
+    elif not agent.get("jira_space"):
+        flash(
+            f"{agent_id} was put into maintenance. No Jira ticket was "
+            "created because this agent has no Jira space.",
+            "caution",
+        )
+    else:
+        flash(
+            f"{agent_id} was put into maintenance. No Jira ticket was "
+            "created because Jira is not configured on this server.",
+            "caution",
+        )
+    return redirect(detail_url)
 
 
 @views.route("/agents/<agent_id>/state", methods=["POST"])
@@ -297,11 +446,7 @@ def agent_state_update(agent_id):
     else:
         return make_response("Forbidden", HTTPStatus.FORBIDDEN)
 
-    submitted_token = request.form.get("csrf_token", "")
-    session_token = session.get("_csrf_token", "")
-    if not session_token or not hmac.compare_digest(
-        submitted_token.encode("utf-8"), session_token.encode("utf-8")
-    ):
+    if not _csrf_valid():
         return make_response("Invalid CSRF token", HTTPStatus.BAD_REQUEST)
 
     new_mode = request.form.get("mode", "").strip()

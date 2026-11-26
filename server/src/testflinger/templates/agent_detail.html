@@ -4,8 +4,18 @@
 {% set title = "Agent" %}
 {% block content %}
   <div class="p-strip is-shallow">
-    <div class="row">
+    <div class="row"
+         style="display: flex;
+                justify-content: space-between;
+                align-items: center;
+                flex-wrap: wrap;
+                gap: 0 1rem">
       <h1 class="p-heading--3">Agent Detail - {{ agent.name }}</h1>
+      {% if can_mark_broken %}
+        <button class="p-button--negative u-no-margin--bottom"
+                aria-controls="broken-modal"
+                aria-haspopup="dialog">Mark as Broken</button>
+      {% endif %}
     </div>
   </div>
   <div class="p-divider">
@@ -27,7 +37,7 @@
           </tr>
           <tr>
             <th scope="row">Comment</th>
-            <td>{{ agent.comment }}</td>
+            <td>{{ agent.comment or (agent.commanded_mode or {}).comment or "" }}</td>
           </tr>
           <tr>
             <th scope="row">Last updated</th>
@@ -161,4 +171,7 @@
     <pre class="p-code-snippet__block"><code>{{ agent.log|join('\n') }}</code></pre>
   </div>
   {% include "_agent_state_modal.html" %}
+  {% if can_mark_broken %}
+    {% include "_agent_broken_modal.html" %}
+  {% endif %}
 {% endblock content %}
