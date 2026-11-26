@@ -1494,15 +1494,6 @@ def upsert_agent_document(
     ):
         unset.append("commanded_mode")
 
-    # The Jira ticket claim lasts until the agent is back online. A busy
-    # agent keeps reporting online until its job ends, so a pending
-    # maintenance command keeps the claim.
-    if (
-        reported_mode == AgentMode.ONLINE.value
-        and commanded_mode != AgentMode.MAINTENANCE.value
-    ):
-        unset.append("jira_ticket")
-
     # Agent is restarting; preserve restoration target, favor exiting command
     # if the command has not yet been ack'ed.
     if (
@@ -1564,6 +1555,19 @@ def upsert_agent_document(
                 ]
             },
         }
+
+    # The Jira ticket claim lasts until the agent is back online. A busy
+    # agent keeps reporting online until its job ends, so a pending
+    # maintenance command keeps the claim. It is checked at write time,
+    # so a maintenance command issued since the read keeps its claim.
+    if reported_mode == AgentMode.ONLINE.value:
+        mongo.db.agents.update_one(
+            {
+                "name": agent_name,
+                "commanded_mode.value": {"$ne": AgentMode.MAINTENANCE.value},
+            },
+            {"$unset": {"jira_ticket": ""}},
+        )
 
     # Build aggregation pipeline for mode/state conditional updates
     pipeline = [{"$set": set_fields}]
