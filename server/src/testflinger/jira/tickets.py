@@ -369,7 +369,6 @@ def get_max_provision_failures() -> int | None:
 
 def command_maintenance_if_provision_failure_limit(
     agent_name: str,
-    failure_count: int,
     job_id: str | None,
     *,
     client_id: str | None,
@@ -378,24 +377,26 @@ def command_maintenance_if_provision_failure_limit(
 ) -> None:
     """Command maintenance if an agent failed to provision too many times.
 
-    Call this after a failed provision was recorded. Once the agent reaches
-    the configured limit of consecutive failures (see
-    :func:`get_max_provision_failures`), it is commanded into
+    Call this after a failed provision was recorded. Once the agent's
+    provision streak reaches the configured limit of consecutive failures
+    (see :func:`get_max_provision_failures`), it is commanded into
     maintenance and a Jira ticket about the failing job is opened. Agents
     already in maintenance or with a pending command are left alone.
 
     :param agent_name: Name of the agent that failed to provision.
-    :param failure_count: Consecutive provision failures of the agent.
     :param job_id: The job whose provision failed last.
     :param client_id: Client id the failure was reported with.
     :param exit_code: Exit code of the last failed provision.
     :param detail: Detail reported with the last failed provision.
     """
     limit = get_max_provision_failures()
-    if limit is None or failure_count < limit:
+    if limit is None:
         return
     agent = database.get_agent_info(agent_name)
-    if not agent:
+    if not agent or agent.get("provision_streak_type") != "fail":
+        return
+    failure_count = agent.get("provision_streak_count", 0)
+    if failure_count < limit:
         return
     if (agent.get("mode") or {}).get("value") == AgentMode.MAINTENANCE:
         return

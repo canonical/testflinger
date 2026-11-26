@@ -921,13 +921,12 @@ def agents_post(agent_name, json_data):
 @v1.input(schemas.ProvisionLogsIn, location="json")
 def agents_provision_logs_post(agent_name, json_data):
     """Post provision logs for the agent to the server."""
-    streak = database.update_agent_provision_log(agent_name, json_data)
-    if not streak:
+    found = database.update_agent_provision_log(agent_name, json_data)
+    if not found:
         abort(HTTPStatus.NOT_FOUND, message="Agent not found")
-    if streak["provision_streak_type"] == "fail":
+    if json_data["exit_code"] != 0:
         jira.command_maintenance_if_provision_failure_limit(
             agent_name,
-            streak["provision_streak_count"],
             json_data["job_id"],
             client_id=g.client_id,
             exit_code=json_data["exit_code"],

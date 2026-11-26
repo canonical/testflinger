@@ -99,7 +99,8 @@ in a row, and no mode was already commanded, the server commands the agent
 into ``maintenance`` with a comment explaining that the provision failure
 limit was exceeded. This happens even without Jira
 settings. If ``jira_space`` is configured, a Jira ticket is also created in the
-same way as above. A successful provision resets the count.
+same way as above. The agent stays in ``maintenance`` until an admin changes
+its mode. A successful provision resets the count.
 
         Agent states follow the job execution phase order:
         - waiting: idle, ready for jobs
