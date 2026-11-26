@@ -49,6 +49,9 @@ DEFAULT_EXPIRATION = 60 * 60 * 24 * 7  # 7 days
 OUTPUT_EXPIRATION = 60 * 60 * 4  # 4 hours
 ACCOUNT_DELETE_EXPIRATION = 60 * 60 * 24 * 90  # 90 days
 
+# Number of most recent entries kept in each agent's provision log
+PROVISION_LOG_LIMIT = 100
+
 mongo = PyMongo()
 logger = logging.getLogger(__name__)
 
@@ -1822,7 +1825,10 @@ def update_agent_provision_log(agent_name, json_data) -> bool:
     update_operation = {
         "$set": json_data,
         "$push": {
-            "provision_log": {"$each": [json_data], "$slice": -100},
+            "provision_log": {
+                "$each": [json_data],
+                "$slice": -PROVISION_LOG_LIMIT,
+            },
         },
     }
     mongo.db.provision_logs.update_one(

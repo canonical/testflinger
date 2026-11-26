@@ -208,10 +208,14 @@ def _in_maintenance(agent: dict) -> bool:
     )
 
 
-def _recent_provision_failures(agent_id: str) -> tuple[list[dict], int]:
+def _recent_provision_failures(
+    agent_id: str,
+) -> tuple[list[dict], int, bool]:
     """Return the agent's latest failed provisions, newest first.
 
-    Also return how many provisions failed in the whole time window.
+    Also return how many provisions failed in the whole time window, and
+    whether that count may be too low: if every retained provision log
+    entry is within the window, older ones in it may have been dropped.
     """
     now = datetime.now(tz=timezone.utc)
     log = database.get_provision_log(
@@ -220,7 +224,8 @@ def _recent_provision_failures(agent_id: str) -> tuple[list[dict], int]:
         stop_datetime=now,
     )
     failures = [entry for entry in log if entry.get("exit_code") != 0]
-    return failures[::-1][:BROKEN_FAILURES_LIMIT], len(failures)
+    truncated = len(log) >= database.PROVISION_LOG_LIMIT
+    return failures[::-1][:BROKEN_FAILURES_LIMIT], len(failures), truncated
 
 
 @views.route("/agents")
@@ -322,8 +327,10 @@ def agent_detail(agent_id):
         agent_info["provision_success_rate"] = 0
 
     can_mark_broken = _is_logged_in() and not _in_maintenance(agent_info)
-    failures, failures_total = (
-        _recent_provision_failures(agent_id) if can_mark_broken else ([], 0)
+    failures, failures_total, failures_truncated = (
+        _recent_provision_failures(agent_id)
+        if can_mark_broken
+        else ([], 0, False)
     )
     return render_template(
         "agent_detail.html",
@@ -332,6 +339,7 @@ def agent_detail(agent_id):
         can_mark_broken=can_mark_broken,
         provision_failures=failures,
         provision_failures_total=failures_total,
+        provision_failures_truncated=failures_truncated,
         broken_failures_days=BROKEN_FAILURES_DAYS,
         broken_description_max=BROKEN_DESCRIPTION_MAX,
     )
@@ -375,7 +383,9 @@ def agent_mark_broken(agent_id):
         return redirect(detail_url)
 
     reporter = session.get("user_email") or session.get("user_sub")
-    failures, failures_total = _recent_provision_failures(agent_id)
+    failures, failures_total, failures_truncated = _recent_provision_failures(
+        agent_id
+    )
     report = MaintenanceReport(
         client_id=reporter,
         time=datetime.now(timezone.utc).isoformat(timespec="seconds"),
@@ -383,6 +393,7 @@ def agent_mark_broken(agent_id):
         provision_failures=failures,
         provision_failures_total=failures_total,
         provision_failures_days=BROKEN_FAILURES_DAYS,
+        provision_failures_truncated=failures_truncated,
     )
     if open_maintenance_ticket(
         agent_id,
@@ -404,10 +415,16 @@ def agent_mark_broken(agent_id):
             "ticket was created; please add your details there.",
             "caution",
         )
+    elif not agent.get("jira_space"):
+        flash(
+            f"{agent_id} was put into maintenance. No Jira ticket was "
+            "created because this agent has no Jira space.",
+            "caution",
+        )
     else:
         flash(
             f"{agent_id} was put into maintenance. No Jira ticket was "
-            "created because Jira is not configured for this agent.",
+            "created because Jira is not configured on this server.",
             "caution",
         )
     return redirect(detail_url)

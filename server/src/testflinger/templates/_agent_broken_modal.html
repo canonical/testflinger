@@ -34,7 +34,9 @@
     {% set failures_total = provision_failures_total|default(failures|length) %}
     <h3 class="p-muted-heading u-no-margin--bottom">Provision failures (last {{ broken_failures_days }} days)</h3>
     {% if failures %}
-      {% if failures_total > failures|length %}
+      {% if provision_failures_truncated|default(false) %}
+        <p class="u-text--muted">Showing the {{ failures|length }} most recent of at least {{ failures_total }} failures.</p>
+      {% elif failures_total > failures|length %}
         <p class="u-text--muted">Showing the {{ failures|length }} most recent of {{ failures_total }} failures.</p>
       {% endif %}
       <div style="max-height: min(15rem, 40vh);

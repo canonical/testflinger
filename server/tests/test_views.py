@@ -27,7 +27,7 @@ import yaml
 from flask import template_rendered
 from testflinger_common.enums import LogType, TestPhase
 
-from testflinger.database import get_agents
+from testflinger.database import PROVISION_LOG_LIMIT, get_agents
 from testflinger.jira import tickets
 from testflinger.job_yaml import build_job_yaml
 from testflinger.views import (
@@ -1767,10 +1767,15 @@ def test_agent_mark_broken_commands_maintenance_and_opens_ticket(oidc_app):
 
 
 @pytest.mark.parametrize(
-    ("fields", "configured"),
-    [({}, False), ({"jira_space": None}, True)],
+    ("fields", "configured", "reason"),
+    [
+        ({}, False, "Jira is not configured on this server"),
+        ({"jira_space": None}, True, "this agent has no Jira space"),
+    ],
 )
-def test_agent_mark_broken_warns_without_jira(oidc_app, fields, configured):
+def test_agent_mark_broken_warns_without_jira(
+    oidc_app, fields, configured, reason
+):
     """Without Jira the agent goes into maintenance with a warning."""
     client = _make_oidc_user_client(oidc_app)
     mongo_client = mongomock.MongoClient()
@@ -1793,7 +1798,7 @@ def test_agent_mark_broken_warns_without_jira(oidc_app, fields, configured):
         (
             "caution",
             "agent1 was put into maintenance. No Jira ticket was created "
-            "because Jira is not configured for this agent.",
+            f"because {reason}.",
         )
     ]
     record = mongo_client.db.agents.find_one({"name": "agent1"})
@@ -1976,6 +1981,84 @@ def test_agent_detail_counts_all_recent_provision_failures(oidc_app):
     assert len(context["provision_failures"]) == BROKEN_FAILURES_LIMIT
     assert context["provision_failures_total"] == BROKEN_FAILURES_LIMIT + 5
     assert context["broken_description_max"] == BROKEN_DESCRIPTION_MAX
+
+
+def _full_provision_log(oldest_age: timedelta) -> list[dict]:
+    """Return a full provision log, oldest entry first, of failures."""
+    now = datetime.now(timezone.utc)
+    return [
+        {
+            "job_id": f"job{i}",
+            "exit_code": 1,
+            "timestamp": now - oldest_age + timedelta(seconds=i),
+        }
+        for i in range(PROVISION_LOG_LIMIT)
+    ]
+
+
+@pytest.mark.parametrize("full", [True, False])
+def test_agent_detail_flags_truncated_failure_count(oidc_app, full):
+    """A full log within the window shows the count as a lower bound."""
+    client = _make_oidc_user_client(oidc_app)
+    mongo_client = mongomock.MongoClient()
+    _insert_broken_agent(mongo_client)
+    log = _full_provision_log(timedelta(days=1))
+    if not full:
+        log = log[1:]
+
+    with (
+        patch("testflinger.database.mongo", mongo_client),
+        patch(
+            "testflinger.views.database.get_provision_log",
+            return_value=log,
+        ),
+    ):
+        page = client.get("/agents/agent1").get_data(as_text=True)
+
+    shown = f"{BROKEN_FAILURES_LIMIT} most recent of"
+    if full:
+        assert f"{shown} at least {PROVISION_LOG_LIMIT} failures" in page
+    else:
+        assert f"{shown} {PROVISION_LOG_LIMIT - 1} failures" in page
+        assert "at least" not in page
+
+
+@pytest.mark.parametrize("full", [True, False])
+def test_agent_mark_broken_flags_truncated_failure_count(oidc_app, full):
+    """The ticket shows a lower bound when the log may be truncated."""
+    client = _make_oidc_user_client(oidc_app)
+    mongo_client = mongomock.MongoClient()
+    _insert_broken_agent(mongo_client)
+    log = _full_provision_log(timedelta(days=1))
+    if not full:
+        log = log[1:]
+
+    with (
+        patch("testflinger.database.mongo", mongo_client),
+        patch(
+            "testflinger.views.database.get_provision_log",
+            return_value=log,
+        ),
+        patch.object(tickets, "_spawn", lambda func, *args: func(*args)),
+        patch.object(tickets, "is_configured", return_value=True),
+        patch.object(
+            tickets, "create_agent_ticket", return_value="TESTOPS-1"
+        ) as ticket_mock,
+    ):
+        client.post(
+            "/agents/agent1/broken",
+            data={"description": "dead", "csrf_token": "test-csrf-token"},
+        )
+
+    total = (
+        f"at least {PROVISION_LOG_LIMIT}"
+        if full
+        else str(PROVISION_LOG_LIMIT - 1)
+    )
+    assert (
+        f"Recent provision failures ({BROKEN_FAILURES_LIMIT} of {total} "
+        "in the last 7 days):"
+    ) in ticket_mock.call_args.kwargs["description"]
 
 
 def test_agent_detail_hides_mark_broken_without_login(testapp):

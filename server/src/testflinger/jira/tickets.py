@@ -48,6 +48,7 @@ class MaintenanceReport:
     provision_failures: list[dict] = field(default_factory=list)
     provision_failures_total: int | None = None
     provision_failures_days: int | None = None
+    provision_failures_truncated: bool = False
 
 
 @dataclass(frozen=True)
@@ -159,9 +160,10 @@ def _failures_header(report: MaintenanceReport) -> str:
     """Describe how many of the agent's provision failures are listed."""
     if report.provision_failures_total is None:
         return "Recent provision failures:"
+    at_least = "at least " if report.provision_failures_truncated else ""
     counts = (
         f"{len(report.provision_failures)} of "
-        f"{report.provision_failures_total}"
+        f"{at_least}{report.provision_failures_total}"
     )
     if report.provision_failures_days:
         counts += f" in the last {report.provision_failures_days} days"
