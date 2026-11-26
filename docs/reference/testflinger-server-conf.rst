@@ -25,6 +25,8 @@ The configuration values of Testflinger servers are read from environment variab
      - URI for connecting to MongoDB (used instead of the above config options). For example: ``mongodb://user:pass@host:27017/dbname``
    * - ``JWT_SIGNING_KEY``
      - Secret key used for signing tokens with permissions for authenticated clients
+   * - ``MAX_PROVISION_FAILURES``
+     - Consecutive provision failures after which an agent is commanded into maintenance. Unset, empty or ``0`` disables the limit
 
 
 Example configuration

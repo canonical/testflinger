@@ -32,7 +32,7 @@ from testflinger_common.enums import JobEvent, LogType, ServerRoles, TestPhase
 from urllib3.util.retry import Retry
 from werkzeug.routing import BaseConverter
 
-from testflinger import database, events
+from testflinger import database, events, jira
 from testflinger.api import auth, helpers, schemas
 from testflinger.api.auth import authenticate, require_role
 from testflinger.logs import LogFragment, MongoLogHandler
@@ -924,6 +924,14 @@ def agents_provision_logs_post(agent_name, json_data):
     found = database.update_agent_provision_log(agent_name, json_data)
     if not found:
         abort(HTTPStatus.NOT_FOUND, message="Agent not found")
+    if json_data["exit_code"] != 0:
+        jira.command_maintenance_if_provision_failure_limit(
+            agent_name,
+            json_data["job_id"],
+            client_id=g.client_id,
+            exit_code=json_data["exit_code"],
+            detail=json_data.get("detail"),
+        )
     return "OK"
 
 

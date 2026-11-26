@@ -15,7 +15,7 @@ Read the top-level `.kb/agents.md` file before continuing below.
 - `src/testflinger/jira/` - Jira integration: REST client and ticket helpers; on agent self-maintenance via v2 agent data, maintenance is commanded and a single ticket is created in the background in the agent's `jira_space` (claimed via the agent's `jira_ticket` field, cleared only when it is back online) (credentials from `JIRA_BASE_URL`, `JIRA_USER_EMAIL`, `JIRA_TOKEN`)
 - `tests/` - Unit tests
 - `schemas/` - OpenAPI specification
-- `charm/` - Kubernetes charm for production deployment
+- `charm/` - Kubernetes charm for production deployment; its `max_provision_failures` option sets the server's `MAX_PROVISION_FAILURES` env (unset or ≤0 disables): an agent reaching that many consecutive provision failures reported via `POST /v1/agents/provision_logs/<name>` is commanded into maintenance with a Jira ticket, as on self-maintenance
 - `terraform/` - Infrastructure-as-code for deployment
 - `devel/` - Local development helpers (sample data, SSO test config)
 - `scripts/` - Utility scripts

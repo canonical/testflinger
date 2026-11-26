@@ -35,6 +35,7 @@ class TestflingerServerConfig(pydantic.BaseModel):
     jira_user_email: str = ""
     jira_token: str = ""
     max_body_size: int = pydantic.Field(default=MAX_BODY_SIZE, gt=0)
+    max_provision_failures: int = pydantic.Field(default=10, ge=0)
 
     @pydantic.field_validator("external_hostname")
     @classmethod
